@@ -1,0 +1,36 @@
+---
+title: "Recreate Quarterly Report"
+data: "2020-10-29"
+---
+
+Trying to recreate the last quarterly report (/Users/bradcannell/Dropbox/01 Research/link2care/L2C_Quarterly_Data_Code_Files/Link2Care Quarterly Q3_2020_final.docx).
+
+Soon, I will have to start making these myself.
+
+# Load packages
+
+```{r}
+library(dplyr)
+library(readxl)
+```
+
+# Connect to UTH server
+
+```{bash}
+open 'smb://uctnascifs.uthouston.edu/sph_research/Link2Care/Live Documents/'
+```
+
+# Import data
+
+```{r}
+screened_in <- readxl::read_excel(
+  "/Volumes/Live Documents/L2C_Demographics.xlsx", 
+  sheet = "Screened In"
+)
+
+screened_out <- readxl::read_excel(
+  "/Volumes/Live Documents/L2C_Demographics.xlsx", 
+  sheet = "Screened Out"
+)
+```
+

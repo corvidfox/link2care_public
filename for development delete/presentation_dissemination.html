@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<meta name="author" content="Brad Cannell" />
+
+
+<title>Presenting and Disseminating Results</title>
+
+
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css" data-origin="pandoc">
+a.sourceLine { display: inline-block; line-height: 1.25; }
+a.sourceLine { pointer-events: none; color: inherit; text-decoration: inherit; }
+a.sourceLine:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode { white-space: pre; position: relative; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+code.sourceCode { white-space: pre-wrap; }
+a.sourceLine { text-indent: -1em; padding-left: 1em; }
+}
+pre.numberSource a.sourceLine
+  { position: relative; left: -4em; }
+pre.numberSource a.sourceLine::before
+  { content: attr(data-line-number);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; pointer-events: all; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {  }
+@media screen {
+a.sourceLine::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    for (var j = 0; j < rules.length; j++) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") continue;
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') continue;
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#header {
+text-align: center;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Presenting and Disseminating Results</h1>
+<h4 class="author">Brad Cannell</h4>
+<h4 class="date">Created: 2017-11-28 <br> Updated: 2019-08-19</h4>
+
+
+
+<p>Table of contents:</p>
+<p><a href="#stat-tables">Creating tables of summary statistics</a></p>
+<p> </p>
+<hr />
+<p>The immediate results of statistical analyses are rarely fit for general consumption. This vignette walks through strategies and functions I’ve created to help make my results ready for presentation/dissemination.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb1-1" data-line-number="1"><span class="kw">library</span>(tidyverse)</a></code></pre></div>
+<pre><code>## ── Attaching packages ──────────────────────────────────────────────────────────────────────────── tidyverse 1.2.1 ──</code></pre>
+<pre><code>## ✔ ggplot2 3.2.1     ✔ purrr   0.3.2
+## ✔ tibble  2.1.3     ✔ dplyr   0.8.3
+## ✔ tidyr   0.8.3     ✔ stringr 1.4.0
+## ✔ readr   1.3.1     ✔ forcats 0.4.0</code></pre>
+<pre><code>## ── Conflicts ─────────────────────────────────────────────────────────────────────────────── tidyverse_conflicts() ──
+## ✖ dplyr::filter() masks stats::filter()
+## ✖ dplyr::lag()    masks stats::lag()</code></pre>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb5-1" data-line-number="1"><span class="kw">library</span>(bfuncs)</a></code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb6-1" data-line-number="1"><span class="kw">data</span>(mtcars)</a></code></pre></div>
+<p> </p>
+<hr />
+<div id="stat-tables" class="section level1">
+<h1>Creating tables of summary statistics</h1>
+<p>Tables are one of the most popular ways to present information to your audience for a reason. When your goal is to show your readers precise numerical summaries of your data, the exact values that resulted from your analysis are important.</p>
+<p>However, the specific details that you may want to present from table to table, or the way in which you want to present them, can vary widely. For example, an initial table of descriptive information about your data may or may not include important subgroups of interest, it may include variables of different types, and for any given type, it may include various different kinds of numerical summaries. Additionally, there are numerous types of inferential models that result in numerical summaries that you may want to present in a table. For these reasons, it is difficult to create a good one-size-fits-all approach to automating the process of making results ready for presentation and dissemination.</p>
+<p>Having said that, below I walk through the basic strategy I’ve developed over time for moving closer to automating the processes of putting my results into presentation-ready summary tables.</p>
+<p>In general, the flow goes something like this:</p>
+<ol style="list-style-type: decimal">
+<li><p><a href="#start">Start with a .Rmd file whose output is a word document</a></p></li>
+<li><p><a href="#make-shell">Create a table shell</a></p></li>
+<li><p><a href="#stats-for-table">Calculate the statistics of interest</a></p></li>
+<li><p><a href="#format-stats">Format the statistics of interest for presentation</a></p></li>
+<li><p><a href="#fill-shell">Fill in the table shell</a></p></li>
+<li><p><a href="#polish-shell">Polish up the filled in table shell</a></p></li>
+<li><p><a href="#kable">Knit to Kable</a></p></li>
+<li><p><a href="#polish_word">Polish up the resulting Word document</a></p></li>
+</ol>
+<p>I’ll walk through each step below…</p>
+<p> </p>
+<hr />
+<div id="start" class="section level2">
+<h2>Start with a .Rmd file whose output is a Word document</h2>
+<p>Create a new R markdown document. Set the output format to “Word”. Edit the YAML header should look something like this:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb7-1" data-line-number="1"><span class="op">---</span></a>
+<a class="sourceLine" id="cb7-2" data-line-number="2">title<span class="op">:</span><span class="st"> &quot;Table 1. Descriptive Characteristics&quot;</span></a>
+<a class="sourceLine" id="cb7-3" data-line-number="3">output<span class="op">:</span></a>
+<a class="sourceLine" id="cb7-4" data-line-number="4"><span class="st">  </span>word_document<span class="op">:</span></a>
+<a class="sourceLine" id="cb7-5" data-line-number="5"><span class="st">    </span>reference_docx<span class="op">:</span><span class="st"> </span>word_style_template_<span class="fl">01.</span>docx</a>
+<a class="sourceLine" id="cb7-6" data-line-number="6"><span class="op">---</span></a></code></pre></div>
+<p>This file should only be used to create this one specific table, and most of the code chunks should have the echo=FALSE option set. In other words, the file should only create a single table, and the only code chunk that creates a result that viewable in the output Word document should be the final code chunk that prints your filled-in table shell.</p>
+<p>Finally, to limit the amount of polishing you need to do later in the process, you can reference a Word template document in the YAML header, as I’ve done above. More information about the Word templates is available here:</p>
+<p><a href="http://rmarkdown.rstudio.com/articles_docx.html" class="uri">http://rmarkdown.rstudio.com/articles_docx.html</a></p>
+<p><a href="#top">top</a></p>
+<p> </p>
+<hr />
+</div>
+<div id="make-shell" class="section level2">
+<h2>Create a table shell</h2>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb8-1" data-line-number="1">table &lt;-<span class="st"> </span><span class="kw">tibble</span>(</a>
+<a class="sourceLine" id="cb8-2" data-line-number="2">  <span class="dt">variable =</span> <span class="st">&quot;&quot;</span>, <span class="co"># Variable names</span></a>
+<a class="sourceLine" id="cb8-3" data-line-number="3">  <span class="dt">class    =</span> <span class="st">&quot;&quot;</span>, <span class="co"># Classes for categorical variables</span></a>
+<a class="sourceLine" id="cb8-4" data-line-number="4">  <span class="dt">am_0     =</span> <span class="st">&quot;&quot;</span>, <span class="co"># Group 1</span></a>
+<a class="sourceLine" id="cb8-5" data-line-number="5">  <span class="dt">am_1     =</span> <span class="st">&quot;&quot;</span>  <span class="co"># Group 2</span></a>
+<a class="sourceLine" id="cb8-6" data-line-number="6">)</a></code></pre></div>
+<ul>
+<li><p>Of course, you can add more groups (or fewer groups) as needed.</p></li>
+<li><p>I find it’s best to keep the column names easy to work with at this point. We will make them more presentation ready later on.</p></li>
+</ul>
+<p><a href="#stat-tables">Creating tables of summary statistics</a></p>
+<p><a href="#top">top</a></p>
+<p> </p>
+<hr />
+</div>
+<div id="stats-for-table" class="section level2">
+<h2>Calculate the statistics of interest</h2>
+<p>This part may vary quite a bit from table to table. However, every descriptive table should include group sample sizes. The <code>get_grou_n</code> is helpful for calculating the group sample size, and returning it in a presentation-ready format.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb9-1" data-line-number="1"><span class="co"># Same as above, add n's to table</span></a>
+<a class="sourceLine" id="cb9-2" data-line-number="2">table &lt;-<span class="st"> </span><span class="kw">tibble</span>(</a>
+<a class="sourceLine" id="cb9-3" data-line-number="3">  <span class="dt">variable =</span> <span class="st">&quot;&quot;</span>,</a>
+<a class="sourceLine" id="cb9-4" data-line-number="4">  <span class="dt">class    =</span> <span class="st">&quot;&quot;</span>,</a>
+<a class="sourceLine" id="cb9-5" data-line-number="5">  <span class="dt">am_0     =</span> mtcars <span class="op">%&gt;%</span><span class="st"> </span>bfuncs<span class="op">::</span><span class="kw">get_group_n</span>(am <span class="op">==</span><span class="st"> </span><span class="dv">0</span>),</a>
+<a class="sourceLine" id="cb9-6" data-line-number="6">  <span class="dt">am_1     =</span> mtcars <span class="op">%&gt;%</span><span class="st"> </span>bfuncs<span class="op">::</span><span class="kw">get_group_n</span>(am <span class="op">==</span><span class="st"> </span><span class="dv">1</span>)</a>
+<a class="sourceLine" id="cb9-7" data-line-number="7">)</a></code></pre></div>
+<div id="calculating-formatted-descriptive-statistics-for-continuous-variables" class="section level3">
+<h3>Calculating formatted descriptive statistics for continuous variables</h3>
+<p>The descriptive analysis vignette gives examples for calculating common descriptive statistics for continuous variables. For example:</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb10-1" data-line-number="1">mtcars <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">group_by</span>(am) <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">mean_table</span>(mpg)</a></code></pre></div>
+<pre><code>## # A tibble: 2 x 10
+##   response_var group_var group_cat     n  mean   sem   lcl   ucl   min
+##   &lt;chr&gt;        &lt;chr&gt;         &lt;dbl&gt; &lt;int&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+## 1 mpg          am                0    19  17.2 0.880  15.3  19    10.4
+## 2 mpg          am                1    13  24.4 1.71   20.7  28.1  15  
+## # … with 1 more variable: max &lt;dbl&gt;</code></pre>
+<p>Although the statistics we need are there, they aren’t in a form that can easily be put into a Word table. To help with that process, I’ve created the <code>format_table</code> function.</p>
+<p>The <code>format_table</code> function is an S3 generic. It currently has methods for formatting the output of the <code>freq_table</code> and <code>mean_table</code> functions. Examples of how to use of <code>format_table</code> will be give here and below.</p>
+<div id="example-mean-and-95-confidence-interval-the-default-overall" class="section level4">
+<h4>Example: mean and 95% confidence interval (the default) overall</h4>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb12-1" data-line-number="1">mtcars <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">mean_table</span>(mpg) <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">format_table</span>()</a></code></pre></div>
+<pre><code>## # A tibble: 1 x 2
+##   response_var mean_95              
+##   &lt;chr&gt;        &lt;chr&gt;                
+## 1 mpg          20.09 (17.92 - 22.26)</code></pre>
+<ul>
+<li>Note: Changing the digits argument to <code>format_table</code> will change the number of digits displayed, but does not change the underlying rounding of the value. That must be changed in the digits argument to <code>mean_table</code>.</li>
+</ul>
+</div>
+<div id="example-n-and-mean-overall" class="section level4">
+<h4>Example: n and mean overall</h4>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb14-1" data-line-number="1">mtcars <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">mean_table</span>(mpg) <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">format_table</span>(<span class="dt">stats =</span> <span class="st">&quot;n and mean&quot;</span>)</a></code></pre></div>
+<pre><code>## # A tibble: 1 x 2
+##   response_var n_mean    
+##   &lt;chr&gt;        &lt;chr&gt;     
+## 1 mpg          32 (20.09)</code></pre>
+</div>
+<div id="example-mean-and-95-confidence-interval-the-default-by-subgroup" class="section level4">
+<h4>Example: mean and 95% confidence interval (the default) by subgroup</h4>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb16-1" data-line-number="1">mtcars <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">group_by</span>(am) <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">mean_table</span>(mpg) <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">format_table</span>()</a></code></pre></div>
+<pre><code>## # A tibble: 2 x 4
+##   response_var group_var group_cat mean_95              
+##   &lt;chr&gt;        &lt;chr&gt;         &lt;dbl&gt; &lt;chr&gt;                
+## 1 mpg          am                0 17.15 (15.30 - 19.00)
+## 2 mpg          am                1 24.39 (20.67 - 28.12)</code></pre>
+</div>
+<div id="example-n-and-mean-by-subgroup" class="section level4">
+<h4>Example: n and mean by subgroup</h4>
+<div class="sourceCode" id="cb18"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb18-1" data-line-number="1">mtcars <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">group_by</span>(am) <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">mean_table</span>(mpg) <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">format_table</span>(<span class="dt">stats =</span> <span class="st">&quot;n and mean&quot;</span>)</a></code></pre></div>
+<pre><code>## # A tibble: 2 x 4
+##   response_var group_var group_cat n_mean    
+##   &lt;chr&gt;        &lt;chr&gt;         &lt;dbl&gt; &lt;chr&gt;     
+## 1 mpg          am                0 19 (17.15)
+## 2 mpg          am                1 13 (24.39)</code></pre>
+<p> </p>
+<hr />
+</div>
+</div>
+<div id="calculating-formatted-descriptive-statistics-for-categorical-variables" class="section level3">
+<h3>Calculating formatted descriptive statistics for categorical variables</h3>
+<p>This section is similar to the previous, except we are now analyzing categorical variables.</p>
+<div id="example-overall-percent-and-95-confidence-interval-the-default" class="section level4">
+<h4>Example: Overall percent and 95% confidence interval (the default)</h4>
+<div class="sourceCode" id="cb20"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb20-1" data-line-number="1">mtcars <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">group_by</span>(am) <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">freq_table</span>() <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">format_table</span>()</a></code></pre></div>
+<pre><code>## # A tibble: 2 x 3
+##   var     cat percent_95           
+##   &lt;chr&gt; &lt;dbl&gt; &lt;chr&gt;                
+## 1 am        0 59.38 (40.94 - 75.50)
+## 2 am        1 40.62 (24.50 - 59.06)</code></pre>
+</div>
+<div id="example-overall-n-and-percent" class="section level4">
+<h4>Example: Overall n and percent</h4>
+<div class="sourceCode" id="cb22"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb22-1" data-line-number="1">mtcars <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">group_by</span>(am) <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">freq_table</span>() <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">format_table</span>(<span class="dt">stats =</span> <span class="st">&quot;n and percent&quot;</span>)</a></code></pre></div>
+<pre><code>## # A tibble: 2 x 3
+##   var     cat n_percent 
+##   &lt;chr&gt; &lt;dbl&gt; &lt;chr&gt;     
+## 1 am        0 19 (59.38)
+## 2 am        1 13 (40.62)</code></pre>
+</div>
+<div id="example-row-percent-and-95-confidence-interval-the-default" class="section level4">
+<h4>Example: Row percent and 95% confidence interval (the default)</h4>
+<div class="sourceCode" id="cb24"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb24-1" data-line-number="1">mtcars <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">group_by</span>(am, cyl) <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">freq_table</span>() <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">format_table</span>()</a></code></pre></div>
+<pre><code>## # A tibble: 6 x 5
+##   row_var row_cat col_var col_cat percent_row_95       
+##   &lt;chr&gt;     &lt;dbl&gt; &lt;chr&gt;     &lt;dbl&gt; &lt;chr&gt;                
+## 1 am            0 cyl           4 15.79 (4.78 - 41.20) 
+## 2 am            0 cyl           6 21.05 (7.58 - 46.44) 
+## 3 am            0 cyl           8 63.16 (38.76 - 82.28)
+## 4 am            1 cyl           4 61.54 (32.30 - 84.29)
+## 5 am            1 cyl           6 23.08 (6.91 - 54.82) 
+## 6 am            1 cyl           8 15.38 (3.43 - 48.18)</code></pre>
+</div>
+<div id="example-n-and-row-percent" class="section level4">
+<h4>Example: N and row percent</h4>
+<div class="sourceCode" id="cb26"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb26-1" data-line-number="1">mtcars <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">group_by</span>(am, cyl) <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">freq_table</span>(<span class="dt">output =</span> <span class="st">&quot;all&quot;</span>) <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">format_table</span>(<span class="dt">stats =</span> <span class="st">&quot;n and percent&quot;</span>)</a></code></pre></div>
+<pre><code>## # A tibble: 6 x 5
+##   row_var row_cat col_var col_cat n_percent_total
+##   &lt;chr&gt;     &lt;dbl&gt; &lt;chr&gt;     &lt;dbl&gt; &lt;chr&gt;          
+## 1 am            0 cyl           4 &quot; 3 (9.38)&quot;    
+## 2 am            0 cyl           6 &quot; 4 (12.50)&quot;   
+## 3 am            0 cyl           8 12 (37.50)     
+## 4 am            1 cyl           4 &quot; 8 (25.00)&quot;   
+## 5 am            1 cyl           6 &quot; 3 (9.38)&quot;    
+## 6 am            1 cyl           8 &quot; 2 (6.25)&quot;</code></pre>
+<p><a href="#stat-tables">Creating tables of summary statistics</a></p>
+<p><a href="#top">top</a></p>
+<p> </p>
+<hr />
+</div>
+</div>
+</div>
+<div id="format-stats" class="section level2">
+<h2>Further formatting for presentation</h2>
+<p>At this point, the statistics of interest are calculated and the values themselves are formatted. If we are not comparing two or more groups in the current table, we may be able to skip this section and go straight to filling in the table shell.</p>
+<p>However, if we are comparing two or more groups, then some additional formatting is needed. Currently, our groups make up the rows of the formatted table. Typically, we want the groups to make up the columns of the formatted table. I’ve found <code>tidyr::spread()</code> to be really useful for fixing this problem. For example:</p>
+<div class="sourceCode" id="cb28"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb28-1" data-line-number="1">mtcars <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb28-2" data-line-number="2"><span class="st">  </span><span class="kw">group_by</span>(am, cyl) <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb28-3" data-line-number="3"><span class="st">  </span><span class="kw">freq_table</span>() <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb28-4" data-line-number="4"><span class="st">  </span><span class="kw">format_table</span>() <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb28-5" data-line-number="5"><span class="st">  </span><span class="kw">spread</span>(<span class="dt">key =</span> row_cat, <span class="dt">value =</span> percent_row_<span class="dv">95</span>)</a></code></pre></div>
+<pre><code>## # A tibble: 3 x 5
+##   row_var col_var col_cat `0`                   `1`                  
+##   &lt;chr&gt;   &lt;chr&gt;     &lt;dbl&gt; &lt;chr&gt;                 &lt;chr&gt;                
+## 1 am      cyl           4 15.79 (4.78 - 41.20)  61.54 (32.30 - 84.29)
+## 2 am      cyl           6 21.05 (7.58 - 46.44)  23.08 (6.91 - 54.82) 
+## 3 am      cyl           8 63.16 (38.76 - 82.28) 15.38 (3.43 - 48.18)</code></pre>
+<p>Where:</p>
+<ul>
+<li><p>Key = the variable whose levels make up our comparison groups of interest</p></li>
+<li><p>Value = the values we are interested in comparing</p></li>
+</ul>
+<p>We are getting closer to having this in a form that can be used to fill out our table shell. However, we still need to assign the name of the first column (cyl) as a value to a new column named “variable” and we need to change the names of the existing variables to “class”, am_0, and am_1 to match our table shell.</p>
+<div class="sourceCode" id="cb30"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb30-1" data-line-number="1">mtcars <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb30-2" data-line-number="2"><span class="st">  </span><span class="kw">group_by</span>(am, cyl) <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb30-3" data-line-number="3"><span class="st">  </span><span class="kw">freq_table</span>() <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb30-4" data-line-number="4"><span class="st">  </span><span class="kw">format_table</span>() <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb30-5" data-line-number="5"><span class="st">  </span><span class="kw">spread</span>(<span class="dt">key =</span> row_cat, <span class="dt">value =</span> percent_row_<span class="dv">95</span>) <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb30-6" data-line-number="6"><span class="st">  </span><span class="kw">select</span>(<span class="op">-</span>row_var) <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb30-7" data-line-number="7"><span class="st">  </span><span class="co"># Rename to row bind with table shell</span></a>
+<a class="sourceLine" id="cb30-8" data-line-number="8"><span class="st">  </span><span class="kw">rename</span>(<span class="dt">variable =</span> col_var, <span class="dt">class =</span> col_cat, <span class="st">&quot;am_0&quot;</span> =<span class="st"> `</span><span class="dt">0</span><span class="st">`</span>, <span class="st">&quot;am_1&quot;</span> =<span class="st"> `</span><span class="dt">1</span><span class="st">`</span>) </a></code></pre></div>
+<pre><code>## # A tibble: 3 x 4
+##   variable class am_0                  am_1                 
+##   &lt;chr&gt;    &lt;dbl&gt; &lt;chr&gt;                 &lt;chr&gt;                
+## 1 cyl          4 15.79 (4.78 - 41.20)  61.54 (32.30 - 84.29)
+## 2 cyl          6 21.05 (7.58 - 46.44)  23.08 (6.91 - 54.82) 
+## 3 cyl          8 63.16 (38.76 - 82.28) 15.38 (3.43 - 48.18)</code></pre>
+<p>There may be better ways to do this, but this is the best I’ve found so far.</p>
+<p><a href="#stat-tables">Creating tables of summary statistics</a></p>
+<p><a href="#top">top</a></p>
+<p> </p>
+<hr />
+</div>
+<div id="fill-shell" class="section level2">
+<h2>Fill in the table shell</h2>
+<p>Again, there are multiple ways to go about completing this step. I will need to build out this section over time. In the current example the most straight forward method is probably to think of each characteristic of interest as a row in the table. We will stack the rows on top of each other the create the full table using <code>dplyr::bind_rows()</code>.</p>
+<p>First, an example using just one variable:</p>
+<div class="sourceCode" id="cb32"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb32-1" data-line-number="1">row &lt;-<span class="st"> </span>mtcars <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb32-2" data-line-number="2"><span class="st">  </span><span class="kw">group_by</span>(am, cyl) <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb32-3" data-line-number="3"><span class="st">  </span><span class="kw">freq_table</span>() <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb32-4" data-line-number="4"><span class="st">  </span><span class="kw">format_table</span>() <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb32-5" data-line-number="5"><span class="st">  </span><span class="kw">spread</span>(<span class="dt">key =</span> row_cat, <span class="dt">value =</span> percent_row_<span class="dv">95</span>) <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb32-6" data-line-number="6"><span class="st">  </span><span class="kw">select</span>(<span class="op">-</span>row_var) <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb32-7" data-line-number="7"><span class="st">  </span><span class="kw">rename</span>(<span class="dt">variable =</span> col_var, <span class="dt">class =</span> col_cat, <span class="st">&quot;am_0&quot;</span> =<span class="st"> `</span><span class="dt">0</span><span class="st">`</span>, <span class="st">&quot;am_1&quot;</span> =<span class="st"> `</span><span class="dt">1</span><span class="st">`</span>) <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb32-8" data-line-number="8"><span class="st">  </span><span class="kw">mutate</span>(<span class="dt">class =</span> <span class="kw">as.character</span>(class)) <span class="co"># Need for bind_rows below</span></a>
+<a class="sourceLine" id="cb32-9" data-line-number="9"></a>
+<a class="sourceLine" id="cb32-10" data-line-number="10"><span class="kw">bind_rows</span>(table, row)</a></code></pre></div>
+<pre><code>## # A tibble: 4 x 4
+##   variable class am_0                  am_1                 
+##   &lt;chr&gt;    &lt;chr&gt; &lt;chr&gt;                 &lt;chr&gt;                
+## 1 &quot;&quot;       &quot;&quot;    N = 19                N = 13               
+## 2 cyl      4     15.79 (4.78 - 41.20)  61.54 (32.30 - 84.29)
+## 3 cyl      6     21.05 (7.58 - 46.44)  23.08 (6.91 - 54.82) 
+## 4 cyl      8     63.16 (38.76 - 82.28) 15.38 (3.43 - 48.18)</code></pre>
+<p>Then, it’s trivial to extend this method to multiple variables using a for loop.</p>
+<div class="sourceCode" id="cb34"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb34-1" data-line-number="1"><span class="co"># Select variables </span></a>
+<a class="sourceLine" id="cb34-2" data-line-number="2">cat_vars &lt;-<span class="st"> </span><span class="kw">quos</span>(cyl, vs)</a>
+<a class="sourceLine" id="cb34-3" data-line-number="3"></a>
+<a class="sourceLine" id="cb34-4" data-line-number="4"><span class="co"># Execute freq_table and row bind results to table</span></a>
+<a class="sourceLine" id="cb34-5" data-line-number="5"><span class="cf">for</span> (i <span class="cf">in</span> <span class="kw">seq_along</span>(cat_vars)) {</a>
+<a class="sourceLine" id="cb34-6" data-line-number="6">  </a>
+<a class="sourceLine" id="cb34-7" data-line-number="7">  <span class="co"># Calculate mean and 95% CI</span></a>
+<a class="sourceLine" id="cb34-8" data-line-number="8">  row &lt;-<span class="st"> </span>mtcars <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb34-9" data-line-number="9"><span class="st">    </span><span class="kw">group_by</span>(am, <span class="op">!!</span>cat_vars[[i]]) <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb34-10" data-line-number="10"><span class="st">    </span><span class="kw">freq_table</span>() <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb34-11" data-line-number="11"><span class="st">    </span><span class="kw">format_table</span>() <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb34-12" data-line-number="12"><span class="st">    </span><span class="kw">spread</span>(<span class="dt">key =</span> row_cat, <span class="dt">value =</span> percent_row_<span class="dv">95</span>) <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb34-13" data-line-number="13"><span class="st">    </span><span class="kw">select</span>(<span class="op">-</span>row_var) <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb34-14" data-line-number="14"><span class="st">    </span><span class="kw">rename</span>(<span class="dt">variable =</span> col_var, <span class="dt">class =</span> col_cat, <span class="st">&quot;am_0&quot;</span> =<span class="st"> `</span><span class="dt">0</span><span class="st">`</span>, <span class="st">&quot;am_1&quot;</span> =<span class="st"> `</span><span class="dt">1</span><span class="st">`</span>) <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb34-15" data-line-number="15"><span class="st">    </span><span class="kw">mutate</span>(<span class="dt">class =</span> <span class="kw">as.character</span>(class))</a>
+<a class="sourceLine" id="cb34-16" data-line-number="16"></a>
+<a class="sourceLine" id="cb34-17" data-line-number="17">  <span class="co"># Append to bottom of table</span></a>
+<a class="sourceLine" id="cb34-18" data-line-number="18">  table &lt;-<span class="st"> </span><span class="kw">bind_rows</span>(table, row)</a>
+<a class="sourceLine" id="cb34-19" data-line-number="19">}</a>
+<a class="sourceLine" id="cb34-20" data-line-number="20"></a>
+<a class="sourceLine" id="cb34-21" data-line-number="21"><span class="kw">print</span>(table)</a></code></pre></div>
+<pre><code>## # A tibble: 6 x 4
+##   variable class am_0                  am_1                 
+##   &lt;chr&gt;    &lt;chr&gt; &lt;chr&gt;                 &lt;chr&gt;                
+## 1 &quot;&quot;       &quot;&quot;    N = 19                N = 13               
+## 2 cyl      4     15.79 (4.78 - 41.20)  61.54 (32.30 - 84.29)
+## 3 cyl      6     21.05 (7.58 - 46.44)  23.08 (6.91 - 54.82) 
+## 4 cyl      8     63.16 (38.76 - 82.28) 15.38 (3.43 - 48.18) 
+## 5 vs       0     63.16 (38.76 - 82.28) 46.15 (20.83 - 73.63)
+## 6 vs       1     36.84 (17.72 - 61.24) 53.85 (26.37 - 79.17)</code></pre>
+<ul>
+<li><p>Still thinking about potentially more elegant ways to go about the filling in the table shell step. It’s challenging because there are just so many different variations on the state of the data at the beginning of this step and the format of the table I want to result from this step.</p></li>
+<li><p>An additional drawback to this method is that intermingling continuous and categorical variables requires multiple for loops. This is probably something worth addressing in the future.</p></li>
+</ul>
+<div id="example-continuous-and-categorical-variables" class="section level4">
+<h4>Example: Continuous and categorical variables</h4>
+<div class="sourceCode" id="cb36"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb36-1" data-line-number="1"><span class="co"># Reset the table shell</span></a>
+<a class="sourceLine" id="cb36-2" data-line-number="2"><span class="co"># ---------------------</span></a>
+<a class="sourceLine" id="cb36-3" data-line-number="3">table &lt;-<span class="st"> </span><span class="kw">tibble</span>(</a>
+<a class="sourceLine" id="cb36-4" data-line-number="4">  <span class="dt">variable =</span> <span class="st">&quot;&quot;</span>,</a>
+<a class="sourceLine" id="cb36-5" data-line-number="5">  <span class="dt">class    =</span> <span class="st">&quot;&quot;</span>,</a>
+<a class="sourceLine" id="cb36-6" data-line-number="6">  <span class="dt">am_0     =</span> mtcars <span class="op">%&gt;%</span><span class="st"> </span>bfuncs<span class="op">::</span><span class="kw">get_group_n</span>(am <span class="op">==</span><span class="st"> </span><span class="dv">0</span>),</a>
+<a class="sourceLine" id="cb36-7" data-line-number="7">  <span class="dt">am_1     =</span> mtcars <span class="op">%&gt;%</span><span class="st"> </span>bfuncs<span class="op">::</span><span class="kw">get_group_n</span>(am <span class="op">==</span><span class="st"> </span><span class="dv">1</span>)</a>
+<a class="sourceLine" id="cb36-8" data-line-number="8">)</a>
+<a class="sourceLine" id="cb36-9" data-line-number="9"></a>
+<a class="sourceLine" id="cb36-10" data-line-number="10"></a>
+<a class="sourceLine" id="cb36-11" data-line-number="11"><span class="co"># Select variables</span></a>
+<a class="sourceLine" id="cb36-12" data-line-number="12"><span class="co"># ----------------</span></a>
+<a class="sourceLine" id="cb36-13" data-line-number="13">cont_vars &lt;-<span class="st"> </span><span class="kw">quos</span>(mpg, disp)</a>
+<a class="sourceLine" id="cb36-14" data-line-number="14">cat_vars  &lt;-<span class="st"> </span><span class="kw">quos</span>(cyl, vs)</a>
+<a class="sourceLine" id="cb36-15" data-line-number="15"></a>
+<a class="sourceLine" id="cb36-16" data-line-number="16"></a>
+<a class="sourceLine" id="cb36-17" data-line-number="17"><span class="co"># Fill in continuous variables</span></a>
+<a class="sourceLine" id="cb36-18" data-line-number="18"><span class="co"># ----------------------------</span></a>
+<a class="sourceLine" id="cb36-19" data-line-number="19"><span class="cf">for</span> (i <span class="cf">in</span> <span class="kw">seq_along</span>(cont_vars)) {</a>
+<a class="sourceLine" id="cb36-20" data-line-number="20">  </a>
+<a class="sourceLine" id="cb36-21" data-line-number="21">  <span class="co"># Calculate mean and 95% CI</span></a>
+<a class="sourceLine" id="cb36-22" data-line-number="22">  row &lt;-<span class="st"> </span>mtcars <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb36-23" data-line-number="23"><span class="st">    </span><span class="kw">group_by</span>(am) <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb36-24" data-line-number="24"><span class="st">    </span>bfuncs<span class="op">::</span><span class="kw">mean_table</span>(<span class="op">!!</span>cont_vars[[i]]) <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb36-25" data-line-number="25"><span class="st">    </span>bfuncs<span class="op">::</span><span class="kw">format_table</span>() <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb36-26" data-line-number="26"><span class="st">    </span><span class="kw">spread</span>(<span class="dt">key =</span> group_cat, <span class="dt">value =</span> mean_<span class="dv">95</span>) <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb36-27" data-line-number="27"><span class="st">    </span><span class="kw">select</span>(<span class="op">-</span>group_var) <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb36-28" data-line-number="28"><span class="st">    </span><span class="kw">rename</span>(<span class="st">&quot;variable&quot;</span> =<span class="st"> </span>response_var, <span class="st">&quot;am_0&quot;</span> =<span class="st"> `</span><span class="dt">0</span><span class="st">`</span>, <span class="st">&quot;am_1&quot;</span> =<span class="st"> `</span><span class="dt">1</span><span class="st">`</span>)</a>
+<a class="sourceLine" id="cb36-29" data-line-number="29"></a>
+<a class="sourceLine" id="cb36-30" data-line-number="30">  <span class="co"># Append to bottom of table</span></a>
+<a class="sourceLine" id="cb36-31" data-line-number="31">  table &lt;-<span class="st"> </span><span class="kw">bind_rows</span>(table, row)</a>
+<a class="sourceLine" id="cb36-32" data-line-number="32">}</a>
+<a class="sourceLine" id="cb36-33" data-line-number="33"></a>
+<a class="sourceLine" id="cb36-34" data-line-number="34"></a>
+<a class="sourceLine" id="cb36-35" data-line-number="35"><span class="co"># Fill in categorical variables</span></a>
+<a class="sourceLine" id="cb36-36" data-line-number="36"><span class="co"># -----------------------------</span></a>
+<a class="sourceLine" id="cb36-37" data-line-number="37"><span class="cf">for</span> (i <span class="cf">in</span> <span class="kw">seq_along</span>(cat_vars)) {</a>
+<a class="sourceLine" id="cb36-38" data-line-number="38">  </a>
+<a class="sourceLine" id="cb36-39" data-line-number="39">  <span class="co"># Calculate mean and 95% CI</span></a>
+<a class="sourceLine" id="cb36-40" data-line-number="40">  row &lt;-<span class="st"> </span>mtcars <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb36-41" data-line-number="41"><span class="st">    </span><span class="kw">group_by</span>(am, <span class="op">!!</span>cat_vars[[i]]) <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb36-42" data-line-number="42"><span class="st">    </span><span class="kw">freq_table</span>() <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb36-43" data-line-number="43"><span class="st">    </span><span class="kw">format_table</span>() <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb36-44" data-line-number="44"><span class="st">    </span><span class="kw">spread</span>(<span class="dt">key =</span> row_cat, <span class="dt">value =</span> percent_row_<span class="dv">95</span>) <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb36-45" data-line-number="45"><span class="st">    </span><span class="kw">select</span>(<span class="op">-</span>row_var) <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb36-46" data-line-number="46"><span class="st">    </span><span class="kw">rename</span>(<span class="dt">variable =</span> col_var, <span class="dt">class =</span> col_cat, <span class="st">&quot;am_0&quot;</span> =<span class="st"> `</span><span class="dt">0</span><span class="st">`</span>, <span class="st">&quot;am_1&quot;</span> =<span class="st"> `</span><span class="dt">1</span><span class="st">`</span>) <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb36-47" data-line-number="47"><span class="st">    </span><span class="kw">mutate</span>(<span class="dt">class =</span> <span class="kw">as.character</span>(class))</a>
+<a class="sourceLine" id="cb36-48" data-line-number="48"></a>
+<a class="sourceLine" id="cb36-49" data-line-number="49">  <span class="co"># Append to bottom of table</span></a>
+<a class="sourceLine" id="cb36-50" data-line-number="50">  table &lt;-<span class="st"> </span><span class="kw">bind_rows</span>(table, row)</a>
+<a class="sourceLine" id="cb36-51" data-line-number="51">}</a>
+<a class="sourceLine" id="cb36-52" data-line-number="52"></a>
+<a class="sourceLine" id="cb36-53" data-line-number="53"><span class="kw">print</span>(table)</a></code></pre></div>
+<pre><code>## # A tibble: 8 x 4
+##   variable class am_0                     am_1                   
+##   &lt;chr&gt;    &lt;chr&gt; &lt;chr&gt;                    &lt;chr&gt;                  
+## 1 &quot;&quot;       &quot;&quot;    N = 19                   N = 13                 
+## 2 mpg      &lt;NA&gt;  17.15 (15.30 - 19.00)    24.39 (20.67 - 28.12)  
+## 3 disp     &lt;NA&gt;  290.38 (237.28 - 343.48) 143.53 (90.83 - 196.23)
+## 4 cyl      4     15.79 (4.78 - 41.20)     61.54 (32.30 - 84.29)  
+## 5 cyl      6     21.05 (7.58 - 46.44)     23.08 (6.91 - 54.82)   
+## 6 cyl      8     63.16 (38.76 - 82.28)    15.38 (3.43 - 48.18)   
+## 7 vs       0     63.16 (38.76 - 82.28)    46.15 (20.83 - 73.63)  
+## 8 vs       1     36.84 (17.72 - 61.24)    53.85 (26.37 - 79.17)</code></pre>
+<ul>
+<li>Again, this still feels clunky.</li>
+</ul>
+<p><a href="#stat-tables">Creating tables of summary statistics</a></p>
+<p><a href="#top">top</a></p>
+<p>&amp; nbsp;</p>
+<hr />
+</div>
+</div>
+<div id="polish-shell" class="section level2">
+<h2>Polish up the filled in table shell</h2>
+<p>At this point, we basically have the table. Now, we just need to do a couple more things before knitting our Word document.</p>
+<ul>
+<li><p>Improve the row headers</p></li>
+<li><p>Remove duplicate variable names for categorical variables</p></li>
+<li><p>Slide classes to the left, under variable names</p></li>
+</ul>
+<div id="example-improve-row-headers" class="section level4">
+<h4>Example: Improve row headers</h4>
+<div class="sourceCode" id="cb38"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb38-1" data-line-number="1">table &lt;-<span class="st"> </span>table <span class="op">%&gt;%</span></a>
+<a class="sourceLine" id="cb38-2" data-line-number="2"><span class="st">  </span><span class="kw">mutate</span>(</a>
+<a class="sourceLine" id="cb38-3" data-line-number="3">    <span class="dt">variable =</span> <span class="kw">if_else</span>(variable <span class="op">==</span><span class="st"> &quot;mpg&quot;</span>, <span class="st">&quot;Miles per gallon, mean (95% CI)&quot;</span>, variable),</a>
+<a class="sourceLine" id="cb38-4" data-line-number="4">    <span class="dt">variable =</span> <span class="kw">if_else</span>(variable <span class="op">==</span><span class="st"> &quot;disp&quot;</span>, <span class="st">&quot;Displacement, mean (95% CI)&quot;</span>, variable),</a>
+<a class="sourceLine" id="cb38-5" data-line-number="5">    <span class="dt">variable =</span> <span class="kw">if_else</span>(variable <span class="op">==</span><span class="st"> &quot;cyl&quot;</span>, <span class="st">&quot;Number of cylinders, percent (95% CI)&quot;</span>, variable),</a>
+<a class="sourceLine" id="cb38-6" data-line-number="6">    <span class="dt">variable =</span> <span class="kw">if_else</span>(variable <span class="op">==</span><span class="st"> &quot;vs&quot;</span>, <span class="st">&quot;V/S, percent (95% CI)&quot;</span>, variable)</a>
+<a class="sourceLine" id="cb38-7" data-line-number="7">  ) <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb38-8" data-line-number="8"><span class="st">  </span>print</a></code></pre></div>
+<pre><code>## # A tibble: 8 x 4
+##   variable                      class am_0                am_1             
+##   &lt;chr&gt;                         &lt;chr&gt; &lt;chr&gt;               &lt;chr&gt;            
+## 1 &quot;&quot;                            &quot;&quot;    N = 19              N = 13           
+## 2 Miles per gallon, mean (95% … &lt;NA&gt;  17.15 (15.30 - 19.… 24.39 (20.67 - 2…
+## 3 Displacement, mean (95% CI)   &lt;NA&gt;  290.38 (237.28 - 3… 143.53 (90.83 - …
+## 4 Number of cylinders, percent… 4     15.79 (4.78 - 41.2… 61.54 (32.30 - 8…
+## 5 Number of cylinders, percent… 6     21.05 (7.58 - 46.4… 23.08 (6.91 - 54…
+## 6 Number of cylinders, percent… 8     63.16 (38.76 - 82.… 15.38 (3.43 - 48…
+## 7 V/S, percent (95% CI)         0     63.16 (38.76 - 82.… 46.15 (20.83 - 7…
+## 8 V/S, percent (95% CI)         1     36.84 (17.72 - 61.… 53.85 (26.37 - 7…</code></pre>
+</div>
+<div id="example-remove-duplicate-variable-names-for-categorical-variables" class="section level4">
+<h4>Example: Remove duplicate variable names for categorical variables</h4>
+<div class="sourceCode" id="cb40"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb40-1" data-line-number="1">table &lt;-<span class="st"> </span>table <span class="op">%&gt;%</span></a>
+<a class="sourceLine" id="cb40-2" data-line-number="2"><span class="st">  </span><span class="kw">group_by</span>(variable) <span class="op">%&gt;%</span></a>
+<a class="sourceLine" id="cb40-3" data-line-number="3"><span class="st">  </span><span class="kw">mutate</span>(</a>
+<a class="sourceLine" id="cb40-4" data-line-number="4">    <span class="dt">x =</span> <span class="kw">duplicated</span>(variable),</a>
+<a class="sourceLine" id="cb40-5" data-line-number="5">    <span class="dt">x =</span> <span class="kw">if_else</span>(variable <span class="op">==</span><span class="st"> &quot;&quot;</span>, <span class="ot">NA</span>, x)</a>
+<a class="sourceLine" id="cb40-6" data-line-number="6">  ) <span class="op">%&gt;%</span></a>
+<a class="sourceLine" id="cb40-7" data-line-number="7"><span class="st">  </span><span class="kw">ungroup</span>() <span class="op">%&gt;%</span></a>
+<a class="sourceLine" id="cb40-8" data-line-number="8"><span class="st">  </span><span class="kw">mutate</span>(</a>
+<a class="sourceLine" id="cb40-9" data-line-number="9">    <span class="dt">variable =</span> <span class="kw">if_else</span>(x <span class="op">==</span><span class="st"> </span><span class="ot">TRUE</span>, <span class="st">&quot;&quot;</span>, variable),</a>
+<a class="sourceLine" id="cb40-10" data-line-number="10">    <span class="dt">variable =</span> <span class="kw">if_else</span>(<span class="kw">is.na</span>(variable), <span class="st">&quot;&quot;</span>, variable),</a>
+<a class="sourceLine" id="cb40-11" data-line-number="11">    <span class="dt">x =</span> <span class="ot">NULL</span></a>
+<a class="sourceLine" id="cb40-12" data-line-number="12">  ) <span class="op">%&gt;%</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb40-13" data-line-number="13"><span class="st">  </span>print</a></code></pre></div>
+<pre><code>## # A tibble: 8 x 4
+##   variable                      class am_0                am_1             
+##   &lt;chr&gt;                         &lt;chr&gt; &lt;chr&gt;               &lt;chr&gt;            
+## 1 &quot;&quot;                            &quot;&quot;    N = 19              N = 13           
+## 2 Miles per gallon, mean (95% … &lt;NA&gt;  17.15 (15.30 - 19.… 24.39 (20.67 - 2…
+## 3 Displacement, mean (95% CI)   &lt;NA&gt;  290.38 (237.28 - 3… 143.53 (90.83 - …
+## 4 Number of cylinders, percent… 4     15.79 (4.78 - 41.2… 61.54 (32.30 - 8…
+## 5 &quot;&quot;                            6     21.05 (7.58 - 46.4… 23.08 (6.91 - 54…
+## 6 &quot;&quot;                            8     63.16 (38.76 - 82.… 15.38 (3.43 - 48…
+## 7 V/S, percent (95% CI)         0     63.16 (38.76 - 82.… 46.15 (20.83 - 7…
+## 8 &quot;&quot;                            1     36.84 (17.72 - 61.… 53.85 (26.37 - 7…</code></pre>
+<ul>
+<li>This point, we may be content with the formatting. However, we may also want to slide the class values under the variable values and drop the class column.</li>
+</ul>
+</div>
+<div id="example-slide-classes-to-the-left-under-variable-names" class="section level4">
+<h4>Example: Slide classes to the left, under variable names</h4>
+<ul>
+<li><p>Add tabs in front of classes</p></li>
+<li><p>For some reason, R automatically strips the leading white space.</p></li>
+<li><p>The best work around I can come up with is to add dashes, then find and replaces dashes with white space in Word.</p></li>
+</ul>
+<div class="sourceCode" id="cb42"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb42-1" data-line-number="1"><span class="co"># table %&gt;%</span></a>
+<a class="sourceLine" id="cb42-2" data-line-number="2"><span class="co">#   mutate(</span></a>
+<a class="sourceLine" id="cb42-3" data-line-number="3"><span class="co">#     class = stringr::str_replace(class, &quot;^&quot;, &quot;---&quot;),</span></a>
+<a class="sourceLine" id="cb42-4" data-line-number="4"><span class="co">#     variable = if_else(variable == &quot;&quot;, class, variable),</span></a>
+<a class="sourceLine" id="cb42-5" data-line-number="5"><span class="co">#     class = NULL</span></a>
+<a class="sourceLine" id="cb42-6" data-line-number="6"><span class="co">#   )</span></a></code></pre></div>
+<ul>
+<li>Not working. Need to figure out how I did this before.</li>
+</ul>
+<p><a href="#stat-tables">Creating tables of summary statistics</a></p>
+<p><a href="#top">top</a></p>
+<p> </p>
+<hr />
+</div>
+</div>
+<div id="kable" class="section level2">
+<h2>Knit to Kable</h2>
+<div class="sourceCode" id="cb43"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb43-1" data-line-number="1">table_kable &lt;-<span class="st"> </span>knitr<span class="op">::</span><span class="kw">kable</span>(table, <span class="dt">col.names =</span> <span class="kw">c</span>(</a>
+<a class="sourceLine" id="cb43-2" data-line-number="2">  <span class="st">&quot;Characteristic&quot;</span>,</a>
+<a class="sourceLine" id="cb43-3" data-line-number="3">  <span class="st">&quot;Class&quot;</span>,</a>
+<a class="sourceLine" id="cb43-4" data-line-number="4">  <span class="st">&quot;Automatic Transmission&quot;</span>, </a>
+<a class="sourceLine" id="cb43-5" data-line-number="5">  <span class="st">&quot;manual Transmission&quot;</span>)</a>
+<a class="sourceLine" id="cb43-6" data-line-number="6">)</a>
+<a class="sourceLine" id="cb43-7" data-line-number="7"></a>
+<a class="sourceLine" id="cb43-8" data-line-number="8"><span class="kw">print</span>(table_kable)</a></code></pre></div>
+<pre><code>## 
+## 
+## Characteristic                          Class   Automatic Transmission     manual Transmission     
+## --------------------------------------  ------  -------------------------  ------------------------
+##                                                 N = 19                     N = 13                  
+## Miles per gallon, mean (95% CI)         NA      17.15 (15.30 - 19.00)      24.39 (20.67 - 28.12)   
+## Displacement, mean (95% CI)             NA      290.38 (237.28 - 343.48)   143.53 (90.83 - 196.23) 
+## Number of cylinders, percent (95% CI)   4       15.79 (4.78 - 41.20)       61.54 (32.30 - 84.29)   
+##                                         6       21.05 (7.58 - 46.44)       23.08 (6.91 - 54.82)    
+##                                         8       63.16 (38.76 - 82.28)      15.38 (3.43 - 48.18)    
+## V/S, percent (95% CI)                   0       63.16 (38.76 - 82.28)      46.15 (20.83 - 73.63)   
+##                                         1       36.84 (17.72 - 61.24)      53.85 (26.37 - 79.17)</code></pre>
+<ul>
+<li>Get rid of class NA.</li>
+</ul>
+<p><a href="#stat-tables">Creating tables of summary statistics</a></p>
+<p><a href="#top">top</a></p>
+<p> </p>
+<hr />
+</div>
+<div id="polish_word" class="section level2">
+<h2>Polish up the resulting Word document</h2>
+<p>Typically do some stuff like:</p>
+<ul>
+<li>Find and replace — with white space<br />
+</li>
+<li>Reorient to landscape<br />
+</li>
+<li>Remove bold from title - except “Table 1”<br />
+</li>
+<li>Center columns 3 and above from top to bottom<br />
+</li>
+<li>Adjust column widths as needed<br />
+</li>
+<li>Add bottom border to table</li>
+</ul>
+<p>There may be packages now that con do some of this programatically. Look at officer and wordr.</p>
+<p><a href="#stat-tables">Creating tables of summary statistics</a></p>
+<p><a href="#top">top</a></p>
+<p> </p>
+</div>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
