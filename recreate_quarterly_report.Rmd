@@ -7,11 +7,11 @@ Trying to recreate the last quarterly report (/Users/bradcannell/Dropbox/01 Rese
 
 Soon, I will have to start making these myself.
 
-# Load packages
-
 ```{r}
 library(dplyr)
 library(readxl)
+library(freqtables)
+library(meantables)
 ```
 
 # Connect to UTH server
@@ -22,15 +22,175 @@ open 'smb://uctnascifs.uthouston.edu/sph_research/Link2Care/Live Documents/'
 
 # Import data
 
-```{r}
-screened_in <- readxl::read_excel(
-  "/Volumes/Live Documents/L2C_Demographics.xlsx", 
-  sheet = "Screened In"
-)
+## Demographics data
 
-screened_out <- readxl::read_excel(
+For Tables 1 and 2. 
+
+```{r}
+screened_in <- read_excel(
   "/Volumes/Live Documents/L2C_Demographics.xlsx", 
-  sheet = "Screened Out"
+  sheet = "Screened In",
+  col_names = c(
+    "id", "date_consented", "status", "group", "gender", "hispanic", "race", "age", 
+    "zip"
+  ),
+  col_types = c(
+    "numeric", "date", "text", "text", "text", "text", "text", "numeric", 
+    "numeric", "skip", "skip"
+  ),
+  skip = 1
 )
 ```
+
+```{r}
+screened_out <- readxl::read_excel(
+  "/Volumes/Live Documents/L2C_Demographics.xlsx", 
+  sheet = "Screened Out",
+  col_names = c(
+    "id", "date_consented", "status", "gender", "hispanic", "race", "age", 
+    "zip"
+  ),
+  col_types = c(
+    "numeric", "date", "text", "text", "text", "text", "numeric", "numeric", 
+    "skip", "skip", "skip"
+  ),
+  skip = 1
+)
+```
+
+Combine screened in and screened out for easier data manipulation below.
+
+```{r}
+# Variable to identify which data frame each record came from
+screened_in$screened_in <- 1L
+screened_out$screened_in <- 0L
+# Bind rows
+demographics <- bind_rows(screened_in, screened_out)
+# Factorize screened_in variable
+demographics$screened_in_f <- factor(
+  demographics$screened_in, labels = c("Screened-Out", "Screened-In")
+)
+# Drop individual data frames
+rm(screened_in, screened_out)
+```
+
+
+# Data management
+
+## Demographics data
+
+### Recode variables and create factors
+
+```{r}
+demographics <- demographics %>% 
+  mutate(
+    gender_f = factor(gender, c("Male", "Female", "Other")),
+    race_3cat = case_when(
+      is.na(race) ~ NA_character_,
+      race == "Black or African American" ~ "Black or African American",
+      race == "White" ~ "White",
+      TRUE ~ "Other"
+    ),
+    race_3cat_f = factor(
+      race_3cat,
+      c("Black or African American", "White", "Other")
+    ),
+    hispanic_f = factor(
+      hispanic,
+      c("Non-Hispanic", "Hispanic or Latino"),
+      c("Non-Hispanic", "Hispanic")
+    )
+  )
+```
+
+
+# Analysis
+
+# Table 1
+
+Demographic characteristics of all people screened-in.
+
+Left off here. Making table 1....
+
+```{r}
+# For data checking
+demographics %>% 
+  summarise(
+    
+  )
+
+# For data checking
+# demographics %>% 
+#   freq_table(gender_f) %>% 
+#   freq_format(recipe = "n (percent)", digits = 1) %>% 
+#   select(var, cat, formatted_stats)
+```
+
+```{r}
+table_1 <- tibble(
+  var  = "", # Variable names
+  cat             = "", # Categories for categorical variables
+  formatted_stats = ""
+)
+
+purrr::map_df(
+  quos(gender_f, race_3cat_f, hispanic_f), 
+  function(x) {
+    demographics %>%
+      freq_table(!!x) %>% 
+      freq_format(name = "n_percent", n, " (", percent, ")") %>% 
+      # Pivot so that networks become column names
+      tidyr::pivot_wider(
+        names_from  = c(row_var, row_cat),
+        values_from = n_percent
+      ) %>% 
+      # Rename to row bind with table shell
+      rename(
+        var = col_var, 
+        cat = col_cat
+      ) %>% 
+      # Add a blank row
+      add_row(var = quo_name(x), .before = 1)
+  }
+)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
