@@ -7,24 +7,33 @@ Trying to recreate the last quarterly report (/Users/bradcannell/Dropbox/01 Rese
 
 Soon, I will have to start making these myself.
 
+**Start by just getting the report done**, then move to improving efficiency of the code. Don't get bogged down in optimizing right now.
+   * Below, there are some notes for improvement. Search for "NOTES".
+
 ```{r}
 library(dplyr)
 library(readxl)
 library(freqtables)
 library(meantables)
+library(stringr)
+library(tidyr)
+library(forcats)
+library(officer)
+library(flextable)
 ```
 
 # Connect to UTH server
 
 ```{bash}
-open 'smb://uctnascifs.uthouston.edu/sph_research/Link2Care/Live Documents/'
+open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/Live Documents/'
 ```
 
-# Import data
 
-## Demographics data
+# Section 1 - Study participants
 
-For Tables 1 and 2. 
+## Import data
+
+Demographics data for Tables 1 and 2. 
 
 ```{r}
 screened_in <- read_excel(
@@ -74,12 +83,9 @@ demographics$screened_in_f <- factor(
 rm(screened_in, screened_out)
 ```
 
+## Data management
 
-# Data management
-
-## Demographics data
-
-### Recode variables and create factors
+Recode variables and create factors
 
 ```{r}
 demographics <- demographics %>% 
@@ -104,56 +110,623 @@ demographics <- demographics %>%
 ```
 
 
-# Analysis
+## Analysis
 
-# Table 1
+### Helper functions
 
-Demographic characteristics of all people screened-in.
-
-Left off here. Making table 1....
+NOTES: I'm creating a custom function below for analyzing age (and possibly other continuous variables below). I'm doing so for two reasons: 1. mean_tables doesn't calculate standard deviation, and 2. The column names from mean_table and freq_table don't align well. I've added both to these as issues in the meantables package (#11 and #12).
 
 ```{r}
-# For data checking
-demographics %>% 
-  summarise(
-    
-  )
+# Helper function for analyzing continuous variables (age) for Table 1 and 
+# Table 2
+# -----------------------------------------------------------------------------
+get_mean_sd <- function(.data, .x, digits) {
+  .data %>% 
+    filter(!is.na({{.x}})) %>% 
+    summarize(
+      var  = !!quo_name(enquo(.x)),
+      # Do this for easier row binding below
+      cat  = NA_character_,
+      mean = mean({{.x}}) %>% round(digits),
+      sd   = sd({{.x}}) %>% round(digits),
+      formatted_stats = paste0(mean, " (", sd, ")")
+    ) %>% 
+    select(var, cat, formatted_stats)
+}
 
-# For data checking
+# For testing
 # demographics %>% 
-#   freq_table(gender_f) %>% 
-#   freq_format(recipe = "n (percent)", digits = 1) %>% 
-#   select(var, cat, formatted_stats)
+#   get_mean_sd(age, "Age in years, mean (sd)", 1)
+```
+
+### Table 1. Demographic characteristics of all people screened-in.
+
+```{r}
+cont_stats <- demographics %>%
+  filter(screened_in == 1) %>% 
+  get_mean_sd(age, 1) %>% 
+  # Add blank row below
+  add_row(var = "", cat = "", formatted_stats = "")
+```
+
+NOTES: Right now, I have to use purrr::map_df to use freq_table over multiple categorical variables. In the future, I'd to either create a wrapper function for this or make a really good vignette for using this method. Created issues in freqtables (#23, #36).
+
+NOTES: Create a function to add an empty row. For now, I'm just adding this to the data frame manually. I've asked if there is a way to do this in flextable on [StackOverflow](https://stackoverflow.com/questions/64932726/add-a-blank-row-in-flextable). I've also created an issue in freqtables to create a wrapper function to do this (#35).
+
+```{r}
+# Loop over all categorical vars
+cat_stats <- purrr::map_df(
+  quos(gender_f, race_3cat_f, hispanic_f), 
+  function(x) {
+    demographics %>%
+      filter(screened_in == 1) %>% 
+      freq_table({{x}}) %>%
+      freq_format(recipe = "n (percent)", digits = 1) %>%
+      select(var, cat, formatted_stats) %>%
+      # Add a row with the var name only
+      add_row(var = quo_name(x), .before = 1) %>% 
+      # Add blank row below
+      add_row(var = "", cat = "", formatted_stats = "")
+  }
+) %>% 
+  # Drop the final empty row
+  slice(-n())
 ```
 
 ```{r}
-table_1 <- tibble(
-  var  = "", # Variable names
-  cat             = "", # Categories for categorical variables
-  formatted_stats = ""
-)
+table_1 <- cont_stats %>% 
+  bind_rows(cat_stats)
+```
 
+```{r}
+table_1 <- table_1 %>%
+  mutate(
+    # Slide categories over
+    var = if_else(is.na(cat), var, cat)
+  ) %>% 
+  select(-cat)
+```
+
+```{r}
+# Use for bolding below
+header_fmt <- fp_text(font.size = 11, bold = TRUE, font.family = "Times New Roman")
+
+table_1_ft <- flextable(table_1) %>%
+  # Change column widths
+  width(width = 3.5) %>% 
+  # Remove vertical cell padding
+  padding(padding = 0, part = "all") %>% 
+  # Remove current header (var and formatted_stats)
+  merge_at(i = 1, part = "header") %>% 
+  # Overwrite current header with title
+  compose(
+    part = "header",
+    value = as_paragraph(
+      as_chunk("Table 1. ", props = header_fmt),
+      "Demographic characteristics of all people screened-in (n = ",
+      nrow(filter(demographics, screened_in == 1)), ")."
+    ),
+  ) %>% 
+  # Remove top border from title
+  hline_top(part = "header", border = fp_border(width = 0)) %>%
+  hline_bottom(part = "header", border = fp_border(width = 1)) %>%
+  # Bold variable names
+  compose(
+    i = 1, j = 1,
+    value = as_paragraph(
+      as_chunk("Age in years", props = header_fmt), ", mean (sd)"
+    )
+  ) %>% 
+  compose(
+    i = 3, j = 1,
+    value = as_paragraph(
+      as_chunk("Gender", props = header_fmt), ", n(%)"
+    )
+  ) %>% 
+  compose(
+    i = 8, j = 1,
+    value = as_paragraph(
+      as_chunk("Race", props = header_fmt), ", n(%)"
+    )
+  ) %>% 
+  compose(
+    i = 13, j = 1,
+    value = as_paragraph(
+      as_chunk("Ethnicity", props = header_fmt), ", n(%)"
+    )
+  ) %>% 
+  # Indent categories
+  padding(i = c(4:6, 9:11, 14:15), j = 1, padding.left = 10) %>% 
+  # Left align title
+  align(align = "left", part = "header") %>% 
+  # Left align first column
+  align(j = 1, align = "left", part = "body") %>% 
+  # Center align second column
+  align(j = 2, align = "center", part = "body") %>% 
+  # Change font to TNR 11
+  font(fontname = "Times New Roman", part = "all") %>% 
+  # Resize bottom border
+  hline_bottom(border = fp_border(width = 1))
+```
+
+* Format title border
+* Add n = to title
+
+NOTES: A lot of the formatting (e.g., bold, indent) I did manually above is stuff that I will want to do all the time. It might be nice to create a wrapper function or wrapper functions.
+
+2020-12-02:
+
+Getting behind on the L2C report. For now, I just need to make sure I can do the calculations necessary to manually fill in the tables in the quarterly report (due the 16th). Afterward, if there is time, I will come back and make it pretty/automated.
+
+### Table 2. Demographic characteristics of all people screened-out.
+
+```{r}
+# cont_stats <- 
+demographics %>%
+  filter(screened_in == 0) %>% 
+  get_mean_sd(age, 1) %>% 
+  # Add blank row below
+  add_row(var = "", cat = "", formatted_stats = "")
+```
+
+```{r}
+# Loop over all categorical vars
+# cat_stats <- 
 purrr::map_df(
   quos(gender_f, race_3cat_f, hispanic_f), 
   function(x) {
     demographics %>%
-      freq_table(!!x) %>% 
-      freq_format(name = "n_percent", n, " (", percent, ")") %>% 
-      # Pivot so that networks become column names
-      tidyr::pivot_wider(
-        names_from  = c(row_var, row_cat),
-        values_from = n_percent
-      ) %>% 
-      # Rename to row bind with table shell
-      rename(
-        var = col_var, 
-        cat = col_cat
-      ) %>% 
-      # Add a blank row
-      add_row(var = quo_name(x), .before = 1)
+      filter(screened_in == 0) %>% 
+      freq_table({{x}}) %>%
+      freq_format(recipe = "n (percent)", digits = 1) %>%
+      select(var, cat, formatted_stats) %>%
+      # Add a row with the var name only
+      add_row(var = quo_name(x), .before = 1) %>% 
+      # Add blank row below
+      add_row(var = "", cat = "", formatted_stats = "")
   }
+) %>% 
+  # Drop the final empty row
+  slice(-n())
+```
+
+
+# Section 2 - Screen out reasons
+
+## Import data
+
+For table 3.
+
+```{r}
+screened_out_reasons <- readxl::read_excel(
+  "/Volumes/Live Documents/L2C_Master_Log.xlsm", 
+  sheet = "Screened Out",
+  col_names = c(
+    "id", "reason_1", "reason_2", "reason_3"
+  ),
+  col_types = c(
+    "numeric", rep("skip", 7), rep("text", 3), rep("skip", 3)
+  ),
+  na = c("", "N/A"),
+  skip = 1
 )
 ```
+
+## Analysis
+
+### Table 3. Distribution of reasons for screen-out.
+
+Come back and wrap these in purrr::map_df.
+
+```{r}
+unique(screened_out_reasons$reason_1)
+```
+
+```{r}
+screened_out_reasons %>% 
+  freq_table(reason_1) %>% 
+  arrange(desc(n))
+```
+
+```{r}
+screened_out_reasons %>% 
+  freq_table(reason_2) %>% 
+  arrange(desc(n))
+```
+
+```{r}
+screened_out_reasons %>% 
+  freq_table(reason_3) %>% 
+  arrange(desc(n))
+```
+
+
+# Section 3 - Phone and ClinCard Breakdown
+
+## Import data
+
+For Table 4 and 5
+
+```{r}
+phone_clincard <- readxl::read_excel(
+  "/Volumes/Live Documents/L2C_Master_Log.xlsm", 
+  sheet = "Screened In",
+  col_names = c(
+    "id", "group", "n_clincards", "n_phones"
+  ),
+  col_types = c(
+    "numeric", rep("skip", 6), "text", rep("skip", 9), "numeric", 
+    rep("skip", 2), "numeric", rep("skip", 9)
+  ),
+  na = c("", "."),
+  skip = 1
+)
+```
+
+## Analysis
+
+### Table 4. Payment card and phone loss.
+
+Total number of ClinCards distributed
+
+```{r}
+sum(phone_clincard$n_clincards, na.rm = TRUE)
+```
+
+Total number of participants with ClinCard replacements
+
+```{r}
+sum(phone_clincard$n_clincards > 1, na.rm = TRUE)
+```
+
+Total number of phones distributed
+
+```{r}
+sum(phone_clincard$n_phones, na.rm = TRUE)
+```
+
+Total number of participants with phone replacements
+
+```{r}
+sum(phone_clincard$n_phones > 1, na.rm = TRUE)
+```
+
+Number of ClinCard replacements
+
+```{r}
+phone_clincard %>% 
+  freq_table(n_clincards)
+```
+
+### Table 5. Phone distribution and replacement.
+
+Total # of phones distributed overall
+
+```{r}
+sum(phone_clincard$n_phones, na.rm = TRUE)
+```
+
+Total # of participants in phone groups
+
+Waiting on James to tell me which are phone groups.
+
+```{r}
+phone_clincard %>% 
+  filter(!is.na(n_phones)) %>% 
+  freq_table(group, n_phones) %>% 
+  filter(n >= 1)
+```
+
+```{r}
+phone_clincard %>% 
+  filter(group == "Dropped" | group == "")
+```
+
+
+Total number of participants with phone replacements
+
+```{r}
+sum(phone_clincard$n_phones > 1, na.rm = TRUE)
+```
+
+Number of participants w/ phone replacement (UCM+SP)
+
+```{r}
+phone_clincard %>% 
+  filter(group == "UCM+SP") %>% 
+  summarise(sum(n_phones > 1, na.rm = TRUE))
+```
+
+Number of participants w/ phone replacement (L2C)
+
+```{r}
+phone_clincard %>% 
+  filter(group == "L2C") %>% 
+  summarise(sum(n_phones > 1, na.rm = TRUE))
+```
+
+Number of participants in UCM+SP w/ >1 phone replacement
+
+```{r}
+phone_clincard %>% 
+  filter(group == "UCM+SP") %>% 
+  summarise(sum(n_phones > 2, na.rm = TRUE))
+```
+
+Number of Participants in L2C w/ >1 phone replacement
+
+```{r}
+phone_clincard %>% 
+  filter(group == "L2C") %>% 
+  summarise(sum(n_phones > 2, na.rm = TRUE))
+```
+
+Number of participants had phone replaced 1 time (2 phones per participant total).
+
+```{r}
+sum(phone_clincard$n_phones == 2, na.rm = TRUE)
+```
+
+N, ids, and reason for 2 or more phone replacement in the UCM+SP and L2C groups
+
+```{r}
+phone_clincard %>% 
+  filter(group == "UCM+SP" | group == "L2C") %>% 
+  filter(n_phones > 2)
+```
+
+
+# Section 4 - Phone Terminations
+
+## Import data
+
+```{r}
+phone_terminations <- readxl::read_excel(
+  "/Volumes/Live Documents/Link2Care Phone Terminations.xlsx", 
+  sheet = "Terminations",
+  col_names = c(
+    "id", "phone_1_reason", "phone_2_reason", "phone_3_reason"
+  ),
+  col_types = c(
+    "text", rep("skip", 7), "text", rep("skip", 4), "text", 
+    rep("skip", 4), "text"
+  ),
+  na = c(""),
+  skip = 1
+)
+```
+
+## Data management
+
+* There were some merged rows in the Excel sheet that delineated different EMA structures. We will remove those rows from the data.
+* Create a new variable that captures the ICF.
+* Reshape wide to long
+* Coerce reason to factor
+
+```{r}
+phone_terminations <- phone_terminations %>% 
+  filter(!str_detect(id, "[a-zA-Z]")) %>% 
+  mutate(
+    icf = case_when(
+      id <= 2073 ~ 1L,
+      id <= 2153 ~ 2L,
+      TRUE ~ 3L
+    )
+  ) %>% 
+  pivot_longer(
+    cols = phone_1_reason:phone_3_reason,
+    names_to = "phone",
+    names_pattern = "phone_(\\d)_reason",
+    names_transform = list(phone = as.integer),
+    values_to = "reason"
+  ) %>% 
+  mutate(
+    reason_f = factor(reason) %>% fct_infreq()
+  )
+```
+
+
+## Analysis
+
+### Table 6. Reasons for phone terminations by informed consent form iteration
+
+Overall
+
+```{r}
+phone_terminations %>% 
+  filter(!is.na(reason_f)) %>% 
+  freq_table(reason_f)
+```
+
+By ICF
+
+```{r}
+phone_terminations %>% 
+  filter(!is.na(reason_f)) %>% 
+  freq_table(icf, reason_f)
+```
+
+
+# Section 5 - Visit Compliance
+
+## Import data
+
+For Table 7
+
+```{r}
+visit_compliance <- readxl::read_excel(
+  "/Volumes/Live Documents/L2C_Master_Log.xlsm", 
+  sheet = "Screened In",
+  col_names = c(
+    "id", "group", "v_1", "v_2", "v_3", "v_4", "v_5"
+  ),
+  col_types = c(
+    "numeric", rep("skip", 6), "text", rep("skip", 14), rep("numeric", 5), 
+    rep("skip", 3)
+  ),
+  na = c("", "."),
+  skip = 1
+)
+```
+
+## Analysis
+
+### Table 7. Grouping and compliance for in person visits.
+
+```{r}
+visit_compliance %>% 
+  freq_table(group) %>% 
+  arrange(desc(n))
+```
+
+Visit compliance
+
+```{r}
+visit_compliance %>% 
+  pivot_longer(
+    cols = v_1:v_5,
+    names_to = "visit",
+    names_prefix = "v_",
+    values_to = "complete"
+  ) %>% 
+  group_by(visit) %>% 
+  summarise(
+    n = sum(complete == 1, na.rm = TRUE),
+    mean = mean(complete, na.rm = TRUE),
+    percent = round(mean * 100, 1),
+    .groups = "drop"
+  )
+```
+
+Visit compliance Excluding No Show V2 PTs
+
+```{r}
+visit_compliance %>% 
+  filter(!group == "NS V2") %>% 
+  pivot_longer(
+    cols = v_1:v_5,
+    names_to = "visit",
+    names_prefix = "v_",
+    values_to = "complete"
+  ) %>% 
+  group_by(visit) %>% 
+  summarise(
+    n = sum(complete == 1, na.rm = TRUE),
+    mean = mean(complete, na.rm = TRUE),
+    percent = round(mean * 100, 1),
+    .groups = "drop"
+  )
+```
+
+
+# Section 6 - COVID-19
+
+Currently a Word document. Need to put that into a tabular data format.
+
+
+# Section 7 - EMA and Study Completion Rates
+
+## Import data
+
+```{r}
+ema <- readxl::read_excel(
+  "/Volumes/Live Documents/15_Day_EMA.xlsx", 
+  sheet = "ema_data"
+)
+```
+
+## Data management
+
+Add variable for initial payment approach
+
+```{r}
+ema %>% 
+  mutate(ipa = )
+```
+
+## Analysis
+
+### Table 9. EMA completion over 15-day cycle (12 cycles total)
+
+Median EMAs Completed (Range)
+
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Compile into Word Report
+
+Bookmarks: In Word Document, highlight bookmark, click Insert -> Link -> Bookmark
+
+```{r}
+l2c_report <- read_docx("quarterly_reports/l2c_quarterly_report_template.docx") %>%
+  # Add date updated - pg. 3
+  body_replace_text_at_bkm(
+    bookmark = "date",
+    value = format(Sys.Date(), "%B %d, %Y")
+  )
+```
+
+Add number of study participants to page 3 of report.
+
+```{r}
+l2c_report <- l2c_report %>%
+  body_replace_text_at_bkm(
+    bookmark = "n_participants",
+    value = paste0(" ", nrow(demographics))
+  )
+```
+
+Add Table 1. Demographic characteristics of all people screened-in.
+
+```{r}
+l2c_report <- l2c_report %>%
+  body_replace_flextable_at_bkm(
+    bookmark = "table_1_ft",
+    value = table_1_ft
+  )
+```
+
+## Output Word document
+
+Update the year and month in the file name dynamically
+
+```{r}
+print(
+  l2c_report, 
+  paste0("quarterly_reports/", Sys.Date() %>% format("%Y_%m"), " L2C Quarterly Report.docx")
+)
+```
+
+
+
+
+
+
 
 
 
