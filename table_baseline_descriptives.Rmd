@@ -1,0 +1,817 @@
+---
+title: "Big Descriptives Table"
+date: "2020-12-21"
+---
+
+# Overview
+
+**2020-12-10**
+
+Hi Brad. My staff are writing 3 papers from the Link2Care baseline/randomization visit dataset.
+ 
+We did some preliminary analyses and all look like they are legit papers…
+ 
+I am writing to ask if you are willing to do the official analyses for these papers (the analyses are pretty basic, with one having some mediation analyses [using the Preacher and Hayes SPSS macro add on]). Of course, you would be an author on all 3.
+ 
+Let me know if this works for you.
+
+**2020-12-11**
+
+Excellent! I will put you in touch with the staff members and walk you through the analyses.
+ 
+Can you start by recreating a baseline table with all the variables below (use all participants to date that have completed the baseline and randomization visits). Just 1 long table. The staff members will take what they need for their papers. The items below are pretty much all of the variables being used across all 3 papers. There may be an additional variable or two to add later.
+ 
+Sex
+Race
+Ethnicity
+Age
+marital status
+employment status
+years of education
+veteran (% yes)
+sexual orientation
+number of children
+homelessness (current period Median; and lifetime Median)
+reasons for current homelessness (distribution)
+total times homeless
+age at first homelessness
+mini mental status exam total score (M; SD)
+Arrest history (number of arrests; total period in jail Median)
+Type of health insurance (distribution)
+Do you have an active cell phone (% yes)
+Who pays for your cell phone service (distribution)
+How many ‘talk’ minutes does your plan have (distribution)
+Is your cell phone a smart phone? (distribution)
+Does your phone service include a data plan (distribution)
+How many times has your phone number changed in the past year (distribution)
+Which of the following forms of media do you use (distribution)
+How often do you access the internet (distribution)
+Do you have an active Facebook page (% yes)
+How often do you check or post on Facebook (distribution)
+Do you believe that a smartphone app can help you to change your actions or behaviors (% yes)
+Have you ever used a smartphone app to manage one or more health-related issues (% yes)
+What type of health related issue (distribution)
+PHQ-8 score
+% with PHQ-8 >10
+Aggression Questionnaire mean (SD)
+CJ Client Evaluation of Self and Treatment (TCU CJ CEST) – mean (SD)
+Urban Life Stress Scale – Mean (SD)
+Detroit Area Assessment of Day-to-Day Discrimination Mean (SD) of scale – 1st 9 items (Item 10 is separate = cause of discrimination – please include distribution of item 10)
+MacArthur Major Discrimination – total score
+Personal victimization (distribution of each of 3 items)
+% currently receiving treatment for mental health problems
+Total drinks per week from Alcohol Quantity and Frequency questionnaire
+Number binge drinking days in past 30 days
+Perceived stress scale total score (M; SD)
+GAD-7 total score
+CESD total score
+Panas positive affect
+Panas negative affect
+Meals survey item 4 (# meals missed in past week; M; SD)
+ISEL social support – total score and each of 3 subscales
+Distress Tolerance Scale (total score; M, SD)
+SF-12 total score
+HrQol – each of the 4 items separately (# days with mental health problems, # days with physical health problems, # days MH or PH problems limit activities, how would you rate your health in general)
+ 
+Thanks Brad. We hope to get these all under review  in January!
+
+```{r}
+library(dplyr)
+library(haven)
+library(stringr)
+library(tidyr)
+library(meantables)
+library(freqtables)
+library(purrr)
+library(flextable)
+library(officer)
+```
+
+
+# Connect to UTH server
+
+```{bash}
+# Don't drill all the way down to live documents because not all of the data is in live documents.
+# open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/'
+```
+
+
+```{r}
+all_visits <- read_sav("/Users/bradcannell/Desktop/l2c/All_Visits_Data.SAV")
+```
+
+
+# Import data
+
+This data is exported from QDS in SPSS data format. The SPSS data is then added to the UTHealth Servers. Currently, I'm not sure who is doing this.
+
+```{r}
+all_visits <- read_sav("/Users/bradcannell/Desktop/l2c/All_Visits_Data.SAV")
+```
+
+```{r}
+dim(all_visits) # 258 2722
+```
+
+
+# Data management
+
+## Convert to lowercase
+
+```{r}
+names(all_visits) <- names(all_visits) %>% str_to_lower()
+```
+
+## Make names more descriptive
+
+2020-12-24, from Michael: Use BH15V1 for number of times arrested.
+
+```{r}
+all_visits <- all_visits %>% 
+  rename(
+    id = subject,
+    hispanic = sq_2,
+    race = sq_3, # May have to change this to dem3v1
+    age = sq_4,
+    cell_have = sq_12,
+    cell_pays = sq_13,
+    cell_talk_minutes = sq_14,
+    marital_5_cat = dem1v1,
+    n_child = dem2v1,
+    edu_19_cat = dem5v1,
+    ged = dem5av1,
+    employ_9_cat = dem6v1,
+    ins_medicare = dem7v1a,
+    ins_medicaid = dem7v1b,
+    ins_military = dem7v1c,
+    ins_private = dem7v1d,
+    ins_none = dem7v1e,
+    veteran = dem15v1,
+    sexual_orientation = dem17v1,
+    transgender = dem18v1,
+    homeless_time_total = bh1v1,
+    homeless_time_years = bh1v1y,
+    homeless_time_months = bh1v1m,
+    homeless_time_days = bh1v1d,
+    homeless_periods = bh2v1,
+    homeless_age_first_time = bh3v1,
+    homeless_current_total = bh4v1,
+    homeless_current_years = bh4v1y,
+    homeless_current_months = bh4v1m,
+    homeless_current_days = bh4v1d,
+    homeless_reason_not_homeless = bh12av1a,
+    homeless_reason_lost_job = bh12av1b,
+    homeless_reason_evicted = bh12av1c,
+    homeless_reason_substance = bh12av1d,
+    homeless_reason_mental_illness = bh12av1e,
+    homeless_reason_medical_bills = bh12av1f,
+    homeless_reason_family = bh12av1g,
+    homeless_reason_legal = bh12av1h,
+    homeless_reason_jail = bh12av1i,
+    homeless_reason_natural_disaster = bh12av1j,
+    homeless_reason_domestic_violence = bh12av1k,
+    homeless_reason_other = bh12av1l,
+    jail_lifetime_n = bh15v1,
+    jail_time_total = bh17v1,
+    jail_time_years = bh17v1y,
+    jail_time_months = bh17v1m,
+    jail_time_weeks = bh17v1w,
+  ) %>% 
+  # Move id and group to the front of the data
+  select(id, group, everything())
+```
+
+## Recoded and calculated variables
+
+First, I have to remove the "have_labelled" and "vctrs_vctr" class from each variable for if_else() to work.
+
+But, I also need to keep the label attributes. They are erased when I convert the 9's to NA. 
+
+```{r}
+# Helper function:
+#  Convert 9's to NA's and then add attributes back to vector
+nines_to_na <- function(x, nines) {
+  # Store the attributes
+  x_attr <- attributes(x)
+  # Remove "haven_labelled" and "vctrs_vctr" from class list so that if_else()
+  # will work.
+  # Set class of column to whatever is remaining in the class list.
+  classes <- class(x)
+  class(x) <- classes[!class(x) %in% c("haven_labelled", "vctrs_vctr")]
+  # Convert 9's to NA's
+  x <- if_else(x == nines, NA_real_, x)
+  # Add attributes back to the vector
+  attributes(x) <- x_attr
+  # Return x
+  x
+}
+
+# For testing
+# nines_to_na(all_visits$cell_pays, 9) %>% attributes()
+```
+
+```{r}
+all_visits <- all_visits %>% 
+  mutate(
+    # The visit dummy variables are currently not coded as 1'a and 0's.
+    across(
+      .cols = c(visit_v1, visit_v2, visit_v3, visit_v4, visit_v5),
+      .fns = ~if_else(!is.na(.x), 1L, 0L)
+    ),
+    # Convert 9's to NA
+    across(
+      .cols = c(
+        cell_pays, cell_talk_minutes, marital_5_cat, ged, starts_with("ins"), 
+        veteran, sexual_orientation, transgender, homeless_periods, 
+        starts_with("homeless_reason_"), jail_time_total
+      ),
+      .fns = ~nines_to_na(.x, 9)
+    ),
+    # Convert 99's to NA
+    across(
+      .cols = c(n_child, edu_19_cat, employ_9_cat, jail_lifetime_n),
+      .fns = ~nines_to_na(.x, 99)
+    ),
+    # Convert 999's to NA
+    across(
+      .cols = c(
+        homeless_time_years, homeless_time_months, homeless_time_days, 
+        homeless_current_years, homeless_current_months, homeless_current_days, 
+        jail_time_years, jail_time_months, jail_time_weeks
+      ),
+      .fns = ~nines_to_na(.x, 999)
+    ),
+    # Convert 9999's to NA
+    across(
+      .cols = c(homeless_time_total, homeless_current_total),
+      .fns = ~nines_to_na(.x, 9999)
+    )
+  )
+```
+
+Create a combined insurance variable
+
+```{r}
+all_visits <- all_visits %>% 
+  rowwise() %>% 
+  mutate(
+    ins_count = sum(c_across(ins_medicare:ins_private)),
+    ins_6_cat = case_when(
+      ins_count > 1 ~ 5, # Multiple
+      ins_medicare == 1 ~ 1, # Medicare
+      ins_medicaid == 1 ~ 2, # Medicaid
+      ins_military == 1 ~ 3, # Military
+      ins_private == 1 ~ 4, # Private
+      ins_none == 1 ~ 6 # None
+    ),
+    ins_6_cat_f = factor(
+      ins_6_cat, 1:6,
+      c("Medicare", "Medicaid", "Military", "Private", "Multiple types", "None")
+    )
+  ) %>% 
+  ungroup()
+```
+
+Create a combined homelessness reasons variable
+
+```{r}
+all_visits <- all_visits %>% 
+  rowwise() %>% 
+  mutate(
+    homeless_reason_count = sum(c_across(homeless_reason_lost_job:homeless_reason_other)),
+    homeless_reason_13_cat = case_when(
+      homeless_reason_count > 1 ~ 12, # Multiple
+      homeless_reason_lost_job == 1 ~ 1, # Lost job
+      homeless_reason_evicted == 1 ~ 2, # Evicted
+      homeless_reason_substance == 1 ~ 3, # Substance
+      homeless_reason_mental_illness == 1 ~ 4, # Mental illness
+      homeless_reason_medical_bills == 1 ~ 5, # Medical
+      homeless_reason_family == 1 ~ 6, # Family
+      homeless_reason_legal == 1 ~ 7, # Legal
+      homeless_reason_jail == 1 ~ 8, # Jail
+      homeless_reason_natural_disaster == 1 ~ 9, # Natural disaster
+      homeless_reason_domestic_violence == 1 ~ 10, # Domestic violence
+      homeless_reason_other == 1 ~ 11, # Other
+      homeless_reason_not_homeless == 1 ~ 13, # Not homeless
+    ),
+    homeless_reason_13_cat_f = factor(
+      homeless_reason_13_cat, 1:13, c(
+        "Lost my job", "Evicted from house/apartment", 
+        "Substance use (alcohol or drugs)", "Mental illness", 
+        "Inability to pay medical bills", "Family problems", "Legal problems",
+        "Recently released from jail or prison", "Natural disaster",
+        "Domestic Violence", "Other", "Multiple reasons", "Not homeless"
+      )
+    )
+  ) %>% 
+  ungroup()
+```
+
+Calculate jail time
+
+2020-12-24, from Michael: You will have to calculate total time in jail because the current variable does not include decimals – here is the syntax to calculate the lifetime period in jail variable: Bh17V1Y + BH17v1M/12 + BH17v1w/52.
+
+Just out of curiosity, I checked for differences between jail_time_total and jail_time_total_c. They are almost identical.
+
+```{r}
+all_visits <- all_visits %>% 
+  mutate(jail_time_total_c = jail_time_years + (jail_time_months/12) + (jail_time_weeks/52))
+```
+
+```{r}
+dim(all_visits) # 258 2729
+```
+
+## Create factor variables
+
+```{r}
+all_visits <- all_visits %>% 
+  # Use bind cols to add the new "_f" factor columns to the existing columns in
+  # all_visits.
+  bind_cols(
+    purrr::map_dfc(
+      # Choose categorical columns
+      .x = quos(
+        group, gender, hispanic, race, cell_have, cell_pays, cell_talk_minutes,
+        marital_5_cat, n_child, edu_19_cat, ged, employ_9_cat, veteran, 
+        sexual_orientation, transgender, homeless_periods, jail_lifetime_n
+      ),
+      .f = function(x) {
+        # Use value labels from SPSS as factor labels. 
+        vals <- pull(all_visits, {{ x }})
+        levs <- attr(vals, "labels")
+        labs <- names(levs)
+        name_f <- paste(quo_name({{ x }}), "f", sep = "_")
+        tibble(!!name_f := factor(vals, levs, labs))
+      }
+    )
+  )
+```
+
+```{r}
+dim(all_visits) # 258 2746
+```
+
+## Reshape wide to long
+
+The visit variable is currently in wide form. Make longer so that each row represents a unique person/visit combination.
+
+2020-12-14, from Joe: Missing date in TODAY_V. Sometimes QDS did not capture the date for some odd reason. If there is data in VISIT_V or GROUP then the visit occurred. If they are missing data in both of those variables then the visit likely didn’t occur or it happened in REDCap. Below are the records and visits that occurred in REDCap.
+
+2235       Visit 4
+2237       Visit 4
+2238       Visit 4
+2247       Visit 4
+2248       Visit 4
+2249       Visit 3
+2252       Visit 3
+
+
+NOTE: "If there is data in VISIT_V or GROUP then the visit occurred." can't be right because they are assigned group at visit two. So, they could easily have no date and have been assigned to a group, but not yet attended visit 3. Visit 3 should be 0, not 1. So, we can only use group assignment as a criteria for visits 1 and 2. In other words, if they have no date for visit 2 and no "visit_v" identifier for visit 2, but they have group identifier, then we will say they attended visit 2.
+
+```{r}
+all_visits <- all_visits %>% 
+  pivot_longer(
+    cols = c(starts_with("today"),starts_with("visit")),
+    names_to = c(".value", "value"),
+    names_pattern = "([a-z]+)_v([1-5])"
+  ) %>% 
+  # Rename columns
+  rename(
+    visit = value,
+    date = today,
+    attend_visit = visit
+  ) %>% 
+  # Create a calculated version of attend visit using the criteria Joe sent
+  # (See above)
+  mutate(attend_visit_c = case_when(
+    # If there is a date then they attended. I checked and there aren't any
+    # cases where there is a date and attend_visit is zero, but I'm putting
+    # this rule in anyway.
+    !is.na(date) ~ 1L,
+    # If there is data in VISIT_V or GROUP then the visit occurred (see above).
+    attend_visit == 1 ~ 1L,
+    !is.na(group) & visit <= 2 ~ 1L,
+    # Add the Redcap cases.
+    id == 2235 & visit == 4 ~ 1L,
+    id == 2237 & visit == 4 ~ 1L,
+    id == 2238 & visit == 4 ~ 1L,
+    id == 2247 & visit == 4 ~ 1L,
+    id == 2248 & visit == 4 ~ 1L,
+    id == 2249 & visit == 3 ~ 1L,
+    id == 2252 & visit == 3 ~ 1L,
+    # Otherwise, they didn't attend (yet).
+    TRUE ~ 0L
+  )) %>% 
+  # Reorder columns
+  select(id, group, date, visit, attend_visit, attend_visit_c, everything())
+  
+  # For data checking
+  # filter(is.na(date) & attend_visit == 1)
+  # filter(attend_visit != attend_visit_c)
+```
+
+```{r}
+dim(all_visits) # 1290 2740
+```
+
+
+# Filter out rows in the table
+
+2020-12-08, from Michael: Can you start by recreating a baseline table with all the variables below (use all participants to date that have completed the baseline and randomization visits)?
+
+## Select people who were randomized only
+
+```{r}
+all_visits_randomized <- all_visits %>% 
+  filter(group %in% 1:3)
+```
+
+```{r}
+dim(all_visits_randomized) # 880 2740
+```
+
+## Select baseline visits only
+
+```{r}
+visit_1_randomized <- all_visits_randomized %>% 
+  filter(visit == 1)
+```
+
+```{r}
+dim(visit_1_randomized) # 176 2740
+```
+
+## Keep columns of interest
+
+This is strictly necessary, but it makes the data easier to work with.
+
+```{r}
+visit_1_randomized <- visit_1_randomized %>% 
+  select(
+    id:date, gender_f, hispanic_f, race_f, age, cell_have_f, cell_pays_f, 
+    cell_talk_minutes_f, marital_5_cat_f, n_child_f, edu_19_cat_f, employ_9_cat_f,
+    ins_6_cat_f, veteran_f, sexual_orientation_f, mms_total, homeless_time_total,
+    homeless_current_total, homeless_periods_f, homeless_age_first_time, 
+    homeless_reason_13_cat_f, jail_time_total_c
+  )
+```
+
+```{r}
+dim(visit_1_randomized) # 176 24
+```
+
+
+
+# Analysis
+
+## Continuous variables
+
+For now, we'll get the mean with confidence interval and median with confidence interval.
+
+Useful website: https://stats.stackexchange.com/questions/21103/confidence-interval-for-median
+
+### Helper function for median and CI
+
+```{r}
+median_ci <- function(.data, .x) {
+  .data %>% 
+    summarise(
+      var = !!quo_name(enquo(.x)),
+      n   = sum(!is.na({{.x}})),
+      n_miss = sum(is.na({{.x}})),
+      median = median({{.x}}, na.rm = TRUE),
+      lcl = sort({{.x}})[qbinom(.025, length({{.x}}), 0.5)],
+      ucl = sort({{.x}})[qbinom(.975, length({{.x}}), 0.5)]
+    )
+}
+
+# # For testing
+# visit_1_randomized %>% 
+#   median_ci(age)
+```
+
+### Helper function for joing mean stats and median stats
+
+```{r}
+mean_median_ci <- function(.data, .x, .digits) {
+  mean_stats <- .data %>% 
+    mean_table({{.x}}) %>% 
+    freq_format("mean (lcl - ucl)", digits = .digits) %>% 
+    select(var = response_var, n, mean_ci = formatted_stats) 
+    
+  median_stats <- .data %>%
+    median_ci({{.x}}) %>% 
+    freq_format("median (lcl - ucl)", digits = 1) %>% 
+    select(var, median_ci = formatted_stats)
+  
+  # Join them together
+  out <- left_join(mean_stats, median_stats, by = "var")
+  out
+}
+
+# # For testing
+# visit_1_randomized %>% 
+#   mean_median_ci(age, 1)
+```
+
+### Loop over all continuous vars
+
+```{r}
+cont_stats <- map_df(
+  quos(
+    age, mms_total, homeless_time_total, homeless_current_total, 
+    homeless_age_first_time, jail_time_total_c
+  ), 
+  function(x) {
+    visit_1_randomized %>%
+      mean_median_ci({{x}}, 1)
+  }
+)
+```
+
+### Change row headers
+
+```{r}
+cont_stats <- cont_stats %>% 
+  mutate(var = case_when(
+    var == "age" ~ "Age (years)",
+    var == "mms_total" ~ "MMSE Total Score",
+    var == "homeless_time_total" ~ "Lifetime total time homeless (months)",
+    var == "homeless_current_total" ~ "Current total time homeless (months)",
+    var == "homeless_age_first_time" ~ "Age when first became homeless (years)",
+    var == "jail_time_total_c" ~ "Lifetime total time in jail or prison (years)",
+    TRUE ~ var
+  ))
+```
+
+### Make flextable
+
+```{r}
+cont_stats_ft <- cont_stats %>% 
+  flextable()
+```
+
+### Format flextable
+
+```{r}
+cont_stats_ft <- cont_stats_ft %>% 
+  # Change column headers
+  set_header_labels(
+    var = "Variable",
+    n = "n",
+    mean_ci = "Mean (95% CI)",
+    median_ci = "Median (95% CI)"
+  ) %>% 
+  # Change column widths
+  width(width = 1.63) %>% 
+  # Add title to top of table
+  # Add a blank title line to top of table first
+  add_header_lines("") %>% 
+  # Use compose to bold "Table #."
+  flextable::compose(
+    i = 1, part = "header",
+    value = as_paragraph(
+      as_chunk(
+        "Table 1. ", props = fp_text(
+          font.size = 11, bold = TRUE, font.family = "Times New Roman"
+        )
+      ),
+      "Descriptive statistics for continuous variables at baseline."
+    ),
+  ) %>% 
+  # Left align title
+  align(align = "left", part = "header") %>%
+  # Left align first column
+  align(j = 1, align = "left", part = "body") %>%
+  # Center align remaining columns
+  align(j = 2:4, align = "center", part = "all") %>%
+  # Change font to TNR 11
+  font(fontname = "Times New Roman", part = "all")
+```
+
+
+## Categorical variables
+
+### Loop over all categorical vars
+
+```{r}
+cat_stats <- map_df(
+  quos(
+    gender_f, hispanic_f, race_f, cell_have_f, cell_pays_f, cell_talk_minutes_f, 
+    marital_5_cat_f, n_child_f, edu_19_cat_f, employ_9_cat_f, ins_6_cat_f, 
+    veteran_f, sexual_orientation_f, homeless_periods_f, homeless_reason_13_cat_f
+  ), 
+  function(x) {
+    visit_1_randomized %>%
+      filter(!is.na({{x}})) %>% 
+      freq_table({{x}}) %>%
+      freq_format(recipe = "n (percent)", digits = 1) %>%
+      select(var, cat, formatted_stats) %>%
+      # Add a row with the var name only
+      add_row(var = quo_name(x), .before = 1) %>% 
+      # Add blank row below
+      add_row(var = "", cat = "", formatted_stats = "")
+  }
+) %>% 
+  # Drop the final empty row
+  slice(-n())
+```
+
+### Change row headers
+
+```{r}
+cat_stats <- cat_stats %>%
+  mutate(var = case_when(
+    var == "gender_f" ~ "Gender",
+    var == "race_f" ~ "Race",
+    var == "hispanic_f" ~ "Hispanic ethnicity",
+    var == "cell_have_f" ~ "Have cell phone",
+    var == "cell_pays_f" ~ "Who pays for cell phone",
+    var == "cell_talk_minutes_f" ~ "Talk minutes on cell plan",
+    var == "marital_5_cat_f" ~ "Marital status",
+    var == "n_child_f" ~ "Number of children",
+    var == "edu_19_cat_f" ~ "Completed formal education",
+    var == "employ_9_cat_f" ~ "Employment status",
+    var == "ins_6_cat_f" ~ "Insurance",
+    var == "veteran_f" ~ "Veteran status",
+    var == "sexual_orientation_f" ~ "Sexual orientation",
+    var == "homeless_periods_f" ~ "Lifetime separate periods of homelessness",
+    var == "homeless_reason_13_cat_f" ~ "Reason for current homelessness",
+    TRUE ~ var
+  ))
+```
+
+### Slide categories over
+
+```{r}
+cat_stats <- cat_stats %>%
+  mutate(
+    # Slide categories over
+    var = if_else(is.na(cat), var, cat)
+  ) %>%
+  select(-cat)
+```
+
+### Make flextable
+
+```{r}
+cat_stats_ft <- cat_stats %>% 
+  flextable()
+```
+
+### Format flextable
+
+```{r}
+# Use for bolding below
+header_fmt <- fp_text(font.size = 11, bold = TRUE, font.family = "Times New Roman")
+
+cat_stats_ft <- cat_stats_ft %>% 
+  # Change column headers
+  set_header_labels(
+    var = "Variable",
+    formatted_stats = "n (percent)"
+  ) %>% 
+  # Change column widths
+  width(width = c(4.88, 1.63)) %>% 
+  # Add title to top of table
+  # Add a blank title line to top of table first
+  add_header_lines("") %>% 
+  # Use compose to bold "Table #."
+  flextable::compose(
+    i = 1, part = "header",
+    value = as_paragraph(
+      as_chunk(
+        "Table 2. ", props = fp_text(
+          font.size = 11, bold = TRUE, font.family = "Times New Roman"
+        )
+      ),
+      "Descriptive statistics for categorical variables at baseline."
+    ),
+  ) %>% 
+  # Left align title
+  align(align = "left", part = "header") %>%
+  # Left align first column
+  align(j = 1, align = "left", part = "body") %>%
+  # Center align remaining columns
+  align(j = 2, align = "center", part = "all") %>%
+  # Change font to TNR 11
+  font(fontname = "Times New Roman", part = "all")
+```
+
+
+# Add tables to Word document
+
+```{r}
+descriptive_stats <- read_docx("table_big_descriptive_template.docx") %>%
+  # Add the total n
+  body_replace_text_at_bkm(
+    bookmark = "n_randomized",
+    value = paste0(" ", nrow(visit_1_randomized))
+  ) %>% 
+  # Add date updated
+  body_replace_text_at_bkm(
+    bookmark = "date",
+    value = format(Sys.Date(), "%B %d, %Y")
+  )
+```
+
+Add table of continuous stats
+
+```{r}
+descriptive_stats <- descriptive_stats %>%
+  body_replace_flextable_at_bkm(
+    bookmark = "table_1",
+    value = cont_stats_ft
+  )
+```
+
+Add table of categorical stats
+
+```{r}
+descriptive_stats <- descriptive_stats %>%
+  body_replace_flextable_at_bkm(
+    bookmark = "table_2",
+    value = cat_stats_ft
+  )
+```
+
+```{r}
+print(
+  descriptive_stats, 
+  "L2C Baseline Descriptive Tables.docx"
+)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
