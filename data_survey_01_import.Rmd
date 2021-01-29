@@ -1,0 +1,2429 @@
+---
+title: "Import and manage Link2Care Survey Data"
+date: "2020-12-23"
+---
+
+This file is used to import the Link2Care follow-up visit survey data and do some initial data cleaning (e.g., create calculated variables). 
+
+**NOTE on data sources:**
+* Initially, I tried to separate importing the data from QDS, REDCap, and the Excel master log. However, that doesn't work very well because the three different data sources are so intertwined. For example, some people have visit 1 in QDS and visit 2 in REDCap. Further, the QDS data often doesn't contain every participant's group membership information (i.e., which study arm the participants were randomly assigned to). Therefore, we kind of need to import all three data sources and combine them to create complete follow-up visit survey data.
+
+* The QDS data is exported from QDS in SPSS data format. The data has to be exported by visit (i.e., v1, v2, ... v5). The SPSS data is then added to the UTHealth servers.
+
+* Some of the v3-v5 visits are also done using REDCap. That data is exported from REDCap and added to the UTHealth servers. Because I'm only creating tables of statistics from baseline visit right now, I'm not currently importing and cleaning the REDCap data. Correction, I still need the REDCap data for group membership at v3-v5.
+
+**NOTE on Kiteworks:**
+Currently, I'm importing all of this data from the UTHealth server. The data should also be available on Kiteworks if you are unable to connect to the server for some reason.
+
+
+# 📦Load packages
+
+```{r}
+library(dplyr, warn.conflicts = FALSE)
+library(haven, warn.conflicts = FALSE)
+library(readxl, warn.conflicts = FALSE)
+library(purrr, warn.conflicts = FALSE)
+library(tidyr, warn.conflicts = FALSE)
+library(stringr, warn.conflicts = FALSE)
+library(forcats, warn.conflicts = FALSE)
+```
+
+# 🌎Connect to UTH server 
+
+```{bash}
+# Don't drill all the way down to live documents because not all of the data is in live documents.
+open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/'
+```
+
+Paths to the needed files on the UTHealth server
+
+```{r}
+qds_spss_path    <- "/Volumes/Link2Care/Participant Data/SPSS Data/QDS Data/"
+redcap_spss_path <- "/Volumes/Link2Care/Participant Data/REDCap/All_Visits_Redcap.sav"
+master_log_path  <- "/Volumes/Link2Care/Live Documents/L2C_Master_Log.xlsm"
+```
+
+
+# 📥Import data 
+
+## Import QDS data
+
+```{r}
+walk(
+  .x = c(1:5),
+  .f = function(x) {
+    new_nm <- paste0("v", x)
+    sav_nm <- paste0("Visit_", x, "_Data.SAV")
+    path <- paste0(qds_spss_path, sav_nm)
+    assign(new_nm, read_sav(path), envir = .GlobalEnv)
+  }
+)
+```
+
+```{r}
+walk(
+  .x = c(1:5),
+  .f = function(x) {
+    df_nm <- paste0("v", x)
+    df <- get(df_nm, envir = .GlobalEnv)
+    # Print a message for when this file is being sourced
+    cat(
+      paste0(Sys.Date(), ":"),
+      df_nm, "imported with", nrow(df), "rows and", ncol(df), "columns.\n"
+    )
+  }
+)
+
+# These are expected to change over time as we add more people to the study.
+# However, drastic changes from month-to-month, or even quarter-to-quarter,
+# should initiate an investigation into what's going on.
+# 2021-01-28: v1 imported with 263 rows and 803 columns.
+# 2021-01-28: v2 imported with 246 rows and 199 columns.
+# 2021-01-28: v3 imported with 178 rows and 526 columns.
+# 2021-01-28: v4 imported with 136 rows and 582 columns.
+# 2021-01-28: v5 imported with 129 rows and 630 columns.
+```
+
+**NOTE on converting to lowercase:** Don't convert to lowercase in this script. Leaving the column names in uppercase makes it easier to use the Word code book and the SPSS code that Michael wrote. The variables that I'm creating and using for analysis are all given lower, snake case names anyway. It should be the case that any variable that isn't in lowercase is a variable I'm not using in analysis.
+
+## Import REDCap data
+
+In some cases, we will need to supplement the QDS data with data that is captured in REDCap.
+
+For now, keep only the id and group from REDCap. We may need other information in the future.
+
+```{r message=FALSE}
+redcap <- read_sav(redcap_spss_path) %>% 
+  select(id = record_id, visit, group) %>% 
+  arrange(id, visit)
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "REDCap imported with", nrow(redcap), "rows and", ncol(redcap), "columns.\n"
+)
+
+# 2021-01-28: REDCap imported with 12 rows and 3 columns.
+```
+
+## Import Excel master log
+
+This is primarily to supplement the group membership data (i.e., L2C, UCM, UCM+SP). Group membership is randomly assigned at visit 2, but it is not recorded in QDS until visit 3 and beyond. Therefore, if we only rely on QDS data, it appears as though many participants haven't been randomized to a group even though they have. The study staff manually tracks group assignment in the Excel Master Log. We can use that data to cross-check and impute group membership. It is not ideal, but it seems to be the best option we have.
+
+For now, keep only the id and group from the master log. We may need other information in the future.
+
+```{r}
+master_log <- read_excel(
+  master_log_path, 
+  sheet = "Screened In",
+  col_names = c("id", "group"),
+  col_types = c("text", rep("skip", 6), "text", rep("skip", 25)),
+  skip = 1
+) %>% 
+  # Coerce group to numeric so that it can be combined with the QDS data.
+  mutate(
+    group = case_when(
+      group == "UCM"    ~ 1,
+      group == "UCM+SP" ~ 2,
+      group == "L2C"    ~ 3
+    )
+  )
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "Master log imported with", nrow(master_log), "rows and", ncol(master_log),
+  "columns.\n"
+)
+
+# 2021-01-28: Master log imported with 263 rows and 2 columns.
+```
+
+```{r}
+rm(master_log_path, qds_spss_path, redcap_spss_path)
+```
+
+
+# 🚧Data management 
+
+**NOTE on converting to lowercase:** 
+* Don't convert all variable names to lowercase. Leaving the column names in uppercase makes it easier to use the Word code book and the SPSS code that Michael wrote. 
+* Make all calculated/created variables that will be used for analysis using lowercase names.
+
+## Create a single group variable
+
+Instead of group_v3, group_v4, and group_v5 (which can be conflicting). 
+
+First, gather all of the group information from the v3-v5 QDS data. We aren't using v1 and v2 because group membership isn't in the QDS survey at v1 and v2 (which is part of the problem).
+
+```{r}
+# Stack (row bind) id and group from each of v3, v4, and v5
+group_qds_long <- map_dfr(
+  .x = paste0("v", 3:5),
+  .f = function(x) {
+    get(x, envir = .GlobalEnv) %>% 
+      select(id = SUBJECT, group = GROUP) %>% 
+      mutate(visit = str_extract(x, "\\d") %>% as.integer())
+  }) %>% 
+  arrange(id, visit) %>% 
+  
+  # Fill values of group down within id
+  group_by(id) %>% 
+  fill(group, .direction = "downup") %>% 
+  
+  # Now check for multiple group values within id
+  mutate(mult_group = unique(group) %>% length() > 1) %>% 
+  ungroup()
+```
+
+Manually review id's with multiple group values
+
+```{r}
+group_qds_long %>% 
+  filter(mult_group == TRUE)
+```
+
+**NOTE on multiple groups per id:**
+Manually fix group value and let James know that they need to be fixed in QDS. After they are fixed, they will no longer show up here. Still, use these notes to keep a record.
+
+2021-01-11, From James: 
+* P2023: V5 grouping entered incorrectly on QDS. Entered 'L2C' (3) instead of 'UCM+SP' (2) 
+* P2057: V3 grouping entered incorrectly on QDS. Entered 'UCM' (1) instead of 'L2C' (3) 
+* P2136: V5 grouping entered incorrectly on QDS. Entered 'UCM+SP' (2) instead of 'L2C' (3)
+
+```{r}
+# Do it this way instead of with dplyr, so you don't have to mess with class
+group_qds_long[group_qds_long$id == 2023, "group"] <- 2
+group_qds_long[group_qds_long$id == 2057, "group"] <- 3
+group_qds_long[group_qds_long$id == 2136, "group"] <- 3
+```
+
+Do one more check for multiple group values
+
+Wrapping this data check in a stop function for when this file is sourced.
+
+```{r}
+# For data checks
+check_qds_group_values <- group_qds_long %>% 
+  group_by(id) %>% 
+  # Now check for multiple group values within id
+  filter(unique(group) %>% length() > 1)
+
+if (nrow(check_qds_group_values) > 0) {
+  stop("At least one participant in the QDS data is assigned to more than one group. Please investigate further in data_survey_01_import.Rmd.")
+}
+```
+
+Now, the value of group is the same in every row for each id. So, just use the first row for each id.
+
+```{r}
+group_qds <- group_qds_long %>% 
+  group_by(id) %>% 
+  filter(row_number() == 1) %>% 
+  select(id, group) %>% 
+  ungroup()
+```
+
+### REDCap: Check for differences in the REDCap data
+
+Are the group values consistent in REDCap?
+
+Wrapping this data check in a stop function for when this file is sourced.
+
+```{r}
+# For data checks
+check_redcap_group_values <- redcap %>% 
+  group_by(id) %>% 
+  filter(unique(group) %>% length() > 1)
+
+if (nrow(check_redcap_group_values) > 0) {
+  stop("At least one participant in the REDCap data is assigned to more than one group. Please investigate further in data_survey_01_import.Rmd.")
+}
+```
+
+Yes, so now we don't need to worry about visit number. We can just keep one row per id, and check to make sure that group in REDCap matches group in the QDS data.
+
+```{r}
+redcap <- redcap %>% 
+  distinct(id, group)
+```
+
+Manually check for differences between group assignment in QDS and REDCap.
+
+```{r}
+redcap %>% 
+  left_join(
+    group_qds %>% 
+      select(id, group) %>% 
+      # To prevent type mismatch error:
+      mutate(id = as.character(id)),
+    by = "id",
+    suffix = c("_rc", "_qds")
+  ) %>% 
+  rowwise() %>% 
+  filter(length(unique(c_across(group_rc:group_qds))) > 1)
+```
+
+Manually fill in data values in the QDS data.
+
+```{r}
+# Do it this way instead of with dplyr, so you don't have to mess with class
+group_qds <- group_qds %>% 
+  add_row(id = 2252, group = 2) %>% 
+  add_row(id = 2253, group = 3) %>%
+  add_row(id = 2260, group = 2)
+```
+
+Wrapping this data check in a stop function for when this file is sourced.
+
+```{r}
+# For data checks
+check_qds_redcap_group_diffs <- redcap %>% 
+  left_join(
+    group_qds %>% 
+      select(id, group) %>% 
+      # To prevent type mismatch error:
+      mutate(id = as.character(id)),
+    by = "id",
+    suffix = c("_rc", "_qds")
+  ) %>% 
+  rowwise() %>% 
+  filter(length(unique(c_across(group_rc:group_qds))) > 1)
+
+if (nrow(check_qds_redcap_group_diffs) > 0) {
+  stop("At least one participant is assigned to different groups in the QDS and REDCap data. Please investigate further in data_survey_01_import.Rmd.")
+}
+```
+
+### Master log: Supplement with Excel master log data
+
+Manually check for differences between group assignment in QDS and master log.
+
+```{r}
+check_qds_ml_group_diffs <- master_log %>%
+  left_join(
+    group_qds %>% 
+      select(id, group) %>% 
+      # To prevent type mismatch error:
+      mutate(id = as.character(id)),
+    by = "id",
+    suffix = c("_ml", "_qds")
+  ) %>% 
+  rowwise() %>% 
+  filter(length(unique(c_across(group_ml:group_qds))) > 1)
+```
+
+There are a bunch of id's with group membership data in master log, but not in QDS. Mostly, because these people haven't completed a v3 in QDS yet. We will go ahead and fill in the missing group data from the master log.
+
+Below, we will formally check to see if there are any conflicting group values aside from group simply being missing in the QDS data. We will also wrap this data check in a stop function for when this file is sourced.
+
+```{r}
+# For data checks
+check_qds_ml_group_diffs_not_na <- check_qds_ml_group_diffs %>% 
+  filter(!is.na(group_qds))
+
+if (nrow(check_qds_ml_group_diffs_not_na) > 0) {
+  stop("At least one participant is assigned to different groups in the QDS and master log data. This not simply due to a missing group value in master log. Please investigate further in data_survey_01_import.Rmd.")
+}
+```
+
+Now there are no "conflicts" between group in the QDS data and group in the master log. The differences were all simply due to the fact that there is no group membership information at all in QDS for these participants. Therefore, we can just go ahead and row bind. In the future, if there are conflicts between group_diffs\$group_diffs and group_diffs\$group_qds, we will need to manage them.
+
+```{r}
+group_qds <- group_qds %>% 
+  bind_rows(
+    check_qds_ml_group_diffs %>% 
+      select(id, group = group_ml) %>% 
+      # To prevent type mismatch error:
+      mutate(id = as.numeric(id))
+  ) %>% 
+  arrange(id)
+```
+
+How many participants are assigned to a group?
+
+```{r}
+n_randomized <- group_qds %>% 
+  filter(!is.na(group)) %>% 
+  nrow()
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"), n_randomized, 
+  "participants have been randomized to a treatment group.\n"
+)
+
+# 2021-01-28: 244 participants have been randomized to a treatment group.
+```
+
+At this point, each person who was assigned to a group should have one, and only one, group value.
+
+```{r}
+rm(
+  check_qds_group_values, check_qds_ml_group_diffs, 
+  check_qds_ml_group_diffs_not_na, check_qds_redcap_group_diffs, 
+  check_redcap_group_values, group_qds_long, master_log, redcap, n_randomized
+)
+```
+
+## Fix variable suffix errors
+
+Currently, there is a gender column in the v3, 4, and 5 data frames that doesn't have a \_v3, \_v4, and \_v5 suffix. This causes R to create gender.x, gender.y, etc. columns when we join the data frames below.
+
+I noticed there are some other variables with the same issue. I'll go ahead and add \_vX to those as well.  
+
+```{r}
+walk(
+  .x = c("GENDER", "GROUP"),
+  .f = function(y) {
+    walk(
+      .x = c(1:5),
+      .f = function(x) {
+        df_nm <- paste0("v", x)
+        df <- get(df_nm, envir = .GlobalEnv)
+        new_nm <- paste0(y, "_V", x)
+        names(df)[names(df) == y] <- new_nm
+        assign(df_nm, df, envir = .GlobalEnv)
+      }
+    )
+  }
+)
+
+# For testing
+# sort(names(v4))
+```
+
+```{r}
+# The suffixes for the HEIGHT and WEIGHT variables don't have a regular suffix pattern. We have to change them manually in each data set.
+v1 <- v1 %>% rename(HEIGHT_V1 = HEIGHT, WEIGHT_V1 = WEIGHT)
+v3 <- v3 %>% rename(HEIGHT_V3 = HEIGHT_3, WEIGHT_V3 = WEIGHT_3)
+v4 <- v4 %>% rename(HEIGHT_V4 = HEIGHT, WEIGHT_V4 = WEIGHT_4)
+v5 <- v5 %>% rename(WEIGHT_V5 = WEIGHT_5)
+```
+
+Fix visit 5 variable suffixes
+
+It looks like there are 75 variables in the V5 QDS data that are incorrectly named. They include "V4" in their names instead of "V5", or the end with "_V4" instead of "_V5". The variables include BH10-BH18, DEM6-DEM14, PHQ1-PHQ15, and T36-T40.
+
+Additionally, HS1-HS12 (Self rated health) have a _V1 suffix instead of a _V5 suffix.
+
+2021-01-28: I don't actually see this problem anymore. Leaving the commented out code just in case we need it again in the future.
+
+```{r}
+# v5 <- rename_with(v5, ~ str_replace_all(.x, "V4", "V5"))
+# v5 <- v5 %>% rename_with(
+#   .fn   = ~ str_replace_all(.x, "V1", "V5"),
+#   .cols = all_of(paste0("HS", 1:12, "_V1"))
+# )
+
+# For testing
+# sort(names(v5))
+```
+
+## Join QDS data sets together
+
+**NOTE:** Originally, I considered row binding. However, the differing columns and column names make this likely to be more trouble than it's worth. 
+
+```{r}
+all_visits <- v1 %>% 
+  left_join(v2, by = "SUBJECT") %>% 
+  left_join(v3, by = "SUBJECT") %>% 
+  left_join(v4, by = "SUBJECT") %>% 
+  left_join(v5, by = "SUBJECT")
+```
+
+```{r}
+# The number of rows will change over time as we recruit people.
+# However, we should never end up with more rows in the combined data than
+# exist in the v1 data.
+# Also, any changes to the number of columns should initiate an investigation
+# into why.
+dim(all_visits) # 263 2736
+```
+
+```{r}
+rm(v1, v2, v3, v4, v5)
+```
+
+## Add group to the combined QDS data
+
+Add the group membership variable we created above.
+
+```{r}
+all_visits <- all_visits %>% 
+  left_join(group_qds, by = c("SUBJECT" = "id"))
+```
+
+```{r}
+# The number of rows will change over time as we recruit people.
+# However, we should never end up with more rows in the combined data than
+# exist in the v1 data.
+# Also, any changes to the number of columns should initiate an investigation
+# into why.
+dim(all_visits) # 263 2737
+```
+
+```{r}
+rm(group_qds)
+```
+
+## Create an id variable
+
+We will use participant id (currently called "SUBJECT") a lot for data cleaning and analysis. Let's convert it to the lowercase name "id" and make it the first column in the data.
+
+```{r}
+all_visits <- select(all_visits, id = SUBJECT, group, everything())
+```
+
+## Remove columns of missing data
+
+There are quite a few columns that have missing values for all rows. We
+drop those columns below.
+
+```{r}
+all_visits <- all_visits %>% 
+  select(
+    where(
+      ~ !all(is.na(.x))
+    )
+  )
+```
+
+```{r}
+ncol(all_visits) # 2713. So, 2737 - 2713 = 24 columns dropped.
+```
+
+## 🧮Recode/calculate variables by section
+
+1. Make variable names more descriptive
+2. Change skip values (e.g., 9, 99, etc.) to missing
+3. Make factor versions of categorical variables
+
+**NOTE:** Can't put this section higher because we need to do the steps above first.
+
+**NOTE on changing variable names:** The variable names aren't very descriptive. At first, my plan was to resist the urge to change them in this file. My thought was that I wanted the data that comes out of this file to have variable names that match the variables names in the codebook files. Then I realized, however, that none of the calculated variables will be in the codebook files anyway. Also, there isn't a codebook file for the combined survey data set. So, we can go ahead and rename variables in this file. We will either have to create a new codebook for the combined data or just live without one. 
+
+**NOTE on calculating over multiple visits:** Right now (2021-01-26), I'm only using this data to calculate baseline descriptive stats. Meaning, I'm only concerned with values at visit 1 and visit 2 (i.e., for some questions that weren't asked at visit 1). In the future, we will probably need to rewrite this code to iterate over multiple visits as well. For now, I'm not worrying about it.
+
+### Helper functions
+
+#### Convert 9's (or 7's, or 8's) to NA's and then add attributes back to vector.
+
+First, I have to remove the "have_labelled" and "vctrs_vctr" class from each variable for if_else() to work.
+
+But, I also need to keep the label attributes. They are erased when I convert the 9's to NA.
+
+```{r}
+nines_to_na <- function(x, nines) {
+  # Store the attributes
+  x_attr <- attributes(x)
+  # Remove "haven_labelled" and "vctrs_vctr" from class list so that if_else()
+  # will work.
+  # Set class of column to whatever is remaining in the class list.
+  classes <- class(x)
+  class(x) <- classes[!class(x) %in% c("haven_labelled", "vctrs_vctr")]
+  # Convert 9's to NA's
+  x <- if_else(x %in% nines, NA_real_, x)
+  # Add attributes back to the vector
+  attributes(x) <- x_attr
+  # Return x
+  x
+}
+
+# For testing
+# test <- all_visits
+# test$SQ_13[1] <- 7
+# test$SQ_13[3] <- 9
+# test$SQ_13[4] <- 99
+# test %>% 
+#   select(SQ_13) %>% 
+#   mutate(SQ_13_test = nines_to_na(SQ_13, c(7, 9, 99))) %>% 
+#   pull(SQ_13_test) %>% 
+#   attributes()
+# rm(test)
+```
+
+#### Use SPSS labels as factor levels for categorical variables
+
+```{r}
+# For use inside across()
+spss_to_fs <- function(x) {
+  levs <- attr(x, "labels")
+  labs <- names(levs)
+  x_f <- factor(x, levs, labs)
+  x_f
+}
+
+# For testing
+# all_visits %>%
+#   select(SQ_2, SQ_3) %>%
+#   mutate(
+#     across(
+#       everything(),
+#       spss_to_fs,
+#       .names = "{col}_f"
+#     )
+#   )
+```
+
+### 📄Template
+
+Save for cleaning additional variables below.
+
+```{r}
+# all_visits %>%
+#   # For data checks
+#   select() %>%
+#   # X:Y doesn't immediately follow Z
+#   # Make variable names more descriptive
+#   rename(
+# 
+#   ) %>%
+# 
+#   # Change skip values (e.g., 9, 99, etc.) to missing
+#   mutate(
+#     across(
+#       c(),
+#       ~ nines_to_na(.x, )
+#     )
+#   ) %>%
+# 
+#   # Make factor versions of categorical variables
+#   mutate(
+#     across(
+#       c(),
+#       spss_to_fs,
+#       .names = "{col}_f"
+#     )
+#   )
+```
+
+### 1. Administrative and Exclusion Criteria
+
+* Visit 1, Section 1, Q1-Q19
+* Visit 2, Q1-Q7
+
+Date and Time Wizard: Time_to_complete
+
+```{r}
+# Ported from Visit 1.sps
+all_visits <- all_visits %>% 
+  mutate(
+    time_to_complete_V1 = ENDTIME1 - CTIME_V1
+  )
+
+# VARIABLE LABELS
+attr(all_visits$time_to_complete_V1, "label") <- "finish time minus start time"
+```
+
+**NOTE on gender:**
+Gender does not always agree across visits. For now, we are just going to use gender at visit 1.
+
+```{r}
+all_visits <- all_visits %>%
+  # Make variable names more descriptive
+  rename(
+    gender_v1 = GENDER_V1,
+    hispanic = SQ_2,
+    race = SQ_3, # May have to change this to dem3v1
+    age = SQ_4
+  ) %>% 
+  # Make factor versions of categorical variables
+  mutate(
+    across(
+      c(gender_v1, hispanic, race),
+      spss_to_fs,
+      .names = "{col}_f"
+    )
+  )
+```
+
+### 2. Screening Questions (SQ)
+
+* Visit 1, Section 2, Q20-Q30
+
+**NOTE on SQ_18, Which of the following forms of media do you use?**
+We may eventually want to combine these into a "multiple forms" category.
+
+```{r}
+all_visits <- all_visits %>%
+  # For data checks
+  # select(SQ_12:SQ_21, SQ_18A:SQ_18I) %>% 
+  # SQ_18A:SQ_18I doesn't immediately follow SQ_18
+  # Make variable names more descriptive
+  rename(
+    cell_have = SQ_12, 
+    cell_pays = SQ_13, #9
+    cell_talk_minutes = SQ_14, #9
+    cell_smart = SQ_15, #9
+    cell_data_plan = SQ_16, #9
+    cell_number_change = SQ_17, #999
+    media_use_email = SQ_18A,
+    media_use_facebook = SQ_18B,
+    media_use_google_plus = SQ_18C,
+    media_use_twitter = SQ_18D,
+    media_use_blogs = SQ_18E,
+    media_use_instagram = SQ_18F,
+    media_use_snapchat = SQ_18G,
+    media_use_linkedin = SQ_18H,
+    media_use_none = SQ_18I,
+    access_internet = SQ_19,
+    facebook_active = SQ_20,
+    facebook_check = SQ_21, #9
+  ) %>%
+  
+  # Change skip values (e.g., 9, 99, etc.) to missing
+  mutate(
+    across(
+      c(cell_pays:cell_data_plan, facebook_check),
+      ~ nines_to_na(.x, 9)
+    ),
+    across(
+      cell_number_change,
+      ~ nines_to_na(.x, 999)
+    )
+  ) %>% 
+  
+  # Make factor versions of categorical variables
+  mutate(
+    across(
+      c(
+        cell_have:cell_number_change, media_use_email:media_use_none,
+        access_internet:facebook_check
+      ),
+      spss_to_fs,
+      .names = "{col}_f"
+    )
+  )
+```
+
+### 3. Mini Mental Status Exam Score (MMS)
+
+* Visit 1, Section 3, Q31-Q50
+
+```{r}
+# Ported from Visit 1.sps
+all_visits <- all_visits %>% 
+  mutate(
+    mms_score = MMS_1 + MMS_2 + RECAL1 + COUNT + RECAL2 + OBJECT + PAPER + 
+                MMS_11 + MMS_10 + MMS_9 + MMS_7,
+    mms_total = case_when(
+      COUNT > 0  ~ mms_score,
+      COUNT == 0 ~ MMS_S
+    ),
+    mms_severity = case_when(
+      mms_total <= 17 ~ 2,
+      mms_total <= 23 ~ 1,
+      mms_total >  23 ~ 0
+    ),
+    mms_severity_f = factor(
+      mms_severity, 0:2, 
+      c(
+        "No cognitive impairment", "Mild cognitive impairment", 
+        "Severe cognitive impairment"
+      )
+    )
+  )
+
+# VARIABLE LABELS 
+attr(all_visits$mms_score, "label") <- "MINI Mental State Exam score when participant is unable to count backwards from 100 by 7s and  are asked to spell (world) backwards"
+attr(all_visits$mms_total, "label") <- "MINI Mental State Exam total score"
+attr(all_visits$mms_severity, "label") <- "What is the liklihood of cognitive impairment?"
+
+# VALUE LABELS
+attr(all_visits$mms_severity, "labels") <- c(
+  "No cognitive impairment" = 0, "Mild cognitive impairment" = 1,
+  "Severe cognitive impairment" = 2
+)
+```
+
+### 4. Realm
+
+* Visit 1, Section 4, Q51-Q53
+
+### 5. Biological/Anthropometric Measures
+
+* Visit 1, Section 5, Q54-Q60
+
+```{r}
+# Ported from Visit 1.sps
+all_visits <- all_visits %>%
+  mutate(
+    weight_kg_V1 = WEIGHT_V1 * 0.453592,
+    height_meter_V1 = HEIGHT_V1 * 0.01,
+    height_meter_sq_V1 = height_meter_V1 * height_meter_V1,
+    BMI_V1= weight_kg_V1 / height_meter_sq_V1,
+    weight_status_V1 = case_when(
+      BMI_V1 < 18.5 ~ 0,
+      BMI_V1 >= 18.5 & BMI_V1 <= 24.99 ~ 1,
+      BMI_V1 >= 25 & BMI_V1 <= 29.99 ~ 2,
+      BMI_V1 >= 30 ~ 3
+    ),
+    obese_V1 = case_when(
+      weight_status_V1 == 0 | weight_status_V1 == 1 | weight_status_V1 == 2 ~ 0,
+      weight_status_V1 == 3 ~ 1
+    ),
+    ovrwt_obese_V1 = case_when(
+      weight_status_V1 == 0 | weight_status_V1 == 1 ~ 0,
+      weight_status_V1 == 2 | weight_status_V1 == 3 ~ 1
+    )
+  )
+
+# VARIABLE LABELS
+attr(all_visits$weight_kg_V1, "label") <- "Weight in kilograms"
+attr(all_visits$height_meter_V1, "label") <- "Height in meters"
+attr(all_visits$height_meter_sq_V1, "label") <- "Height in meters squared"
+attr(all_visits$BMI_V1, "label") <- "Body mass index"
+attr(all_visits$weight_status_V1, "label") <- "Weight categorized into underweight, normal, overweight, and obese"
+attr(all_visits$obese_V1, "label") <- "Obese"
+attr(all_visits$ovrwt_obese_V1, "label") <- "Overweight or obese"
+
+# VALUE LABELS 
+attr(all_visits$weight_status_V1, "labels") <- c(
+  "underweight" = 0, "normal" = 1, "overweight" = 2, "obese" = 3
+)
+attr(all_visits$obese_V1, "labels") <- c("not obese" = 0, "obese" = 1)
+attr(all_visits$ovrwt_obese_V1, "labels") <- c(
+  "not overweight or obese" = 0, "overweight or obese" = 1
+)
+```
+
+### 6. Socioeconomic Status/Demographic Questionnaires
+
+* Visit 1, Section 6, No questions
+
+### 7. Demographic/Background Information Questionnaire (DEM)
+
+* Visit 1, Section 7, Q61-Q96
+
+```{r}
+all_visits <- all_visits %>%
+  # For data checks
+  # select(DEM1V1:DEM18V1, DEM7V1A:DEM7V1E) %>%
+  # DEM7V1A:DEM7V1E doesn't immediately follow DEM7V1
+  # Make variable names more descriptive
+  rename(
+    marital_5_cat = DEM1V1, #9
+    n_child = DEM2V1, #99
+    edu_19_cat = DEM5V1, #99
+    ged = DEM5AV1, #9
+    employ_9_cat = DEM6V1, #99
+    ins_medicare = DEM7V1A, #9
+    ins_medicaid = DEM7V1B, #9
+    ins_military = DEM7V1C, #9
+    ins_private = DEM7V1D, #9
+    ins_none = DEM7V1E, #9
+    veteran = DEM15V1, #9
+    sexual_orientation = DEM17V1, #9
+    transgender = DEM18V1 #9
+  ) %>%
+  
+  # Change skip values (e.g., 9, 99, etc.) to missing
+  mutate(
+    across(
+      c(
+        marital_5_cat, ged, ins_medicare:ins_none, veteran, sexual_orientation,
+        transgender
+      ),
+      ~ nines_to_na(.x, 9)
+    ),
+    across(
+      c(n_child, edu_19_cat, employ_9_cat),
+      ~ nines_to_na(.x, 9)
+    )
+  ) %>%
+  
+  # Make factor versions of categorical variables
+  mutate(
+    across(
+      c(
+        marital_5_cat, n_child, edu_19_cat, ged, employ_9_cat, 
+        ins_medicare:ins_none, veteran, sexual_orientation, transgender
+      ),
+      spss_to_fs,
+      .names = "{col}_f"
+    )
+  )
+```
+
+Create a combined insurance variable
+
+```{r}
+all_visits <- all_visits %>% 
+  rowwise() %>% 
+  mutate(
+    ins_count = sum(c_across(ins_medicare:ins_private)),
+    ins_6_cat = case_when(
+      ins_count > 1 ~ 5, # Multiple
+      ins_medicare == 1 ~ 1, # Medicare
+      ins_medicaid == 1 ~ 2, # Medicaid
+      ins_military == 1 ~ 3, # Military
+      ins_private == 1 ~ 4, # Private
+      ins_none == 1 ~ 6 # None
+    ),
+    ins_6_cat_f = factor(
+      ins_6_cat, 1:6,
+      c("Medicare", "Medicaid", "Military", "Private", "Multiple types", "None")
+    )
+  ) %>% 
+  ungroup()
+```
+
+### 8. The Brief Homelessness Questionnaire (BH)
+
+* Visit 1, Section 8, Q97-Q122
+
+2020-12-24, from Michael: Use BH15V1 for number of times arrested.
+
+```{r}
+all_visits <- all_visits %>%
+  # For data checks
+  # select(BH1V1:BH4V1, BH4V1Y:BH4V1D, BH12AV1A:BH12AV1L, BH15V1) %>%
+  # BH4V1Y:BH4V1D doesn't immediately follow BH4V1D
+  # BH12AV1A:BH12AV1L doesn't immediately follow BH12AV1
+  # Make variable names more descriptive
+  rename(
+    homeless_time_total = BH1V1, #9999
+    homeless_periods = BH2V1, #9
+    homeless_age_first_time = BH3V1, #999
+    homeless_current_total = BH4V1, #9999
+    homeless_mental_treatment = BH9V1, #9
+    homeless_reason_not_homeless = BH12AV1A, #9
+    homeless_reason_lost_job = BH12AV1B, #9
+    homeless_reason_evicted = BH12AV1C, #9
+    homeless_reason_substance = BH12AV1D, #9
+    homeless_reason_mental_illness = BH12AV1E, #9
+    homeless_reason_medical_bills = BH12AV1F, #9
+    homeless_reason_family = BH12AV1G, #9
+    homeless_reason_legal = BH12AV1H, #9
+    homeless_reason_jail = BH12AV1I, #9
+    homeless_reason_natural_disaster = BH12AV1J, #9
+    homeless_reason_domestic_violence = BH12AV1K, #9
+    homeless_reason_other = BH12AV1L, #9
+    jail_lifetime_n = BH15V1 #99
+  ) %>%
+
+  # Change skip values (e.g., 9, 99, etc.) to missing
+  mutate(
+    across(
+      c(
+        homeless_periods, homeless_mental_treatment,
+        homeless_reason_not_homeless:homeless_reason_other
+      ),
+      ~ nines_to_na(.x, 9)
+    ),
+    across(
+      c(jail_lifetime_n),
+      ~ nines_to_na(.x, 99)
+    ),
+    across(
+      c(
+        homeless_age_first_time
+      ),
+      ~ nines_to_na(.x, 999)
+    ),
+    across(
+      c(homeless_time_total, homeless_current_total),
+     ~ nines_to_na(.x, 9999)
+    )
+  ) %>%
+
+  # Make factor versions of categorical variables
+  mutate(
+    across(
+      c(homeless_periods, homeless_mental_treatment, jail_lifetime_n),
+      spss_to_fs,
+      .names = "{col}_f"
+    )
+  )
+
+# VARIABLE LABELS
+attr(all_visits$homeless_time_total, "label") <- "What is the total amount of time you have been homeless in your lifetime? (Months)"
+attr(all_visits$homeless_periods_f, "label") <- "How many separate periods of homelessness have you had in your lifetime?"
+attr(all_visits$homeless_age_first_time, "label") <- "How old were you the first time you became homeless?"
+attr(all_visits$homeless_current_total, "label") <- "How long ago did the current period of homelessness begin? (Months)"
+attr(all_visits$homeless_mental_treatment_f, "label") <- "Are you currently receiving treatment for mental health problems (For example: Depression, Bipolar Disorder, Anxiety)?"
+attr(all_visits$jail_lifetime_n_f, "label") <- "During your lifetime, how many separate times have you been to jail or prison?"
+```
+
+Create a combined homelessness reasons variable
+
+```{r}
+all_visits <- all_visits %>% 
+  rowwise() %>% 
+  mutate(
+    homeless_reason_count = sum(c_across(homeless_reason_lost_job:homeless_reason_other)),
+    homeless_reason_13_cat = case_when(
+      homeless_reason_count > 1 ~ 12, # Multiple
+      homeless_reason_lost_job == 1 ~ 1, # Lost job
+      homeless_reason_evicted == 1 ~ 2, # Evicted
+      homeless_reason_substance == 1 ~ 3, # Substance
+      homeless_reason_mental_illness == 1 ~ 4, # Mental illness
+      homeless_reason_medical_bills == 1 ~ 5, # Medical
+      homeless_reason_family == 1 ~ 6, # Family
+      homeless_reason_legal == 1 ~ 7, # Legal
+      homeless_reason_jail == 1 ~ 8, # Jail
+      homeless_reason_natural_disaster == 1 ~ 9, # Natural disaster
+      homeless_reason_domestic_violence == 1 ~ 10, # Domestic violence
+      homeless_reason_other == 1 ~ 11, # Other
+      homeless_reason_not_homeless == 1 ~ 13, # Not homeless
+    ),
+    homeless_reason_13_cat_f = factor(
+      homeless_reason_13_cat, 1:13, c(
+        "Lost my job", "Evicted from house/apartment", 
+        "Substance use (alcohol or drugs)", "Mental illness", 
+        "Inability to pay medical bills", "Family problems", "Legal problems",
+        "Recently released from jail or prison", "Natural disaster",
+        "Domestic Violence", "Other", "Multiple reasons", "Not homeless"
+      )
+    )
+  ) %>% 
+  ungroup()
+
+# VARIABLE LABELS
+attr(all_visits$homeless_reason_13_cat_f, "label") <- "What are the reasons for your current homelessness?"
+```
+
+Calculate jail time
+
+2020-12-24, from Michael: "You will have to calculate total time in jail because the current variable does not include decimals – here is the syntax to calculate the lifetime period in jail variable: Bh17V1Y + BH17v1M/12 + BH17v1w/52."
+
+Just out of curiosity, I checked for differences between jail_time_total and jail_time_total_c. They are almost identical.
+
+```{r}
+all_visits <- all_visits %>% 
+  mutate(jail_time_total_c = BH17V1Y + (BH17V1M / 12) + (BH17V1W / 52))
+
+# VARIABLE LABELS
+attr(all_visits$jail_time_total_c, "label") <- "During your lifetime, how much time have you spent in jail or prison? (Years)"
+```
+
+### 9. MacArthur Scale of Subjective Social Status (SSS)
+
+* Visit 1, Section 9, Q123-Q124
+
+### 10. Health, Mental Health, and Health Behavior 
+
+* Visit 1, Section 10, No questions
+* Visit 2, Section 1, No questions
+
+### 11. Patient Health Questionnaire (PHQ)
+
+* Visit 1, Section 11, Q125-Q139
+
+#### 11.1 PHQ 8
+
+* Visit 1, Q125-Q132
+
+```{r}
+phq_8_vars <- paste0("PHQ", 1:8, "_V1")
+phq_8_var_labs <- c(
+  'Little interest or pleasure in doing things dichotomized',
+  'Felling down, depressed, or hopeless dichotomized',
+  'Trouble falling or staying asleep, or sleeping too much dichotomized',
+  'Feeling tired or having little energy dichotomized',
+  'Poor appetite or overeating dichotomized',
+  'Failure or have let yourself or your family down dichotomized',
+  'Reading the newspaper or watching television dichotomized',
+  'Fidgety or restless dichotomized'
+)
+phq_8_val_labs <- c(
+  'Not at all and several days' = 0, 
+  'More than half the days and nearly every day' = 1
+)
+```
+
+Dichotomize the values
+
+```{r}
+# Ported from Visit 1.sps
+all_visits <- all_visits %>%
+  mutate(
+    across(
+      .cols = all_of(phq_8_vars),
+      .fns  = ~ case_when(
+        .x  < 2 ~ 0,
+        .x >= 2 & .x < 9 ~ 1 # 9 = skipped
+      ),
+      .names = "{col}_dichot"
+    )
+  )
+
+# Add column and value labels
+for(i in seq_along(phq_8_vars)) {
+  d <- paste0(phq_8_vars[[i]], "_dichot")
+  attr(all_visits[[d]], "label") <- phq_8_var_labs[[i]]
+  attr(all_visits[[d]],"labels") <- phq_8_val_labs
+}
+```
+
+PHQ depression dichotomized total score.
+
+```{r}
+# Ported from Visit 1.sps
+all_visits <- all_visits %>% 
+  mutate(
+    PHQ_dep_dichot_total = PHQ1_V1_dichot + PHQ2_V1_dichot + PHQ3_V1_dichot + 
+      PHQ4_V1_dichot + PHQ5_V1_dichot + PHQ6_V1_dichot + PHQ7_V1_dichot + 
+      PHQ8_V1_dichot
+  )
+
+# VARIABLE LABELS 
+attr(all_visits$PHQ_dep_dichot_total, "label") <- 'PHQ depression dichotomized total'
+```
+
+PHQ 8 score greater than 10
+Requested by Michael 2020-12-11
+
+```{r}
+# Ported from Visit 1.sps
+all_visits <- all_visits %>% 
+  mutate(
+    phq_8_total = PHQ1_V1 + PHQ2_V1 + PHQ3_V1 + PHQ4_V1 + PHQ5_V1 + PHQ6_V1 + 
+      PHQ7_V1 + PHQ8_V1,
+    phq_8_gt_10 = as.numeric(phq_8_total > 10),
+    phq_8_gt_10_f = factor(phq_8_gt_10, 0:1, c("No", "Yes"))
+  )
+
+# VARIABLE LABELS 
+attr(all_visits$phq_8_total, "label") <- "Sum of PHQ1_V1-PHQ8_V1"
+attr(all_visits$phq_8_gt_10, "label") <- "PHQ 8 total score greater than 10"
+
+# VALUE LABELS 
+attr(all_visits$phq_8_gt_10, "labels") <-  c('No' = 0, 'Yes' = 1) 
+```
+
+Does PHQ1 or PHQ2 have more than half the days and nearly every day selected?
+
+```{r}
+# Ported from Visit 1.sps
+all_visits <- all_visits %>% 
+  mutate(
+    PHQsymp_V1 = case_when(
+      PHQ1_V1_dichot == 1 | PHQ2_V1_dichot == 1 ~ 1,
+      PHQ1_V1_dichot == 0 & PHQ2_V1_dichot == 0 ~ 0
+    )
+  )
+
+# VARIABLE LABELS 
+attr(all_visits$PHQsymp_V1, "label") <- 'Does PHQ1 or PHQ2 have more than half the days and nearly every day selected?'
+
+# VALUE LABELS 
+attr(all_visits$PHQsymp_V1, "labels") <- c('No' = 0, 'Yes' = 1)
+```
+
+Is there probable major depressive disorder?
+
+```{r}
+# Ported from Visit 1.sps
+all_visits <- all_visits %>% 
+  mutate(
+    PHQmdd_V1 = case_when(
+      PHQsymp_V1 == 1 & PHQ_dep_dichot_total > 4 ~ 1,
+      PHQsymp_V1 == 0 ~ 0,
+      PHQ_dep_dichot_total < 5 ~ 0
+    )
+  ) 
+
+# VARIABLE LABELS 
+attr(all_visits$PHQmdd_V1, "label") <- 'Is there probable major depressive disorder?'
+
+# VALUE LABELS 
+attr(all_visits$PHQmdd_V1, "labels") <-  c('No' = 0, 'Yes' = 1) 
+```
+
+```{r}
+# Clean up
+rm(d, i, phq_8_val_labs, phq_8_var_labs, phq_8_vars)
+```
+
+#### 11.2 PHQ GAD-7
+
+Patient Health Questionnaire 
+* Visit 1, Q133-Q139
+
+```{r}
+# Ported from Visit 1.sps
+all_visits <- all_visits %>% 
+  mutate(
+    gad_7_total_v1 = PHQ9_V1 + PHQ10_V1 + PHQ11_V1 + PHQ12_V1 + PHQ13_V1 + 
+      PHQ14_V1 + PHQ15_V1
+  )
+
+# VARIABLE LABELS 
+attr(all_visits$gad_7_total_v1, "label") <- 'Sum of PHQ GAD questions'
+```
+
+### 12. SF-12 Health Survey (HS)
+
+* Visit 1, Section 12, Q140-Q151
+
+General health question
+
+
+```{r}
+# Ported from Visit 1.sps
+all_visits <- all_visits %>%
+  mutate(
+    gen_health_v1 = nines_to_na(HS1_V1, 9),
+    gen_health_dichot_v1 = case_when(
+      HS1_V1 == 1 | HS1_V1 == 2 | HS1_V1 == 3 ~ 0,
+      HS1_V1 == 4 | HS1_V1 == 5 ~ 1
+    )
+  )
+
+# VARIABLE LABELS
+attr(all_visits$gen_health_dichot_v1, "label") <- "Self rated health fair or poor"
+
+# VALUE LABELS 
+attr(all_visits$gen_health_dichot_v1, "labels") <- c(
+  "excellent to good health" = 0,
+  "fair or poor health" = 1
+)
+
+all_visits <- all_visits %>%
+  # For data checks
+  # select(gen_health_v1, gen_health_dichot_v1) %>%
+  # Make factor versions of categorical variables
+  mutate(
+    across(
+      c(gen_health_v1, gen_health_dichot_v1),
+      spss_to_fs,
+      .names = "{col}_f"
+    )
+  )
+```
+
+Helpful scoring documentation: https://www.researchgate.net/profile/John_Ware/publication/291994160_How_to_score_SF-12_items/links/58dfc467a6fdcc41bf920748/How-to-score-SF-12-items.pdf
+
+Pull out the SF-12 items
+
+```{r}
+sf12 <- select(all_visits, HS1_V1:HS12_V1)
+names(sf12) <- c(
+  "gh1", "pf02", "pf04", "rp2", "rp3", "re2", "re3", "bp2", "mh3", "vt2", "mh4", 
+  "sf2"
+)
+sf12 <- mutate(sf12, across(everything(), as.numeric))
+```
+
+#### Step 1. Data cleaning and item recoding
+
+```{r}
+sf12 <- sf12 %>% 
+  mutate(
+    # Recode 7, 8, 9 to NA
+    across(
+      everything(),
+      .fns = function(x) {
+        x[x == 7] <- NA
+        x[x == 8] <- NA
+        x[x == 9] <- NA
+        x
+      }
+    )
+  )
+```
+
+Make sure all items are within range.
+
+```{r rows.print=12}
+sf12 %>% 
+  summarise(
+    across(
+      .cols = everything(),
+      .fns = list(min = ~min(.x, na.rm = TRUE), max = ~max(.x, na.rm = TRUE))
+    )
+  ) %>% 
+  pivot_longer(
+    everything(),
+    names_to = c("column", ".value"),
+    names_sep = "_"
+  )
+```
+
+They are all in range, now reverse scoring for GH1 (item #1), BP2 (item #8), MH3 (item #9), and VT2 (item #10). These directions come from https://www.researchgate.net/profile/John_Ware/publication/291994160_How_to_score_SF-12_items/links/58dfc467a6fdcc41bf920748/How-to-score-SF-12-items.pdf, pg. 22.
+
+Poor health should be low score, and good health should be high score.
+
+```{r}
+sf12 <- sf12 %>% 
+  mutate(
+    across(
+      .cols = c(gh1, bp2),
+      .fns  = ~ case_when(
+        .x == 1 ~ 5,
+        .x == 2 ~ 4,
+        .x == 3 ~ 3,
+        .x == 4 ~ 2,
+        .x == 5 ~ 1
+      ),
+      .names = "r{col}"
+    ),
+    across(
+      .cols = c(mh3, vt2),
+      .fns  = ~ case_when(
+        .x == 1 ~ 6,
+        .x == 2 ~ 5,
+        .x == 3 ~ 4,
+        .x == 4 ~ 3,
+        .x == 5 ~ 2,
+        .x == 6 ~ 1
+      ),
+      .names = "r{col}"
+    )
+  )
+```
+
+#### Step 2: Create indicator variables from item response choices
+
+```{r}
+sf12$pf02_1 <- as.numeric(sf12$pf02 == 1L) 
+sf12$pf02_2 <- as.numeric(sf12$pf02 == 2L) 
+
+sf12$pf04_1 <- as.numeric(sf12$pf04 == 1L) 
+sf12$pf04_2 <- as.numeric(sf12$pf04 == 2L)
+
+sf12$rp2_1 <- as.numeric(sf12$rp2 == 1L) 
+
+sf12$rp3_1 <- as.numeric(sf12$rp3 == 1L) 
+
+sf12$bp2_1 <- as.numeric(sf12$rbp2 == 1L) 
+sf12$bp2_2 <- as.numeric(sf12$rbp2 == 2L) 
+sf12$bp2_3 <- as.numeric(sf12$rbp2 == 3L) 
+sf12$bp2_4 <- as.numeric(sf12$rbp2 == 4L) 
+
+sf12$gh1_1 <- as.numeric(sf12$rgh1 == 1L) 
+sf12$gh1_2 <- as.numeric(sf12$rgh1 == 2L) 
+sf12$gh1_3 <- as.numeric(sf12$rgh1 == 3L) 
+sf12$gh1_4 <- as.numeric(sf12$rgh1 == 4L) 
+
+sf12$vt2_1 <- as.numeric(sf12$rvt2 == 1L) 
+sf12$vt2_2 <- as.numeric(sf12$rvt2 == 2L) 
+sf12$vt2_3 <- as.numeric(sf12$rvt2 == 3L) 
+sf12$vt2_4 <- as.numeric(sf12$rvt2 == 4L) 
+sf12$vt2_5 <- as.numeric(sf12$rvt2 == 5L) 
+
+sf12$sf2_1 <- as.numeric(sf12$sf2 == 1L) 
+sf12$sf2_2 <- as.numeric(sf12$sf2 == 2L) 
+sf12$sf2_3 <- as.numeric(sf12$sf2 == 3L) 
+sf12$sf2_4 <- as.numeric(sf12$sf2 == 4L) 
+
+sf12$re2_1 <- as.numeric(sf12$re2 == 1L) 
+
+sf12$re3_1 <- as.numeric(sf12$re3 == 1L) 
+
+sf12$mh3_1 <- as.numeric(sf12$rmh3 == 1L) 
+sf12$mh3_2 <- as.numeric(sf12$rmh3 == 2L) 
+sf12$mh3_3 <- as.numeric(sf12$rmh3 == 3L) 
+sf12$mh3_4 <- as.numeric(sf12$rmh3 == 4L) 
+sf12$mh3_5 <- as.numeric(sf12$rmh3 == 5L) 
+
+sf12$mh4_1 <- as.numeric(sf12$mh4 == 1L) 
+sf12$mh4_2 <- as.numeric(sf12$mh4 == 2L) 
+sf12$mh4_3 <- as.numeric(sf12$mh4 == 3L) 
+sf12$mh4_4 <- as.numeric(sf12$mh4 == 4L) 
+sf12$mh4_5 <- as.numeric(sf12$mh4 == 5L) 
+```
+
+#### Step 3. Weighting and aggregation of indicator variables using physical and mental regression weights
+
+```{r}
+raw_pcs_12 <- with(sf12,
+  (-7.23216*pf02_1) + (-3.45555*pf02_2) +
+  (-6.24397*pf04_1) + (-2.73557*pf04_2) +
+  (-4.61617*rp2_1) + 
+  (-5.51747*rp3_1) +
+  (-11.25544*bp2_1) + (-8.38063*bp2_2) +
+  (-6.50522*bp2_3) + (-3.80130*bp2_4) + (-8.37399*gh1_1) +
+  (-5.56461*gh1_2) + (-3.02396*gh1_3) + (-1.31872*gh1_4) +
+  (-2.44706*vt2_1) + (-2.02168*vt2_2) + (-1.6185*vt2_3) +
+  (-1.14387*vt2_4) + (-0.42251*vt2_5) + (-0.33682*sf2_1) +
+  (-0.94342*sf2_2) + (-0.18043*sf2_3) + (0.11038*sf2_4) +
+  (3.04365*re2_1) + (2.32091*re3_1) + (3.46638*mh3_1) +
+  (2.90426*mh3_2) + (2.37241*mh3_3) + (1.36689*mh3_4) +
+  (0.66514*mh3_5) + (4.61446*mh4_1) + (3.41593*mh4_2) +
+  (2.34247*mh4_3) + (1.28044*mh4_4) + (0.41188*mh4_5)
+)
+  
+raw_mcs_12 <- with(sf12,
+  (3.93115*pf02_1) + (1.8684*pf02_2) +
+  (2.68282*pf04_1) + (1.43103*pf04_2) + (1.4406*rp2_1) +
+  (1.66968*rp3_1) + (1.48619*bp2_1) + (1.76691*bp2_2) +
+  (1.49384*bp2_3) + (0.90384*bp2_4) + (-1.71175*gh1_1) +
+  (-0.16891*gh1_2) + (0.03482*gh1_3) + (-0.06064*gh1_4) +
+  (-6.02409*vt2_1) + (-4.88962*vt2_2) + (-3.29805*vt2_3) +
+  (-1.65178*vt2_4) + (-0.92057*vt2_5) + (-6.29724*sf2_1) +
+  (-8.26066*sf2_2) + (-5.63286*sf2_3) + (-3.13896*sf2_4) +
+  (-6.82672*re2_1) + (-5.69921*re3_1) + (-10.19085*mh3_1) +
+  (-7.92717*mh3_2) + (-6.31121*mh3_3) + (-4.09842*mh3_4) +
+  (-1.94949*mh3_5) + (-16.15395*mh4_1) + (-10.77911*mh4_2) +
+  (-8.09914*mh4_3) + (-4.59055*mh4_4) + (-1.95934*mh4_5)
+)
+```
+
+#### Step 4. Norm-based standardization of scale scores
+
+And add the Physical Component Summary (pcs) and Mental Component Summary (mcs) scores to the full data frame.
+
+```{r}
+all_visits <- all_visits %>% 
+  mutate(
+    pcs_12_v1 = raw_pcs_12 + 56.57706,
+    mcs_12_v1 = raw_mcs_12 + 60.75781
+  )
+
+# VARIABLE LABELS 
+attr(all_visits$pcs_12_v1, "label") <- 'SF-12 Physical Component Summary Score'
+attr(all_visits$mcs_12_v1, "label") <- 'SF-12 Physical Component Summary Score'
+```
+
+```{r}
+rm(sf12, raw_mcs_12, raw_pcs_12)
+```
+
+### 13. Health Related Quality of Life (HRQ)
+
+* Visit 1, Section 13, Q152-Q154
+
+```{r}
+all_visits <- all_visits %>%
+  # For data checks
+  # select(HRQ1_V1:HRQ3_V1) %>%
+  # Make variable names more descriptive
+  rename(
+    hrq_physical_30	= HRQ1_V1,
+    hrq_mental_30 =	HRQ2_V1,
+    hrq_limit_activities_30 =	HRQ3_V1
+  ) %>%
+
+  # Change skip values (e.g., 9, 99, etc.) to missing
+  mutate(
+    across(
+      c(hrq_physical_30:hrq_limit_activities_30),
+      ~ nines_to_na(.x, 99)
+    )
+  )
+```
+
+### 14. Self-Rated Health Questionnaire (S)
+
+* Visit 1, Section 14, Q155-Q211
+
+#### 14.1 History of Mental illnesses
+
+```{r}
+# Ported from Visit 1.sps
+all_visits <- all_visits %>% 
+  mutate(
+    Mental_Health_dx = case_when(
+      S19_V1 == 1 | S20_V1 == 1 | S21_V1 == 1 | S22_V1 == 1 | S23_V1 == 1 ~ 1,
+      S19_V1 == 0 & S20_V1 == 0 & S21_V1 == 0 & S22_V1 == 0 & S23_V1 == 0 ~ 0
+    )
+  )
+
+# VARIABLE LABELS
+attr(all_visits$Mental_Health_dx, "label") <- "If history of depression, anxiety, ptsd, bipolar, or schizo present"
+# VALUE LABELS 
+attr(all_visits$Mental_Health_dx, "labels") <- c(
+  "has no history of mental illness" = 0, 
+  "has a history of at least one mental illness" = 1
+)
+```
+
+#### 14.2 History of Substance abuse
+
+2021-01-25: Before I can do this part, I need to figure out what the line below that says "IF (S29_V1 =0) Substance_abuse_hs = 0" does. More specifically, what is the value of Substance_abuse_hs when S29_V1 does not equal 0? Is Substance_abuse_hs just missing? Don't need this right now for the big descriptive table though.
+
+```{r}
+# Ported from Visit 1.sps
+# all_visits %>% 
+#   mutate(
+#     Substance_abuse_hs = case_when(
+#       S30_V1A == 1 | S30_V1B == 1 | S30_V1C == 1 | S30_V1D == 1 | 
+#         S30_V1E == 1 | S30_V1F == 1 | S30_V1G == 1 ~ 1,
+#       S30_V1A == 0 & S30_V1B == 0 & S30_V1C == 0 & S30_V1D == 0 & 
+#         S30_V1E == 0 & S30_V1F == 0 & S30_V1G == 0 ~ 0
+#     )
+#   )
+# 
+# # VARIABLE LABELS
+# attr(all_visits$Substance_abuse_hs, "label") <- "If history of alcohol, cannabis, cocaine, opiate, amphetamine, sedative, hypnotic, anxiolytic or other abuse present"
+# 
+# # VALUE LABELS 
+# attr(all_visits$, "labels") <- c("" = )
+```
+IF (S29_V1 =0) Substance_abuse_hs = 0.
+VALUE LABELS Substance_abuse_hs 0 'has no history of substance abuse' 1 'has a history of at least one substance abuse disorder '.
+EXECUTE. 
+
+*has used illicit drugs/prescription drugs in the past 30 days.
+IF (S32_V1B = 1 or S32_V1C = 1 or S32_V1D = 1 or S32_V1E = 1 or S32_V1F = 1 or S32_V1G= 1 or S32_V1H= 1) Substance_use_30d= 1.
+IF (S32_V1B = 0 and S32_V1C = 0 and S32_V1D = 0 and S32_V1E = 0 and S32_V1F = 0 and S32_V1G= 0 and S32_V1H= 0) Substance_use_30d = 0.
+VARIABLE LABELS Substance_use_30d  'If used cannabis, cocaine, opiate, amphetamine, sedative, hypnotic, anxiolytic, K2, or other substance'.
+VALUE LABELS Substance_use_30d  0 'has not used ' 1 'has used cannabis, cocaine, opiate, amphetamine, sedative, hypnotic, anxiolytic, K2, or other substance '.
+EXECUTE. 
+
+#### 14.3 Pain
+
+```{r}
+# Ported from Visit 1.sps
+all_visits <- all_visits %>% 
+  mutate(
+    pain = case_when(
+      S40_V1 <= 2 ~ 0,
+      S40_V1 >= 3 ~ 1
+    )
+  )
+
+# VARIABLE LABELS
+attr(all_visits$pain, "label") <- "Pain level in last 4 weeks categorized into none-mild and mod-severe"
+# VALUE LABELS 
+attr(all_visits$pain, "labels") <- c(
+  "none to mild pain" = 0, "moderate or severe pain" = 1
+)
+```
+
+#### 14.4 Smartphone app
+
+```{r}
+all_visits <- all_visits %>%
+  # For data checks
+  # select(S41_V1:S43_V1) %>%
+  # X:Y doesn't immediately follow Z
+  # Make variable names more descriptive
+  rename(
+    sp_app_change_behavior = S41_V1,
+    sp_app_manage_health = S42_V1
+  ) %>%
+
+  # Change skip values (e.g., 9, 99, etc.) to missing
+  mutate(
+    across(
+      c(sp_app_change_behavior, sp_app_manage_health),
+      ~ nines_to_na(.x, c(7, 8, 9))
+    )
+  ) %>%
+
+  # Make factor versions of categorical variables
+  mutate(
+    across(
+      c(sp_app_change_behavior, sp_app_manage_health),
+      spss_to_fs,
+      .names = "{col}_f"
+    )
+  ) %>% 
+  
+  # Drop Don't Know/Refuse to Answer/Not Applicable factor levels. 
+  # We don't want them showing up on categorical analysis.
+  mutate(
+    across(
+      c(sp_app_change_behavior_f, sp_app_manage_health_f),
+      ~ fct_drop(.x, only = c("Don't Know", "Refuse to Answer", "Not Applicable"))
+    )
+  )
+```
+
+Create a combined What type of health related issue variable
+
+```{r}
+all_visits <- all_visits %>%
+  # For data checks
+  # select(S43_V1A:S43_V1I) %>% 
+  # Change skip values (e.g., 9, 99, etc.) to missing
+  mutate(
+    across(
+      c(S43_V1A:S43_V1I),
+      ~ nines_to_na(.x, 9)
+    )
+  ) %>%
+  rowwise() %>% 
+  mutate(
+    s43_count = sum(c_across(S43_V1A:S43_V1I)),
+    sp_app_health_type = case_when(
+      s43_count > 1 ~ 10, # Multiple
+      S43_V1A == 1  ~ 1,  # Food/calorie tracking
+      S43_V1B == 1  ~ 2,  # Medication reminders
+      S43_V1C == 1  ~ 3,  # Mood manager
+      S43_V1D == 1  ~ 4,  # Physical activity
+      S43_V1E == 1  ~ 5,  # Sleep Tracker
+      S43_V1F == 1  ~ 6,  # Smoking Cessation
+      S43_V1G == 1  ~ 7,  # Stress reduction
+      S43_V1H == 1  ~ 8,  # Weight loss tracking
+      S43_V1I == 1  ~ 9,  # Other
+    ),
+    sp_app_health_type_f = factor(
+      sp_app_health_type, 1:10, c(
+        "Food/calorie tracking", "Medication reminders", "Mood manager",
+        "Physical activity", "Sleep Tracker", "Smoking Cessation", 
+        "Stress reduction", "Weight loss tracking", "Other", "Multiple"
+      )
+    )
+  ) %>% 
+  ungroup()
+```
+
+### 15. PTSD Screen (PTSD)
+
+* Visit 1, Section 15, Q212-Q215
+
+```{r}
+# Ported from Visit 1.sps
+all_visits <- all_visits %>% 
+  mutate(
+    PTSD_V1_total = PTSD1_V1 + PTSD2_V1 + PTSD3_V1 + PTSD4_V1,
+    PTSD_V1_postive = case_when(
+      PTSD_V1_total >= 3 ~ 1,
+      PTSD_V1_total <  3 ~ 0
+    )
+  )
+
+# VARIABLE LABELS
+attr(all_visits$PTSD_V1_total, "label") <- "Sum PTSD_V1_total"
+attr(all_visits$PTSD_V1_postive, "label") <- "Probable PTSD"
+
+# VALUE LABELS 
+attr(all_visits$PTSD_V1_postive, "labels") <- c("no PTSD" = 0, "probable PTSD" = 1)
+```
+
+### 16. Tobacco History Questionnaire (T)
+
+* Visit 1, Section 16, Q216-Q271
+
+```{r}
+# Ported from Visit 1.sps
+all_visits <- all_visits %>% 
+  mutate(
+    # Number of cigarettes in the last 24 hours
+    T5_V1val = case_when(
+      T5_V1 == 0 ~ 0,
+      T5_V1 == 1 ~ as.numeric(T5A1_V1),
+      T5_V1 == 2 ~ as.numeric(T5A2_V1),
+      T5_V1 == 3 ~ as.numeric(T5A3_V1),
+      T5_V1 == 4 ~ as.numeric(T5A4_V1),
+      T5_V1 == 5 ~ as.numeric(T5A5_V1),
+      T5_V1 == 6 ~ as.numeric(T5A6_V1)
+    ),
+    # Number of cigarettes usually smoked in a day
+    T6_V1val = case_when(
+      T6_V1 == 0 ~ 0,
+      T6_V1 == 1 ~ as.numeric(T6A1_V1),
+      T6_V1 == 2 ~ as.numeric(T6A2_V1),
+      T6_V1 == 3 ~ as.numeric(T6A3_V1),
+      T6_V1 == 4 ~ as.numeric(T6A4_V1),
+      T6_V1 == 5 ~ as.numeric(T6A5_V1),
+      T5_V1 == 6 ~ as.numeric(T6A6_V1)
+    ),
+    # Ratio of close friends who smoke
+    # Excludes cases where close friends = 0
+    friends_smoke_V1 = case_when(
+      T38_V1 > 0 ~ T39_V1 / T38_V1
+    ),
+    # Spouse who smokes
+    spouse_smoke = case_when(
+      T34_V1 == 1 & T35_V1 == 1 ~ 1,
+      T34_V1 == 1 & T35_V1 == 0 ~ 0
+    )
+  )
+
+# VARIABLE LABELS
+attr(all_visits$T5_V1val, "label") <- "exact number of cigarettes smoked in the last 24 hours"
+attr(all_visits$T6_V1val, "label") <- "exact number of cigarettes smoked usually smoked in a day"
+attr(all_visits$friends_smoke_V1, "label") <- "Ratio of close friends who smoke for baseline"
+attr(all_visits$T6_V1val, "label") <- "if a participant has a spouse that smokes"
+
+# VALUE LABELS 
+attr(all_visits$spouse_smoke, "labels") <- c(
+  "participant does not have spouse who smokes" = 0,
+  "participant has spouse who smokes" =1
+)
+```
+
+### 17. Heaviness of Smoking Index (HSI)
+
+* Visit 1, Section 17, Q272-Q273
+
+Heaviness of Smoking Index for each visit + heaviness of smoking index recoded into categories
+
+```{r}
+# Ported from Visit 1.sps
+all_visits <- all_visits %>%
+  mutate(
+    hsi_BL = HSI1_V1 + HSI2_V1,
+    HSI_BL_cat = case_when(
+      hsi_BL <= 2 ~ 0,
+      hsi_BL == 3 ~ 1,
+      hsi_BL == 4 ~ 2,
+      hsi_BL >= 5 ~ 3
+    )
+  )
+
+# VARIABLE LABELS 
+attr(all_visits$hsi_BL, "label") <- 'HSI_BL score'
+attr(all_visits$HSI_BL_cat, "label") <- 'HSI recoded into categories'
+
+# VALUE LABELS 
+attr(all_visits$HSI_BL_cat, "labels") <- c(
+  'very low dependence' = 0, 'low to moderate dependence' = 1,
+  'moderate dependence' = 2, 'high dependence' = 3
+)
+```
+
+### 18. BRFSS - Inadequate Sleep (BRS)
+
+* Visit 1, Section 18, Q274-Q278
+
+```{r}
+# Ported from Visit 1.sps
+all_visits <- all_visits %>% 
+  mutate(
+    BRIS2_QD_dichot = case_when(
+      BRS2_V1 >= 7 ~ 0,
+      BRS2_V1 <  7 ~ 1
+    ),
+    QD_unintent_slp = case_when(
+      BRS4_V1 == 0 ~ 0,
+      BRS4_V1 >  0 ~ 1
+    )
+  )
+
+# VARIABLE LABELS 
+attr(all_visits$BRIS2_QD_dichot, "label") <- 'Avg. hours of sleep categorized into less than 7 hours and 7 hours or more'
+attr(all_visits$QD_unintent_slp, "label") <- 'Unintentional sleep dichotomizied'
+
+# VALUE LABELS 
+attr(all_visits$BRIS2_QD_dichot, "labels") <- c(
+  '7 hours or more' = 0, 'less than 7 hours' = 1
+)
+attr(all_visits$QD_unintent_slp, "labels") <- c(
+  'No unintentional sleeping' = 0, 'At least one day of intentional sleeping' = 1
+)
+```
+
+### 19. Alcohol Quantity, Frequency and Binge Drinking Questionnaire (AF)
+
+* Visit 1, Section 19, Q279-Q290
+
+```{r}
+# Ported from Visit 1.sps
+all_visits <- all_visits %>%
+  # For data checks
+  # select(gender_v1, starts_with("af") & ends_with("V1")) %>%
+  
+  # Change skip values (e.g., 9, 99, etc.) to missing
+  mutate(
+    across(
+      c(AF1_V1,AF9_V1),
+      ~ nines_to_na(.x, 9)
+    ),
+    across(
+      c(AF2M_V1:AF8SU_V1, AF9A_V1:AF9C_V1),
+      ~ nines_to_na(.x, 99)
+    )
+  ) %>%
+  
+  # Calculated variables
+  rowwise() %>% 
+  mutate(
+    drink_avg_per_week_v1 = case_when(
+      AF1_V1 == 0 ~ 0,
+      TRUE ~ sum(c_across(AF2M_V1:AF8SU_V1))
+    ),
+    binge_drinker_v1 = case_when(
+      AF9A_V1 >= 1 | AF9B_V1 >= 11 | AF9C_V1 >= 21 ~ 1,
+      AF9A_V1 == 0 ~ 0,
+      AF1_V1  == 0 ~ 0
+    ),
+    heavy_drinker_bl = case_when(
+      gender_v1 == 0 & drink_avg_per_week_v1 <= 14 ~ 0,
+      gender_v1 == 0 & drink_avg_per_week_v1 >  14 ~ 1,
+      gender_v1 == 1 & drink_avg_per_week_v1 <= 7  ~ 0,
+      gender_v1 == 1 & drink_avg_per_week_v1 >  7  ~ 1
+    )
+  ) %>% 
+  ungroup() %>% 
+  # Number binge drinking days in past 30 days 
+  # Not in Visit 1.sps
+  mutate(
+    binge_drink_days_v1 = case_when(
+      # Have to do as.numeric because of the SPSS labels
+      is.na(AF9_V1) ~ NA_real_,
+      as.numeric(AF9_V1) == 0 & is.na(AF9A_V1) ~ 0,
+      as.numeric(AF9_V1) == 0 & as.numeric(AF9A_V1) == 0 ~ 0,
+      as.numeric(AF9_V1) == 0 ~ as.numeric(AF9A_V1),
+      as.numeric(AF9_V1) == 1 ~ as.numeric(AF9B_V1),
+      as.numeric(AF9_V1) == 2 ~ as.numeric(AF9C_V1),
+    )
+  )
+  
+
+# VARIABLE LABELS
+attr(all_visits$drink_avg_per_week_v1, "label") <- "Total drinks avg week"
+attr(all_visits$binge_drinker_v1, "label") <- "Binge drinking in the past 30 days"
+attr(all_visits$heavy_drinker_bl, "label") <- "Heavy drinker = 1 if women >7 drinks per week or men > 14 drinks per week"
+attr(all_visits$binge_drink_days_v1, "label") <- "N Binge drinking days in past 30 days"
+
+# VALUE LABELS
+attr(all_visits$binge_drinker_v1, "labels") <- c(
+  "no binge drinking in the past 30 days" = 0,
+  "yes binge drinking in the past 30 days" = 1
+)
+attr(all_visits$heavy_drinker_bl, "labels") <- c(
+  "not a heavy drinker" = 0, "heavy drinker" = 1
+)
+```
+
+### 20. Meal Survey (MS)
+
+* Visit 1, Section 20, Q291-Q294
+
+```{r}
+all_visits <- all_visits %>%
+  # For data checks
+  # select(starts_with("MS") & ends_with("V1")) %>%
+  # X:Y doesn't immediately follow Z
+  # Make variable names more descriptive
+  rename(
+    meals_eaten_yesterday = MS1_V1,
+    meals_cafeteria_24_hours = MS2_V1,
+    meals_fruit_veg_yesterday = MS3_V1,
+    meals_missed_week = MS8_V1
+  ) %>%
+
+  # Change skip values (e.g., 9, 99, etc.) to missing
+  mutate(
+    across(
+      c(meals_eaten_yesterday:meals_missed_week),
+      ~ nines_to_na(.x, 9)
+    )
+  ) %>%
+
+  # Make factor versions of categorical variables
+  mutate(
+    across(
+      c(meals_eaten_yesterday:meals_missed_week),
+      spss_to_fs,
+      .names = "{col}_f"
+    )
+  )
+```
+
+### 21. Sexual Behaviors (SB)
+
+* Visit 1, Section 21, Q295-Q303
+
+### 22. Stress
+
+* Visit 1, Section 22, No questions
+* Visit 2, Section 7, No questions
+
+### 23. Detroit Day Discrimination (DD)
+
+* Visit 1, Section 23, Q304-Q313
+
+```{r}
+# Ported from Visit 1.sps
+all_visits <- all_visits %>%
+  mutate(
+    ddd_v1_total = DD1_V1 + DD2_V1 + DD3_V1 + DD4_V1 + DD5_V1 + DD6_V1 +
+      DD7_V1  + DD8_V1 + DD9_V1
+  )
+```
+
+```{r}
+all_visits <- all_visits %>%
+  # For data checks
+  # select(DD1_V1:DD10_V1) %>%
+  # Make variable names more descriptive
+  rename(
+    ddd_less_courtesy = DD1_V1,
+    ddd_less_respect = DD2_V1,
+    ddd_poorer_service = DD3_V1,
+    ddd_not_smart = DD4_V1,
+    ddd_afraid = DD5_V1,
+    ddd_dishonest = DD6_V1,
+    ddd_better = DD7_V1,
+    ddd_insulted = DD8_V1,
+    ddd_threatened = DD9_V1,
+    ddd_main_reason = DD10_V1
+  ) %>%
+
+  # Change skip values (e.g., 9, 99, etc.) to missing
+  mutate(
+    across(
+      c(ddd_less_courtesy:ddd_threatened),
+      ~ nines_to_na(.x, 9)
+    ),
+    ddd_main_reason = nines_to_na(ddd_main_reason, c(97, 98, 99))
+  ) %>% 
+
+  # Make factor versions of categorical variables
+  mutate(
+    across(
+      c(ddd_less_courtesy:ddd_main_reason),
+      spss_to_fs,
+      .names = "{col}_f"
+    )
+  ) %>% 
+  
+  # Drop Don't Know/Refuse to Answer/Not Applicable factor levels. 
+  # We don't want them showing up on categorical analysis.
+  mutate(
+    across(
+      c(ddd_main_reason_f),
+      ~ fct_drop(.x, only = c("Don't Know", "Refuse to Answer", "Not Applicable"))
+    )
+  ) 
+
+# VARIABLE LABELS
+attr(all_visits$ddd_less_courtesy_f, "label") <- "In your day-to-day life how often are you treated with less courtesy?"
+attr(all_visits$ddd_less_respect_f, "label") <- "In your day-to-day life how often are you treated with less respect?"
+attr(all_visits$ddd_poorer_service_f, "label") <- "In your day-to-day life how often do you receive poorer service than other people at restaurants or stores?"
+attr(all_visits$ddd_not_smart_f, "label") <- "In your day-to-day life how often do people act as if they think you are not smart?"
+attr(all_visits$ddd_afraid_f, "label") <- "In your day-to-day life how often do people act as if they are afraid of you?"
+attr(all_visits$ddd_dishonest_f, "label") <- "In your day-to-day life how often do people act as if they think you are dishonest?"
+attr(all_visits$ddd_better_f, "label") <- "In your day-to-day life how often do people act as if they're better than you ?"
+attr(all_visits$ddd_insulted_f, "label") <- "In your day-to-day life how often are you called names or insulted?"
+attr(all_visits$ddd_threatened_f, "label") <- "In your day-to-day life how often are you threatened or harassed?"
+attr(all_visits$ddd_main_reason_f, "label") <- "What was the main reason for the discrimination you experienced?"
+attr(all_visits$ddd_v1_total, "label") <- "Sum DD1_V1 + DD2_V1 + DD3_V1 + DD4_V1 + DD5_V1 + DD6_V1 + DD7_V1 + DD8_V1 + DD9_V1"
+```
+
+### 24. Negative/Positive Affect
+
+* Visit 1, Section 24, No questions
+
+### 25. Agression Questionniare (AQ)
+
+* Visit 1, Section 25, Q314-Q325
+
+```{r}
+# Ported from Visit 1.sps
+all_visits <- all_visits %>%
+  # For data checking
+  # select(starts_with("AQ") & ends_with("V1")) %>% 
+  mutate(
+    # Physical aggression subscale
+    PA = AQ1_V1 + AQ2_V1 + AQ3_V1,
+    # Verbal aggression subscale
+    VA = AQ4_V1 + AQ5_V1 + AQ6_V1,
+    # Anger subscale
+    A = AQ7_V1 + AQ8_V1 + AQ9_V1,
+    # hostility subscale
+    HA = AQ10_V1 + AQ11_V1 + AQ12_V1,
+    # Total
+    AQ = PA + VA + A + HA,
+    # More descriptive name
+    agression_total = AQ
+  )
+
+# VARIABLE LABELS 
+attr(all_visits$PA, "label") <- 'Physical agreesion subscale'
+attr(all_visits$VA, "label") <- 'Verbal agreesion subscale'
+attr(all_visits$A, "label")  <- 'Anger subscale'
+attr(all_visits$HA, "label") <- 'Hostility subscale'
+attr(all_visits$AQ, "label") <- 'Aggression questionnaire total'
+attr(all_visits$agression_total, "label") <- 'Aggression questionnaire total'
+```
+
+### 26. CES-D (CES)
+
+* Visit 1, Section 26, Q326-Q335
+
+```{r}
+# Ported from Visit 1.sps
+all_visits <- all_visits %>% 
+  mutate(
+    across(
+      .cols = c(CES5_V1, CES8_V1),
+      .fns  = ~ case_when(
+        .x == 0 ~ 3,
+        .x == 1 ~ 2, 
+        .x == 2 ~ 1,
+        .x == 3 ~ 0
+      ),
+      .names = "{col}r"
+    ),
+    ces_v1_total = CES1_V1 + CES2_V1 + CES3_V1 + CES4_V1 + CES5_V1r + CES6_V1 +
+      CES7_V1 + CES8_V1r + CES9_V1 + CES10_V1,
+    ces_v1_total_labelled = case_when(
+      ces_v1_total >= 10 ~ 1,
+      ces_v1_total <  10 ~ 0
+    )
+  )
+  
+# VARIABLE LABELS
+attr(all_visits$CES5_V1r, "label") <- "I felt hopeful reverse scored"
+attr(all_visits$CES8_V1r, "label") <- "I was happy reverse scored"
+attr(all_visits$ces_v1_total, "label") <- "Sum CES-D_V1 1-10 (10 or greater is considered depressed)"
+attr(all_visits$ces_v1_total_labelled, "label") <- "Sum CES-D_V1 1-1 categorized into depressed/not depressed"
+
+# VALUE LABELS 
+attr(all_visits$ces_v1_total_labelled, "labels") <- c('not depressed' = 0, 'depressed' = 1)
+```
+
+CES-D (Dichotomized)
+
+uses the reverse scoring from above for CES5 and CES8.
+
+```{r}
+# Ported from Visit 1.sps
+cesd_dichot_vars <- c(
+  "CES1_V1", "CES2_V1", "CES3_V1", "CES4_V1", "CES5_V1r", "CES6_V1", "CES7_V1", 
+  "CES8_V1r", "CES9_V1", "CES10_V1"  
+)
+
+all_visits <- all_visits %>% 
+  mutate(
+    across(
+      .cols = all_of(cesd_dichot_vars),
+      .fns = ~ case_when(
+        .x == 0 ~ 0,
+        .x == 1 ~ 0,
+        .x == 2 ~ 1,
+        .x == 3 ~ 1
+      ),
+      .names = "{col}_dichot"
+    )
+  )
+
+all_visits <- all_visits %>% 
+  mutate(
+    CES_V1_dichot_total = CES1_V1_dichot + CES2_V1_dichot + CES3_V1_dichot + 
+      CES4_V1_dichot + CES5_V1r_dichot + CES6_V1_dichot + CES7_V1_dichot + 
+      CES8_V1r_dichot + CES9_V1_dichot + CES10_V1_dichot,
+    CES_V1_dichot_labelled = case_when(
+      CES_V1_dichot_total >= 4 ~ 1,
+      CES_V1_dichot_total <  4 ~ 0
+    )
+  )
+
+# VARIABLE LABELS
+for(i in seq_along(cesd_dichot_vars)) {
+  d <- paste0(cesd_dichot_vars[[i]], "_dichot")
+  l <- paste(cesd_dichot_vars[[i]], "Dichotomized")
+  attr(all_visits[[d]], "label") <- l
+}
+attr(all_visits$CES_V1_dichot_total, "label") <- "Sum CESV1_dichot1-10 (4 or greater is considered depressed)"
+attr(all_visits$CES_V1_dichot_labelled, "label") <- "Sum CES_V1_dichot1-10 categorized into depressed/ not depressed"
+
+# VALUE LABELS 
+attr(all_visits$CES_V1_dichot_labelled, "labels") <- c("not depressed" = 0, "depressed" = 1)
+```
+
+```{r}
+rm(cesd_dichot_vars, d, i, l)
+```
+
+### 27. Inter/Intrapersonal Resources 
+
+* Visit 1, Section 27, No questions
+
+### 28. Interpersonal Support Evaluation List (IS)
+
+* Visit 1, Section 28, Q336-Q347
+
+```{r}
+# Ported from Visit 1.sps
+all_visits <- all_visits %>% 
+  mutate(
+    across(
+      .cols = c(IS1_V1, IS2_V1, IS7_V1, IS8_V1, IS11_V1, IS12_V1),
+      .fns  = ~ case_when(
+        .x == 1 ~ 4,
+        .x == 2 ~ 3,
+        .x == 3 ~ 2,
+        .x == 4 ~ 1
+      ),
+      .names = "{col}r"
+    ),
+    ise_appraisal_v1 = IS2_V1r + IS4_V1 + IS6_V1 + IS11_V1r,
+    ise_belonging_v1 = IS1_V1r + IS5_V1 + IS7_V1r + IS9_V1,
+    ise_tangable_v1 = IS3_V1 + IS8_V1r + IS10_V1 + IS12_V1r
+  )
+
+# VARIABLE LABELS
+attr(all_visits$IS1_V1r, "label")   <- "reverse trip for a day"
+attr(all_visits$IS2_V1r, "label")   <- "reverse no one to share worries"
+attr(all_visits$IS7_V1r, "label")   <- "reverse don't often get invited"
+attr(all_visits$IS8_V1r, "label")   <- "reverse difficult to find home sitter"
+attr(all_visits$IS11_V1r, "label")  <- "reverse difficult to find good advice"
+attr(all_visits$IS12_V1r, "label")  <- "reverse no help moving"
+attr(all_visits$ise_appraisal_v1, "label") <- "ISE appraisal"
+attr(all_visits$ise_belonging_v1, "label") <- "ISE belonging"
+attr(all_visits$ise_tangable_v1, "label")  <- "ISE tangable"
+```
+
+### 29. Religious Participation (RP)
+
+* Visit 1, Section 29, Q348-Q349
+
+### 30. Lubben Social Network Scale (LSN)
+
+* Visit 1, Section 30, Q350-Q355
+
+```{r}
+# Ported from Visit 1.sps
+all_visits <- all_visits %>% 
+  mutate(
+    # Family Score
+    LSN_V1_family = LSN1_V1 + LSN2_V1 + LSN3_V1,
+    # Friends Score
+    LSN_V1_friends =  LSN4_V1 + LSN5_V1 + LSN6_V1,
+    # Total
+    LSN_V1_total = LSN1_V1 + LSN2_V1 + LSN3_V1 + LSN4_V1 + LSN5_V1 + LSN6_V1
+  )
+
+# VARIABLE LABELS
+attr(all_visits$LSN_V1_family, "label") <- "Sum LSN_V1_family 0-15 (scores of less than 6 are considered to have marginal family ties)"
+attr(all_visits$LSN_V1_friends, "label") <- "Sum LSN_V1_total 0-30 ((scores of less than 6 are considered to have marginal friendship ties)"
+attr(all_visits$LSN_V1_total, "label") <- "Sum LSN_V1_total 0-30 (a score of 12 and lower delineates “at-risk” for social isolation and higher scores indicate more social engagement)"
+```
+
+### 31. Resource Utilization (R)
+
+* Visit 1, Section 31, Q356-Q371
+
+### 32. Barriers to Phone Based Case Management (BPM)
+
+* Visit 1, Section 32, Q372-Q376
+
+### 33. TCU Drug Screen 5 (DS)
+
+* Visit 2, Section 2, Q8-Q20
+
+### 34. BRFSS Adverse Childhood Experience (ACE) Model (BRAC)
+
+* Visit 2, Section 3, Q21-Q31
+
+### 35. Personality Beliefs Questionaire-Short Form- Antisocial Beliefs (PBQ)
+
+* Visit 2, Section 4, Q32-Q38
+
+### 36. Food Security (FSS)
+
+* Visit 2, Section 5, Q39-Q44
+
+### 37. TCU CJ Client Evaluation of Self and Treatment (CJ)
+
+* Visit 2, Section 6, Q45-Q84
+
+```{r}
+# Ported from Visit 2.sps
+# Desire for help subscale
+all_visits <- all_visits %>%
+  mutate(
+    tcu_desire_v2_total = 
+      ((CJ2_V2 + CJ3_V2 + CJ4_V2 + CJ5_V2 + CJ6_V2 +CJ7_V2) * 10) / 6,
+    tcu_desire_v2_total = if_else(CJ1_V2 == 0, 888, tcu_desire_v2_total)
+  )
+
+# Treatment needs subscale
+all_visits <- all_visits %>% 
+  mutate(
+    tcu_tn_v2_total = ((CJ8_V2 + CJ9_V2 + CJ10_V2 + CJ11_V2 + CJ12_V2) * 10) / 5
+  )
+
+# Treatment Satisfaction
+all_visits <- all_visits %>% 
+  mutate(
+    tcu_treatment_sat_v2 = 
+      ((CJ13_V2 + CJ14_V2 + CJ15_V2 + CJ16_V2 + CJ17_V2 + CJ18_V2 + CJ19_V2) * 
+      10) / 7
+  )
+
+# Self-esteem
+all_visits <- all_visits %>%
+  mutate(
+    across(
+      .cols = c(CJ21_V2, CJ22_V2, CJ23_V2, CJ25_V2),
+      .fns  = ~ case_when(
+        .x == 1 ~ 5,
+        .x == 2 ~ 4,
+        .x == 3 ~ 3,
+        .x == 4 ~ 2,
+        .x == 5 ~ 1
+      ),
+      .names = "{col}_r"
+    )
+  ) %>% 
+  mutate(
+    tcu_se_v2_total = 
+      ((CJ21_V2_r + CJ22_V2_r + CJ20_V2 + CJ23_V2_r + CJ24_V2 +CJ25_V2_r) * 10) / 6
+  )
+
+# Hostility
+all_visits <- all_visits %>% 
+  mutate(
+    tcu_hs_v2_total = 
+      ((CJ26_V2 + CJ27_V2 + CJ28_V2 + CJ29_V2 + CJ30_V2 + CJ31_V2 + CJ32_V2 + 
+      CJ33_V2) * 10) / 8
+  )
+
+# Risk taking
+all_visits <- all_visits %>% 
+  mutate(
+    across(
+      .cols = c(CJ34_V2, CJ35_V2, CJ36_V2),
+      .fns  = ~ case_when(
+        .x == 1 ~ 5,
+        .x == 2 ~ 4,
+        .x == 3 ~ 3,
+        .x == 4 ~ 2,
+        .x == 5 ~ 1
+      ),
+      .names = "{col}_r"
+    )
+  ) %>% 
+  mutate(
+    tcu_rt_v2_total = 
+      ((CJ34_V2_r + CJ35_V2_r + CJ36_V2 + CJ37_V2 + CJ38_V2 +CJ39_V2 + CJ40_V2) * 
+      10) / 7
+  )
+
+
+
+# VARIABLE LABELS
+attr(all_visits$tcu_desire_v2_total, "label") <- "Sum, TCU Desire for help subscale (888 indicates they have not used drugs in past 12 months)"
+attr(all_visits$tcu_tn_v2_total, "label") <- "Sum, TCU Treatment needs subscale"
+attr(all_visits$tcu_treatment_sat_v2, "label") <- "Sum, TCU treatment satisfaction subscale"
+attr(all_visits$CJ21_V2_r, "label") <- "You feel like a failure recoded"
+attr(all_visits$CJ22_V2_r, "label") <- "You wish you had more respect for yourself recoded"
+attr(all_visits$CJ23_V2_r, "label") <- "You feel you are basically no good recoded"
+attr(all_visits$CJ25_V2_r, "label") <- "You feel you are unimportant to others recoded"
+attr(all_visits$tcu_se_v2_total, "label") <- "Sum, TCU self esteem subscale"
+attr(all_visits$tcu_hs_v2_total, "label") <- "Sum, TCU hostility subscale"
+attr(all_visits$CJ34_V2_r, "label") <- "You only do things that feel safe recoded"
+attr(all_visits$CJ35_V2_r, "label") <- "You avoid anything dangerous recoded"
+attr(all_visits$CJ36_V2_r, "label") <- "You are very careful and cautious recoded"
+attr(all_visits$tcu_rt_v2_total, "label") <- "Sum, TCU risk taking subscale"
+```
+
+### 38. MacArthur Major Discrimination (MMD)
+
+* Visit 2, Section 8, Q85-Q98
+
+```{r}
+all_visits <- all_visits %>%
+  # For data checks
+  # select(MMD2:MMD4) %>%
+  # Make variable names more descriptive
+  rename(
+    macarthur_main_reason = MMD2,
+    macarthur_interfere = MMD3,
+    macarthur_harder_life = MMD4,
+  ) %>%
+
+  # Change skip values (e.g., 9, 99, etc.) to missing
+  mutate(
+    macarthur_main_reason = nines_to_na(macarthur_main_reason, 99),
+    across(
+      c(macarthur_interfere:macarthur_harder_life),
+      ~ nines_to_na(.x, 9)
+    )
+  ) %>%
+
+  # Make factor versions of categorical variables
+  mutate(
+    across(
+      c(macarthur_main_reason:macarthur_harder_life),
+      spss_to_fs,
+      .names = "{col}_f"
+    )
+  )
+
+# Ported from Visit 2.sps
+all_visits <- all_visits %>%
+  rowwise() %>%
+  mutate(
+    macarthur_total = sum(c_across(MMD1A:MMD1K))
+  ) %>%
+  ungroup() %>%
+  mutate(
+
+  )
+
+# VARIABLE LABELS
+attr(all_visits$macarthur_main_reason_f, "label") <- "MacArthur: What was the main reason for the discrimination you experienced?"
+attr(all_visits$macarthur_interfere_f, "label") <- "MacArthur: Overall, how much has discrimination interfered with you having a full and productive life?"
+attr(all_visits$macarthur_harder_life_f, "label") <- "MacArthur: Overall, how much harder has your life been because of discrimination?"
+attr(all_visits$macarthur_total, "label") <- "MacArthur Major Discrimination total score"
+```
+
+### 39. Urban life stress scale (ULS)
+
+* Visit 2, Section 9, Q99-Q84
+
+```{r}
+# Ported from Visit 2.sps
+all_visits <- all_visits %>% 
+  mutate(
+    uls_v2_total = ULS1_V2 + ULS2_V2 + ULS3_V2 + ULS4_V2 + ULS5_V2 + ULS6_V2 + 
+      ULS7_V2 + ULS8_V2 + ULS9_V2 + ULS10_V2 + ULS11_V2 + ULS12_V2 + ULS13_V2 + 
+      ULS14_V2 + ULS15_V2 + ULS16_V2 + ULS17_V2 + ULS18_V2 + ULS19_V2 + 
+      ULS20_V2 + ULS21_V2
+  )
+
+# VARIABLE LABELS
+attr(all_visits$uls_v2_total, "label") <- "urban life stress total score"
+```
+
+### 40. Personal Victimization (PV)
+
+* Visit 2, Section 10, Q120-Q122
+
+```{r}
+all_visits <- all_visits %>%
+  # For data checks
+  # select(PV1_V2:PV3_V2) %>%
+  # Make variable names more descriptive
+  rename(
+    pv_violence_victim_30 = PV1_V2,
+    pv_witness_violence_30 = PV2_V2,
+    pv_witness_violence_6 = PV3_V2
+  ) %>%
+
+  # Make factor versions of categorical variables
+  mutate(
+    across(
+      c(pv_violence_victim_30:pv_witness_violence_6),
+      spss_to_fs,
+      .names = "{col}_f"
+    )
+  )
+
+# VARIABLE LABELS
+attr(all_visits$pv_violence_victim_30_f, "label") <- "In the past 30 days, has anyone used violence, such as in a mugging, fight, or sexual assault, against you?"
+attr(all_visits$pv_witness_violence_30_f, "label") <- "In the past 30 days, how many times have you been a witness to acts of violence?"
+attr(all_visits$pv_witness_violence_6_f, "label") <- "In the past 6 months, how many times have you been a witness to acts of violence?"
+```
+
+### 41. Perceived Stress Scale (PS)
+
+* Visit 2, Section 11, Q123-Q126
+
+```{r}
+# Ported from Visit 2.sps
+all_visits <- all_visits %>% 
+  mutate(
+    across(
+      .cols = c(PS2_V2, PS3_V2),
+      .fns  = ~ case_when(
+        .x == 0 ~ 4,
+        .x == 1 ~ 3,
+        .x == 2 ~ 2,
+        .x == 3 ~ 1,
+        .x == 4 ~ 0
+      ),
+      .names = "{col}_r"
+    )
+  ) %>% 
+  mutate(
+    ps_v2_total = PS1_V2 + PS2_V2_r + PS3_V2_r + PS4_V2
+  )
+
+# VARIABLE LABELS
+attr(all_visits$PS2_V2_r, "label") <- "Perceived Stress Scale Item 2 Reverse Code"
+attr(all_visits$PS3_V2_r, "label") <- "Perceived Stress Scale Item 3 Reverse Code"
+attr(all_visits$ps_v2_total, "label") <- "Perceived Stress Scale total score'"
+```
+
+### 42. Distress Tolerance Scale (DTS)
+
+* Visit 2, Section 12, Q127-Q142
+
+All the questions in QDS were reversed coded. Each question was recoded to the correct score, except question DTS7_V2 because that question should be reversed coded. Question DTS8_V2 is not included in any subscale or the total score. See appendix for paper citation.
+
+```{r}
+# Ported from Visit 2.sps
+all_visits <- all_visits %>% 
+  mutate(
+    across(
+      .cols = c(DTS1_V2:DTS6_V2, DTS8_V2:DTS16_V2),
+      .fns  = ~ case_when(
+        .x == 1 ~ 5,
+        .x == 2 ~ 4,
+        .x == 3 ~ 3,
+        .x == 4 ~ 2,
+        .x == 5 ~ 1
+      ),
+      .names = "{col}_r"
+    )
+  ) %>% 
+  mutate(
+    # Tolerance subscale
+    dts_tolerance_v2 = (DTS1_V2_r + DTS3_V2_r + DTS5_V2_r) / 3,
+    # Absorption subscale
+    dts_absorption_v2 = (DTS4_V2_r + DTS2_V2_r + DTS16_V2_r) / 3,
+    # Appraisal subscale
+    dts_appraisal_v2 = 
+      (DTS7_V2 + DTS8_V2_r + DTS10_V2_r + DTS11_V2_r + DTS12_V2_r + DTS13_V2_r) / 6,
+    # Regulation subscale
+    dts_regulation_v2 = (DTS9_V2_r + DTS14_V2_r + DTS15_V2_r) / 3,
+    # Total score
+    dts_total_v2 = 
+      (dts_tolerance_v2 + dts_absorption_v2 + dts_appraisal_v2 + 
+      dts_regulation_v2) / 4
+  )
+
+# VARIABLE LABELS
+attr(all_visits$DTS1_V2_r, "label") <- "Feeling distressed or upset is unbearable to me - Reverse coded"
+attr(all_visits$DTS2_V2_r, "label") <- "When I feel distressed or upset, all I can think about is how bad I feel - Reverse coded"
+attr(all_visits$DTS3_V2_r, "label") <- "I can’t handle feeling distressed or upset - Reverse coded"
+attr(all_visits$DTS4_V2_r, "label") <- "My feelings of distress are so intense that they completely take over - Reverse coded"
+attr(all_visits$DTS5_V2_r, "label") <- "There’s nothing worse than feeling distressed or upset - Reverse coded"
+attr(all_visits$DTS6_V2_r, "label") <- "My feelings of distress or being upset are just an acceptable part of life - Reverse coded"
+attr(all_visits$DTS8_V2_r, "label") <- "My feelings of distress or being upset are not acceptable - Reverse coded"
+attr(all_visits$DTS9_V2_r, "label") <- "I’ll do anything to avoid feeling distressed or upset - Reverse coded"
+attr(all_visits$DTS10_V2_r, "label") <- "Other people seem to be able to tolerate feeling distressed or upset better than I can - Reverse coded"
+attr(all_visits$DTS11_V2_r, "label") <- "Being distressed or upset is always a major ordeal for me - Reverse coded"
+attr(all_visits$DTS12_V2_r, "label") <- "I am ashamed of myself when I feel distressed or upset - Reverse coded"
+attr(all_visits$DTS13_V2_r, "label") <- "My feelings of distress or being upset scare me - Reverse coded"
+attr(all_visits$DTS14_V2_r, "label") <- "I’ll do anything to stop feeling distressed or upset - Reverse coded"
+attr(all_visits$DTS15_V2_r, "label") <- "When I feel distressed or upset, I must do something about it immediately - Reverse coded"
+attr(all_visits$DTS16_V2_r, "label") <- "When I feel distressed or upset, I cannot help but concentrate on how bad the distress actually feels - Reverse coded"
+attr(all_visits$dts_tolerance_v2, "label") <- "DTS Tolerance  subscale mean total"
+attr(all_visits$dts_absorption_v2, "label") <- "DTS absorption subscale mean total"
+attr(all_visits$dts_appraisal_v2, "label") <- "DTS appraisal subscale mean total"
+attr(all_visits$dts_regulation_v2, "label") <- "DTS regulation subscale mean total"
+attr(all_visits$dts_total_v2, "label") <- "Distress Tolerance Scale total score"
+```
+
+Print a message for when this file is being sourced
+
+```{r}
+# The number of rows will change over time as we recruit people.
+# However, we should never end up with more rows in the combined data than
+# exist in the v1 data.
+# Also, any changes to the number of columns should initiate an investigation
+# into why.
+cat(
+  paste0(Sys.Date(), ":"),
+  "The all_visits data frame was created and cleaned in data_survey_01_import.Rds with",
+  nrow(all_visits), "rows and", ncol(all_visits), "columns.\n\n"
+)
+cat("The number of rows will change over time as we recruit people. However, we should never end up with more rows in the combined data than exist in the v1 data.\n\n")
+cat("Also, any changes to the number of columns should initiate an investigation into why.")
+
+# 2021-01-28: The all_visits data frame was created and cleaned in data_survey_01_import.Rds with 263 rows and 2850 columns.
+```
+
+
+# 🗑Clean up
+
+```{r}
+rm(nines_to_na, spss_to_fs)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+

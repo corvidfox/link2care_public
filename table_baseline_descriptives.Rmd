@@ -3,81 +3,94 @@ title: "Big Descriptives Table"
 date: "2020-12-21"
 ---
 
-# Overview
+# ⭐️Overview
 
 **2020-12-10**
 
-Hi Brad. My staff are writing 3 papers from the Link2Care baseline/randomization visit dataset.
- 
-We did some preliminary analyses and all look like they are legit papers…
- 
+Hi Brad. My staff are writing 3 papers from the Link2Care baseline/randomization visit data set.
+
+We did some preliminary analyses and all look like they are legit papers...
+
 I am writing to ask if you are willing to do the official analyses for these papers (the analyses are pretty basic, with one having some mediation analyses [using the Preacher and Hayes SPSS macro add on]). Of course, you would be an author on all 3.
- 
+
 Let me know if this works for you.
 
 **2020-12-11**
 
 Excellent! I will put you in touch with the staff members and walk you through the analyses.
- 
-Can you start by recreating a baseline table with all the variables below (use all participants to date that have completed the baseline and randomization visits). Just 1 long table. The staff members will take what they need for their papers. The items below are pretty much all of the variables being used across all 3 papers. There may be an additional variable or two to add later.
- 
-Sex
-Race
-Ethnicity
-Age
-marital status
-employment status
-years of education
-veteran (% yes)
-sexual orientation
-number of children
-homelessness (current period Median; and lifetime Median)
-reasons for current homelessness (distribution)
-total times homeless
-age at first homelessness
-mini mental status exam total score (M; SD)
-Arrest history (number of arrests; total period in jail Median)
-Type of health insurance (distribution)
-Do you have an active cell phone (% yes)
-Who pays for your cell phone service (distribution)
-How many ‘talk’ minutes does your plan have (distribution)
-Is your cell phone a smart phone? (distribution)
-Does your phone service include a data plan (distribution)
-How many times has your phone number changed in the past year (distribution)
-Which of the following forms of media do you use (distribution)
-How often do you access the internet (distribution)
-Do you have an active Facebook page (% yes)
-How often do you check or post on Facebook (distribution)
-Do you believe that a smartphone app can help you to change your actions or behaviors (% yes)
-Have you ever used a smartphone app to manage one or more health-related issues (% yes)
-What type of health related issue (distribution)
-PHQ-8 score
-% with PHQ-8 >10
-Aggression Questionnaire mean (SD)
-CJ Client Evaluation of Self and Treatment (TCU CJ CEST) – mean (SD)
-Urban Life Stress Scale – Mean (SD)
-Detroit Area Assessment of Day-to-Day Discrimination Mean (SD) of scale – 1st 9 items (Item 10 is separate = cause of discrimination – please include distribution of item 10)
-MacArthur Major Discrimination – total score
-Personal victimization (distribution of each of 3 items)
-% currently receiving treatment for mental health problems
-Total drinks per week from Alcohol Quantity and Frequency questionnaire
-Number binge drinking days in past 30 days
-Perceived stress scale total score (M; SD)
-GAD-7 total score
-CESD total score
-Panas positive affect
-Panas negative affect
-Meals survey item 4 (# meals missed in past week; M; SD)
-ISEL social support – total score and each of 3 subscales
-Distress Tolerance Scale (total score; M, SD)
-SF-12 total score
-HrQol – each of the 4 items separately (# days with mental health problems, # days with physical health problems, # days MH or PH problems limit activities, how would you rate your health in general)
- 
-Thanks Brad. We hope to get these all under review  in January!
 
-```{r}
+Can you start by recreating a baseline table with all the variables below (use all participants to date that have completed the baseline and randomization visits). Just 1 long table. The staff members will take what they need for their papers. The items below are pretty much all of the variables being used across all 3 papers. There may be an additional variable or two to add later.
+
+1. Sex ✅
+2. Race ✅
+3. Ethnicity ✅ 
+4. Age ✅
+5. marital status ✅
+6. employment status ✅
+7. years of education ✅
+8. veteran (% yes) ✅
+9. sexual orientation ✅
+10. number of children ✅
+11. homelessness (current period Median; and lifetime Median)✅
+  - homeless_time_total ✅
+  - homeless_current_total ✅
+12. reasons for current homelessness (distribution) ✅
+13. total times homeless ✅
+14. age at first homelessness ✅
+15. mini mental status exam total score (M; SD) ✅
+  - 2020-12-24, from Joe Waring: "Please use MMS_total. This variable corrects for the missing data/data showing -1 in MMS_S. QDS outputs a -1 when participants are able to count backward from 100 by 7’s and skip the spell WORLD backward question."
+16. Arrest history (number of arrests; total period in jail Median✅) 
+17. Type of health insurance (distribution) ✅
+18. Do you have an active cell phone (% yes) ✅
+19. Who pays for your cell phone service (distribution) ✅
+20. How many 'talk' minutes does your plan have (distribution) ✅
+21. Is your cell phone a smart phone? (distribution) ✅
+22. Does your phone service include a data plan (distribution) ✅
+23. How many times has your phone number changed in the past year (distribution) ✅
+24. Which of the following forms of media do you use (distribution) ✅
+25. How often do you access the internet (distribution) ✅
+26. Do you have an active Facebook page (% yes) ✅
+27. How often do you check or post on Facebook (distribution) ✅
+28. Do you believe that a smartphone app can help you to change your actions or behaviors (% yes) ✅
+30. Have you ever used a smartphone app to manage one or more health-related issues (% yes) ✅
+31. What type of health related issue (distribution) ✅
+32. PHQ-8 score ✅
+33. % with PHQ-8 \>10 ✅
+34. Aggression Questionnaire mean (SD) ✅
+35. CJ Client Evaluation of Self and Treatment (TCU CJ CEST) -- mean (SD) ✅
+36. Urban Life Stress Scale -- Mean (SD) ✅
+37. Personal victimization (distribution of each of 3 items) ✅
+38. Detroit Area Assessment of Day-to-Day Discrimination Mean (SD) of scale -- 1st 9 items (Item 10 is separate = cause of discrimination -- please include distribution of item 10) ✅
+39. MacArthur Major Discrimination -- total score Personal victimization (distribution of each of 3 items) ✅
+40. % currently receiving treatment for mental health problems ✅
+41. Total drinks per week from Alcohol Quantity and Frequency questionnaire ✅
+42. Number binge drinking days in past 30 days ✅
+43. Perceived stress scale total score (M; SD) ✅
+44. Distress Tolerance Scale (total score; M, SD) ✅
+45. GAD-7 total score ✅
+46. CESD total score ✅
+47. ISEL social support – total score and each of 3 subscales ✅
+48. Panas positive affect 🚫
+49. Panas negative affect 🚫
+50. Meals survey item 4 (\# meals missed in past week; M; SD) ✅
+51. SF-12 total score ✅
+  - pcs_12_v1✅
+  - mcs_12_v1✅
+52. HrQol -- each of the 4 items separately (\# days with mental health problems, \# days with physical health problems, \# days MH or PH problems limit activities, how would you rate your health in general) ✅
+  - hrq_physical_30 ✅
+  - hrq_mental_30 ✅
+  - hrq_mental_30 ✅
+  - gen_health_f ✅
+
+Thanks Brad. We hope to get these all under review in January!
+
+# 📦Load packages
+
+```{r message=FALSE}
 library(dplyr)
 library(haven)
+library(readr)
+library(readxl)
 library(stringr)
 library(tidyr)
 library(meantables)
@@ -87,272 +100,62 @@ library(flextable)
 library(officer)
 ```
 
-
-# Connect to UTH server
+# 🌎Connect to UTH server 
 
 ```{bash}
 # Don't drill all the way down to live documents because not all of the data is in live documents.
-# open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/'
+open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/'
 ```
 
+# 📥Import data 
 
-```{r}
-all_visits <- read_sav("/Users/bradcannell/Desktop/l2c/All_Visits_Data.SAV")
-```
+Below, we run the file, data_survey_01_import.Rmd, which is used to import the Link2Care follow-up visit survey data and do some initial data cleaning (e.g., create calculated variables).
 
-
-# Import data
-
-This data is exported from QDS in SPSS data format. The SPSS data is then added to the UTHealth Servers. Currently, I'm not sure who is doing this.
-
-```{r}
-all_visits <- read_sav("/Users/bradcannell/Desktop/l2c/All_Visits_Data.SAV")
-```
-
-```{r}
-dim(all_visits) # 258 2722
-```
-
-
-# Data management
-
-## Convert to lowercase
-
-```{r}
-names(all_visits) <- names(all_visits) %>% str_to_lower()
-```
-
-## Make names more descriptive
-
-2020-12-24, from Michael: Use BH15V1 for number of times arrested.
-
-```{r}
-all_visits <- all_visits %>% 
-  rename(
-    id = subject,
-    hispanic = sq_2,
-    race = sq_3, # May have to change this to dem3v1
-    age = sq_4,
-    cell_have = sq_12,
-    cell_pays = sq_13,
-    cell_talk_minutes = sq_14,
-    marital_5_cat = dem1v1,
-    n_child = dem2v1,
-    edu_19_cat = dem5v1,
-    ged = dem5av1,
-    employ_9_cat = dem6v1,
-    ins_medicare = dem7v1a,
-    ins_medicaid = dem7v1b,
-    ins_military = dem7v1c,
-    ins_private = dem7v1d,
-    ins_none = dem7v1e,
-    veteran = dem15v1,
-    sexual_orientation = dem17v1,
-    transgender = dem18v1,
-    homeless_time_total = bh1v1,
-    homeless_time_years = bh1v1y,
-    homeless_time_months = bh1v1m,
-    homeless_time_days = bh1v1d,
-    homeless_periods = bh2v1,
-    homeless_age_first_time = bh3v1,
-    homeless_current_total = bh4v1,
-    homeless_current_years = bh4v1y,
-    homeless_current_months = bh4v1m,
-    homeless_current_days = bh4v1d,
-    homeless_reason_not_homeless = bh12av1a,
-    homeless_reason_lost_job = bh12av1b,
-    homeless_reason_evicted = bh12av1c,
-    homeless_reason_substance = bh12av1d,
-    homeless_reason_mental_illness = bh12av1e,
-    homeless_reason_medical_bills = bh12av1f,
-    homeless_reason_family = bh12av1g,
-    homeless_reason_legal = bh12av1h,
-    homeless_reason_jail = bh12av1i,
-    homeless_reason_natural_disaster = bh12av1j,
-    homeless_reason_domestic_violence = bh12av1k,
-    homeless_reason_other = bh12av1l,
-    jail_lifetime_n = bh15v1,
-    jail_time_total = bh17v1,
-    jail_time_years = bh17v1y,
-    jail_time_months = bh17v1m,
-    jail_time_weeks = bh17v1w,
-  ) %>% 
-  # Move id and group to the front of the data
-  select(id, group, everything())
-```
-
-## Recoded and calculated variables
-
-First, I have to remove the "have_labelled" and "vctrs_vctr" class from each variable for if_else() to work.
-
-But, I also need to keep the label attributes. They are erased when I convert the 9's to NA. 
-
-```{r}
-# Helper function:
-#  Convert 9's to NA's and then add attributes back to vector
-nines_to_na <- function(x, nines) {
-  # Store the attributes
-  x_attr <- attributes(x)
-  # Remove "haven_labelled" and "vctrs_vctr" from class list so that if_else()
-  # will work.
-  # Set class of column to whatever is remaining in the class list.
-  classes <- class(x)
-  class(x) <- classes[!class(x) %in% c("haven_labelled", "vctrs_vctr")]
-  # Convert 9's to NA's
-  x <- if_else(x == nines, NA_real_, x)
-  # Add attributes back to the vector
-  attributes(x) <- x_attr
-  # Return x
-  x
+```{r message=FALSE}
+source_rmd <- function(file, ...) {
+  tmp_file = tempfile(fileext=".R")
+  on.exit(unlink(tmp_file), add = TRUE)
+  knitr::purl(file, output=tmp_file)
+  source(file = tmp_file, ...)
 }
 
-# For testing
-# nines_to_na(all_visits$cell_pays, 9) %>% attributes()
+source_rmd("data_survey_01_import.Rmd")
+
+rm(source_rmd)
+# 263 rows and 2855 columns
 ```
 
+Import list of analysis variables. Normally, I wouldn't do it this way, but there are just so many variables that it's easier to keep track of them all and keep them in order using a spreadsheet.
+
 ```{r}
-all_visits <- all_visits %>% 
-  mutate(
-    # The visit dummy variables are currently not coded as 1'a and 0's.
-    across(
-      .cols = c(visit_v1, visit_v2, visit_v3, visit_v4, visit_v5),
-      .fns = ~if_else(!is.na(.x), 1L, 0L)
-    ),
-    # Convert 9's to NA
-    across(
-      .cols = c(
-        cell_pays, cell_talk_minutes, marital_5_cat, ged, starts_with("ins"), 
-        veteran, sexual_orientation, transgender, homeless_periods, 
-        starts_with("homeless_reason_"), jail_time_total
-      ),
-      .fns = ~nines_to_na(.x, 9)
-    ),
-    # Convert 99's to NA
-    across(
-      .cols = c(n_child, edu_19_cat, employ_9_cat, jail_lifetime_n),
-      .fns = ~nines_to_na(.x, 99)
-    ),
-    # Convert 999's to NA
-    across(
-      .cols = c(
-        homeless_time_years, homeless_time_months, homeless_time_days, 
-        homeless_current_years, homeless_current_months, homeless_current_days, 
-        jail_time_years, jail_time_months, jail_time_weeks
-      ),
-      .fns = ~nines_to_na(.x, 999)
-    ),
-    # Convert 9999's to NA
-    across(
-      .cols = c(homeless_time_total, homeless_current_total),
-      .fns = ~nines_to_na(.x, 9999)
-    )
-  )
+analysis_vars    <- read_excel("codebooks/descriptive_table_analysis_vars.xlsx")
+continuous_vars  <- analysis_vars %>% filter(cat == 0) %>% pull(var)
+categorical_vars <- analysis_vars %>% filter(cat == 1) %>% pull(var)
 ```
 
-Create a combined insurance variable
+
+# 🚧Data management 
+
+Only do data management in this file that applies to this analysis only. If the data management task is likely to be more broadly applicable, then add it to data_survey_01_import.Rmd.
+
+## Keep columns of interest
+
+This is strictly necessary, but it makes the data easier to work with.
 
 ```{r}
-all_visits <- all_visits %>% 
-  rowwise() %>% 
-  mutate(
-    ins_count = sum(c_across(ins_medicare:ins_private)),
-    ins_6_cat = case_when(
-      ins_count > 1 ~ 5, # Multiple
-      ins_medicare == 1 ~ 1, # Medicare
-      ins_medicaid == 1 ~ 2, # Medicaid
-      ins_military == 1 ~ 3, # Military
-      ins_private == 1 ~ 4, # Private
-      ins_none == 1 ~ 6 # None
-    ),
-    ins_6_cat_f = factor(
-      ins_6_cat, 1:6,
-      c("Medicare", "Medicaid", "Military", "Private", "Multiple types", "None")
-    )
-  ) %>% 
-  ungroup()
-```
-
-Create a combined homelessness reasons variable
-
-```{r}
-all_visits <- all_visits %>% 
-  rowwise() %>% 
-  mutate(
-    homeless_reason_count = sum(c_across(homeless_reason_lost_job:homeless_reason_other)),
-    homeless_reason_13_cat = case_when(
-      homeless_reason_count > 1 ~ 12, # Multiple
-      homeless_reason_lost_job == 1 ~ 1, # Lost job
-      homeless_reason_evicted == 1 ~ 2, # Evicted
-      homeless_reason_substance == 1 ~ 3, # Substance
-      homeless_reason_mental_illness == 1 ~ 4, # Mental illness
-      homeless_reason_medical_bills == 1 ~ 5, # Medical
-      homeless_reason_family == 1 ~ 6, # Family
-      homeless_reason_legal == 1 ~ 7, # Legal
-      homeless_reason_jail == 1 ~ 8, # Jail
-      homeless_reason_natural_disaster == 1 ~ 9, # Natural disaster
-      homeless_reason_domestic_violence == 1 ~ 10, # Domestic violence
-      homeless_reason_other == 1 ~ 11, # Other
-      homeless_reason_not_homeless == 1 ~ 13, # Not homeless
-    ),
-    homeless_reason_13_cat_f = factor(
-      homeless_reason_13_cat, 1:13, c(
-        "Lost my job", "Evicted from house/apartment", 
-        "Substance use (alcohol or drugs)", "Mental illness", 
-        "Inability to pay medical bills", "Family problems", "Legal problems",
-        "Recently released from jail or prison", "Natural disaster",
-        "Domestic Violence", "Other", "Multiple reasons", "Not homeless"
-      )
-    )
-  ) %>% 
-  ungroup()
-```
-
-Calculate jail time
-
-2020-12-24, from Michael: You will have to calculate total time in jail because the current variable does not include decimals – here is the syntax to calculate the lifetime period in jail variable: Bh17V1Y + BH17v1M/12 + BH17v1w/52.
-
-Just out of curiosity, I checked for differences between jail_time_total and jail_time_total_c. They are almost identical.
-
-```{r}
-all_visits <- all_visits %>% 
-  mutate(jail_time_total_c = jail_time_years + (jail_time_months/12) + (jail_time_weeks/52))
-```
-
-```{r}
-dim(all_visits) # 258 2729
-```
-
-## Create factor variables
-
-```{r}
-all_visits <- all_visits %>% 
-  # Use bind cols to add the new "_f" factor columns to the existing columns in
-  # all_visits.
-  bind_cols(
-    purrr::map_dfc(
-      # Choose categorical columns
-      .x = quos(
-        group, gender, hispanic, race, cell_have, cell_pays, cell_talk_minutes,
-        marital_5_cat, n_child, edu_19_cat, ged, employ_9_cat, veteran, 
-        sexual_orientation, transgender, homeless_periods, jail_lifetime_n
-      ),
-      .f = function(x) {
-        # Use value labels from SPSS as factor labels. 
-        vals <- pull(all_visits, {{ x }})
-        levs <- attr(vals, "labels")
-        labs <- names(levs)
-        name_f <- paste(quo_name({{ x }}), "f", sep = "_")
-        tibble(!!name_f := factor(vals, levs, labs))
-      }
-    )
+baseline <- all_visits %>% 
+  select(
+    id, group, all_of(pull(analysis_vars, var))
   )
 ```
 
 ```{r}
-dim(all_visits) # 258 2746
+dim(baseline) # 263  75
 ```
 
 ## Reshape wide to long
+
+**NOTE on reshaping:** Not currently reshaping anymore. The way I've kept variables (e.g., var_v1 or var_v2) means that I have a wide data from with each persons "baseline" value (i.e., at v1 or v2 for questions that weren't asked at v1 -- Michael asked for it to be this way). Therefore, there is no need to create a long data frame. I do want to save this code for the future though.
 
 The visit variable is currently in wide form. Make longer so that each row represents a unique person/visit combination.
 
@@ -370,106 +173,89 @@ The visit variable is currently in wide form. Make longer so that each row repre
 NOTE: "If there is data in VISIT_V or GROUP then the visit occurred." can't be right because they are assigned group at visit two. So, they could easily have no date and have been assigned to a group, but not yet attended visit 3. Visit 3 should be 0, not 1. So, we can only use group assignment as a criteria for visits 1 and 2. In other words, if they have no date for visit 2 and no "visit_v" identifier for visit 2, but they have group identifier, then we will say they attended visit 2.
 
 ```{r}
-all_visits <- all_visits %>% 
-  pivot_longer(
-    cols = c(starts_with("today"),starts_with("visit")),
-    names_to = c(".value", "value"),
-    names_pattern = "([a-z]+)_v([1-5])"
-  ) %>% 
-  # Rename columns
-  rename(
-    visit = value,
-    date = today,
-    attend_visit = visit
-  ) %>% 
-  # Create a calculated version of attend visit using the criteria Joe sent
-  # (See above)
-  mutate(attend_visit_c = case_when(
-    # If there is a date then they attended. I checked and there aren't any
-    # cases where there is a date and attend_visit is zero, but I'm putting
-    # this rule in anyway.
-    !is.na(date) ~ 1L,
-    # If there is data in VISIT_V or GROUP then the visit occurred (see above).
-    attend_visit == 1 ~ 1L,
-    !is.na(group) & visit <= 2 ~ 1L,
-    # Add the Redcap cases.
-    id == 2235 & visit == 4 ~ 1L,
-    id == 2237 & visit == 4 ~ 1L,
-    id == 2238 & visit == 4 ~ 1L,
-    id == 2247 & visit == 4 ~ 1L,
-    id == 2248 & visit == 4 ~ 1L,
-    id == 2249 & visit == 3 ~ 1L,
-    id == 2252 & visit == 3 ~ 1L,
-    # Otherwise, they didn't attend (yet).
-    TRUE ~ 0L
-  )) %>% 
-  # Reorder columns
-  select(id, group, date, visit, attend_visit, attend_visit_c, everything())
-  
-  # For data checking
-  # filter(is.na(date) & attend_visit == 1)
-  # filter(attend_visit != attend_visit_c)
+# all_visits_long <- all_visits %>% 
+#   # For testing
+#   # select(id, group, starts_with("TODAY"), starts_with("VISIT")) %>%
+#   pivot_longer(
+#     cols = c(starts_with("TODAY"), starts_with("VISIT")),
+#     names_to = c(".value", "value"),
+#     names_pattern = "([A-Z]+)_V([1-5])"
+#   ) %>% 
+#   # Rename columns
+#   rename(
+#     visit = value,
+#     date = TODAY,
+#     attend_visit = VISIT
+#   ) %>% 
+#   # Create a calculated version of attend visit using the criteria Joe sent
+#   # (See above)
+#   mutate(attend_visit_c = case_when(
+#     # If there is a date then they attended. I checked and there aren't any
+#     # cases where there is a date and attend_visit is zero, but I'm putting
+#     # this rule in anyway.
+#     !is.na(date) ~ 1L,
+#     # If there is data in VISIT_V or GROUP then the visit occurred (see above).
+#     attend_visit == 1 ~ 1L,
+#     !is.na(group) & visit <= 2 ~ 1L,
+#     # Add the Redcap cases.
+#     id == 2235 & visit == 4 ~ 1L,
+#     id == 2237 & visit == 4 ~ 1L,
+#     id == 2238 & visit == 4 ~ 1L,
+#     id == 2247 & visit == 4 ~ 1L,
+#     id == 2248 & visit == 4 ~ 1L,
+#     id == 2249 & visit == 3 ~ 1L,
+#     id == 2252 & visit == 3 ~ 1L,
+#     # Otherwise, they didn't attend (yet).
+#     TRUE ~ 0L
+#   )) %>% 
+#   # Reorder columns
+#   select(-attend_visit) %>% 
+#   select(id, group, date, visit, attend_visit_c, everything())
+#   
+#   # For data checking
+#   # filter(is.na(date) & attend_visit == 1)
+#   # filter(attend_visit != attend_visit_c)
 ```
 
 ```{r}
-dim(all_visits) # 1290 2740
+# dim(all_visits_long) # 1305 2365
 ```
 
 
-# Filter out rows in the table
+## Filter out rows in the table
 
 2020-12-08, from Michael: Can you start by recreating a baseline table with all the variables below (use all participants to date that have completed the baseline and randomization visits)?
 
-## Select people who were randomized only
+2021-01-20: Michael said to consider visit 2 answers to be "baseline" answers for questions that weren't asked at visit 1.
+
+Select people who were randomized only
 
 ```{r}
-all_visits_randomized <- all_visits %>% 
+baseline_randomized <- baseline %>% 
   filter(group %in% 1:3)
 ```
 
 ```{r}
-dim(all_visits_randomized) # 880 2740
+dim(baseline_randomized) # 244  75
 ```
 
-## Select baseline visits only
+## Export analysis data
+
+2021-01-29: Michael asked me to export the analysis data and upload it to Kiteworks.
 
 ```{r}
-visit_1_randomized <- all_visits_randomized %>% 
-  filter(visit == 1)
-```
-
-```{r}
-dim(visit_1_randomized) # 176 2740
-```
-
-## Keep columns of interest
-
-This is strictly necessary, but it makes the data easier to work with.
-
-```{r}
-visit_1_randomized <- visit_1_randomized %>% 
-  select(
-    id:date, gender_f, hispanic_f, race_f, age, cell_have_f, cell_pays_f, 
-    cell_talk_minutes_f, marital_5_cat_f, n_child_f, edu_19_cat_f, employ_9_cat_f,
-    ins_6_cat_f, veteran_f, sexual_orientation_f, mms_total, homeless_time_total,
-    homeless_current_total, homeless_periods_f, homeless_age_first_time, 
-    homeless_reason_13_cat_f, jail_time_total_c
-  )
-```
-
-```{r}
-dim(visit_1_randomized) # 176 24
+write_sav(baseline_randomized, "/Users/bradcannell/Desktop/baseline_randomized.sav")
 ```
 
 
+# 📈Analysis
 
-# Analysis
-
-## Continuous variables
+## 🟠Continuous variables
 
 For now, we'll get the mean with confidence interval and median with confidence interval.
 
-Useful website: https://stats.stackexchange.com/questions/21103/confidence-interval-for-median
+Useful website:
+<https://stats.stackexchange.com/questions/21103/confidence-interval-for-median>
 
 ### Helper function for median and CI
 
@@ -519,12 +305,9 @@ mean_median_ci <- function(.data, .x, .digits) {
 
 ```{r}
 cont_stats <- map_df(
-  quos(
-    age, mms_total, homeless_time_total, homeless_current_total, 
-    homeless_age_first_time, jail_time_total_c
-  ), 
+  syms(continuous_vars), 
   function(x) {
-    visit_1_randomized %>%
+    baseline_randomized %>%
       mean_median_ci({{x}}, 1)
   }
 )
@@ -541,6 +324,26 @@ cont_stats <- cont_stats %>%
     var == "homeless_current_total" ~ "Current total time homeless (months)",
     var == "homeless_age_first_time" ~ "Age when first became homeless (years)",
     var == "jail_time_total_c" ~ "Lifetime total time in jail or prison (years)",
+    var == "phq_8_total" ~ "PHQ-8 score",
+    var == "gad_7_total_v1" ~ "GAD-7 total score",
+    var == "pcs_12_v1" ~ "SF-12 Physical Component Summary score",
+    var == "mcs_12_v1" ~ "SF-12 Mental Component Summary score",
+    var == "hrq_physical_30" ~ "N days out of past 30 physical health not good",
+    var == "hrq_mental_30" ~ "N days out of past 30 mental health not good",
+    var == "hrq_limit_activities_30" ~ "N days out of past 30 poor health prevent activities",
+    var == "drink_avg_per_week_v1" ~ "Total drinks on average week",
+    var == "binge_drink_days_v1" ~ "N Binge drinking days in past 30 days",
+    var == "dd_v1_total" ~ "Detroit Day Discrimination summary score",
+    var == "agression_total" ~ "Aggression questionnaire total",
+    var == "ces_v1_total" ~ "CES-D total score",
+    var == "ise_appraisal_v1" ~ "ISE appraisal score",
+    var == "ise_belonging_v1" ~ "ISE belonging score",
+    var == "ise_tangable_v1" ~ "ISE tangable score",
+    var == "tcu_treatment_sat_v2" ~ "TCU treatment satisfaction subscale",
+    var == "macarthur_total" ~ "MacArthur Major Discrimination total score",
+    var == "uls_v2_total" ~ "Urban Life Stress Scale total score",
+    var == "ps_v2_total" ~ "Perceived Stress Scale total score",
+    var == "dts_total_v2" ~ "Distress Tolerance Scale total score",
     TRUE ~ var
   ))
 ```
@@ -590,20 +393,17 @@ cont_stats_ft <- cont_stats_ft %>%
   font(fontname = "Times New Roman", part = "all")
 ```
 
+## 🔵Categorical variables
 
-## Categorical variables
+2020-12-24, from Michael: Use BH15V1 for number of times arrested.
 
 ### Loop over all categorical vars
 
 ```{r}
 cat_stats <- map_df(
-  quos(
-    gender_f, hispanic_f, race_f, cell_have_f, cell_pays_f, cell_talk_minutes_f, 
-    marital_5_cat_f, n_child_f, edu_19_cat_f, employ_9_cat_f, ins_6_cat_f, 
-    veteran_f, sexual_orientation_f, homeless_periods_f, homeless_reason_13_cat_f
-  ), 
+  syms(categorical_vars), 
   function(x) {
-    visit_1_randomized %>%
+    baseline_randomized %>%
       filter(!is.na({{x}})) %>% 
       freq_table({{x}}) %>%
       freq_format(recipe = "n (percent)", digits = 1) %>%
@@ -623,21 +423,53 @@ cat_stats <- map_df(
 ```{r}
 cat_stats <- cat_stats %>%
   mutate(var = case_when(
-    var == "gender_f" ~ "Gender",
-    var == "race_f" ~ "Race",
+    var == "gender_v1_f" ~ "Gender",
     var == "hispanic_f" ~ "Hispanic ethnicity",
+    var == "race_f" ~ "Race",
     var == "cell_have_f" ~ "Have cell phone",
     var == "cell_pays_f" ~ "Who pays for cell phone",
     var == "cell_talk_minutes_f" ~ "Talk minutes on cell plan",
+    var == "cell_smart_f" ~ "Is your cell phone a smart phone?",
+    var == "cell_data_plan_f" ~ "Does your phone service include a data plan?",
+    var == "cell_number_change_f" ~ "How many times has your phone number changed in the past year?",
+    var == "media_use_email_f" ~ "Use email",
+    var == "media_use_facebook_f" ~ "Use Facebook",
+    var == "media_use_google_plus_f" ~ "Use Google Plus",
+    var == "media_use_twitter_f" ~ "Use Twitter",
+    var == "media_use_blogs_f" ~ "Use Blogs",
+    var == "media_use_instagram_f" ~ "Use Instagram",
+    var == "media_use_snapchat_f" ~ "Use Snapchat",
+    var == "media_use_linkedin_f" ~ "Use LinkedIn",
+    var == "media_use_none_f" ~ "Don't use any media",
+    var == "access_internet_f" ~ "How often do you access the internet?",
+    var == "facebook_active_f" ~ "Do you have an active Facebook page?",
+    var == "facebook_check_f" ~ "How often do you check or post on Facebook?",
     var == "marital_5_cat_f" ~ "Marital status",
     var == "n_child_f" ~ "Number of children",
     var == "edu_19_cat_f" ~ "Completed formal education",
+    var == "ged_f" ~ "Have GED or HS diploma",
     var == "employ_9_cat_f" ~ "Employment status",
     var == "ins_6_cat_f" ~ "Insurance",
     var == "veteran_f" ~ "Veteran status",
     var == "sexual_orientation_f" ~ "Sexual orientation",
+    var == "transgender_f" ~ "Transgender",
     var == "homeless_periods_f" ~ "Lifetime separate periods of homelessness",
+    var == "homeless_mental_treatment_f" ~ "Currently receiving treatment for mental health problems",
     var == "homeless_reason_13_cat_f" ~ "Reason for current homelessness",
+    var == "jail_lifetime_n_f" ~ "Lifetime separate times to jail or prison",
+    var == "phq_8_gt_10_f" ~ "PHQ-8 score greater than 10",
+    var == "gen_health_v1_f" ~ "General health",
+    var == "sp_app_change_behavior_f" ~ "Smartphone app can help you to change your actions or behavior",
+    var == "sp_app_manage_health_f" ~ "Ever used smartphone app to manage one or more health-related issues",
+    var == "sp_app_health_type_f" ~ "Type of health related issue managed with smartphone apps",
+    var == "meals_missed_week_f" ~ "Meals missed past week because unable to find food",
+    var == "ddd_main_reason_f" ~ "DDD: Main reason for discrimination experienced",
+    var == "macarthur_main_reason_f" ~ "MacArthur: Main reason for discrimination experienced",
+    var == "macarthur_interfere_f" ~ "MacArthur: Overall discrimination interfered with full and productive life",
+    var == "macarthur_harder_life_f" ~ "MacArthur: Overall how much harder life is because of discrimination",
+    var == "pv_violence_victim_30_f" ~ "Times experienced violence past 30 days ",
+    var == "pv_witness_violence_30_f" ~ "Times witnessed to acts of violence past 30 days",
+    var == "pv_witness_violence_6_f" ~ "Times witnessed to acts of violence past 6 months",
     TRUE ~ var
   ))
 ```
@@ -699,15 +531,14 @@ cat_stats_ft <- cat_stats_ft %>%
   font(fontname = "Times New Roman", part = "all")
 ```
 
-
-# Add tables to Word document
+# 📄Add tables to Word document
 
 ```{r}
 descriptive_stats <- read_docx("table_big_descriptive_template.docx") %>%
   # Add the total n
   body_replace_text_at_bkm(
     bookmark = "n_randomized",
-    value = paste0(" ", nrow(visit_1_randomized))
+    value = paste0(" ", nrow(baseline_randomized))
   ) %>% 
   # Add date updated
   body_replace_text_at_bkm(
@@ -742,76 +573,6 @@ print(
   "L2C Baseline Descriptive Tables.docx"
 )
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
