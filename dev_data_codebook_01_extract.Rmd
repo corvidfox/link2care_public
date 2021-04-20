@@ -1,0 +1,231 @@
+---
+title: "Extract Information from Codebooks"
+date: "2021-04-14 <br> Updated: `r Sys.Date()`"
+---
+
+# ⭐️Overview
+
+Start by just using this for section 1.
+
+Using this method, as opposed to typing the variable names in manually, has a couple of advantages:
+1. It greatly reduces the risk of typos.
+2. It clearly maps any changes between the original codebook name and the new name being used.
+3. It may potentially save some time.
+
+Instructions:
+* Open the RTF version of the codebook (e.g., L2C_V1 Codebook.RTF), which can be downloaded from the UDrive/Kiteworks.
+* Create a .docx version of the codebook using "save as" in Word.
+* Create a "cb_col_name" style to identify existing variable names
+  - Open styles pane, click "New Style..."
+  - Name the new style cb_col_name and change the text color to red (optional).
+* Create a "col_name" style to identify new variable names
+  - Open styles pane, click "New Style..."
+  - Name the new style col_name and change the text color to green (optional).
+* Start marking variable names as such
+  - Place cursor immediately after each variable name and press the return key. Each variable name needs to be on its own line.
+  - Place cursor in each variable name and change the style to cb_col_name in the styles pane.
+* Create new/alternate variable names
+  - Place cursor immediately after each variable name and press the return key again.
+  - Type the new/alternate variable names.
+    + Don't worry about capitalization or underscores. We will fix that programmatically below.
+    + Do worry about correct spelling.
+  - Place cursor in each variable name and change the style to col_name in the styles pane.
+  
+Assign keyboard shortcut to a style (optional):
+* In styles pane, click drop down arrow to the right of the style name (e.g., cb_col_name).
+* Click "Modify style..."
+* Click "Format" drop down in the bottom left corner of the dialogue box.
+* Click "Shortcut Key..."
+* Enter the new shortcut key in the "Press new keyboard shortcut:" box.
+* Click assign.
+* Save changes in the local file.
+* Click OK.
+
+**NOTES on naming conventions**
+* The typical way that variables are named in these data sets is: 
+  - <abbreviated_tool_name>_<question_number>[optionally:dummy_variable_lettered]
+    + For example: Screening Question 2 is named: SQ_2
+    + OR: The dummy variable for the "EMAIL" Response to Screening Question 18 is: SQ_18A
+  - Many questions also have the visit number embedded in the name.
+    + For example: Demographics question 1 is: DEM1V1.
+  - However, there are some exceptions to this rule - intentional or not.
+    + For example, the fifth MMSE question is: MMS4V
+* In order to improve consistency in the variable names, we will adopt the following convention:
+  - <abbreviated_tool_name>_<question_number>_[optionally:dummy_variable_lettered]
+  - We will drop visit number from the variable name an use an explicit visit variable.
+  - Exceptions: Demographic variables that almost anyone should be reasonably able to understand without the codebook will be given intuitive, descriptive names (e.g., age, race, gender, marital_status, etc.)
+
+
+# 📦Load packages
+
+```{r message=FALSE}
+library(dplyr)
+library(officer)
+library(stringr)
+library(tidyr)
+```
+
+# v1 codebook
+
+Extract content from Word codebook
+
+```{r}
+v1_cb <- read_docx("codebooks/L2C_V1 Codebook Test.docx")
+```
+
+```{r}
+v1_cb_content <- docx_summary(v1_cb)
+```
+
+```{r}
+unique(v1_cb_content$style_name)
+```
+
+```{r}
+filter(v1_cb_content, style_name %in% c("cb_col_name", "col_name"))
+```
+
+How can I use this?
+
+* Rename variables
+* Recode missing
+* Make factors
+
+At this point, I'm not sure it's appropriate to recode missing or coerce categorical variables into factors. Just clean up the variable names, create the calculated variables, and merge the data files. In fact, we may just need to standardize names so that they are consistent and can be merged. For example, don't even change SQ_2 to Hispanic. I will go ahead and convert to lowercase.
+
+In fact, we may just need to standardize names so that they are consistent and can be merged. For example, don't even change SQ_2 to Hispanic. I will go ahead and conver to lowercase.
+
+Screening questions and mmse 
+
+The vast majority of the names don’t have an underscore between the abbreviated tool name and the question number. Taking out the underscore to make more consistent.
+
+```{r}
+v1_cb_col_names <- v1_cb_content %>%
+  filter(style_name%in% c("cb_col_name", "col_name")) %>% 
+  select(doc_index, style_name:text) %>% 
+  pivot_wider(
+    names_from = "style_name",
+    values_from = "text"
+  ) %>% 
+  
+  # Spread cb_col_name across rows
+  fill(cb_col_name) %>% 
+  # Spread col_name across rows within cb_col_name
+  group_by(cb_col_name) %>% 
+  fill(col_name, .direction = "up") %>% 
+  ungroup() %>% 
+  
+  # Other cleaning
+  mutate(
+    # Remove _V1 at end of column name
+    # Remove V1 at end of column name (e.g., DEM1V1)
+    # Don't include values for col_name that were changed in the Word
+    # document.
+    col_name = if_else(
+      is.na(col_name),
+      str_replace(cb_col_name, "_V1$|V1$", ""),
+      col_name
+    ),
+    # Replace spaces with underscores
+    col_name = str_replace_all(col_name, " ", "_"),
+    # Convert to lower case
+    col_name = str_to_lower(col_name),
+    # Remove underscore between SQ and number for screening questions
+    # The vast majority of the other variable names don’t have an underscore 
+    # between the abbreviated tool name and the question number. Taking out the 
+    # underscore to make SQ consistent.
+    col_name = str_replace(col_name, "^sq_", "sq"),
+    # Remove underscore between MMS and number for screening questions
+    # The vast majority of the other variable names don’t have an underscore 
+    # between the abbreviated tool name and the question number. Taking out the 
+    # underscore to make MMS consistent.
+    col_name = str_replace(col_name, "(^mms_)(\\d)", "mms\\2")
+  ) %>% 
+  
+  # Reduce to one row per variable
+  group_by(cb_col_name) %>% 
+  filter(row_number() == 1) %>% 
+  ungroup()
+
+v1_cb_col_names
+```
+
+```{r}
+# v1_cb_key <- v1_cb_content %>% 
+#   filter(style_name == "col_name") %>% 
+#   select(doc_index, cb_col_name = text) %>% 
+  # mutate(
+  #   # remove _V1 at end of column name
+  #   col_name = str_replace(cb_col_name, "_V1", ""),
+  #   # Convert to lower case
+  #   col_name = str_to_lower(col_name)
+  # )
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Looking for skips ect. 
+
+I backed off of this for now...
+
+Look for skips
+
+```{r}
+skipped <- v1_cb_content %>% 
+  filter(str_detect(text, "skip")) %>% 
+  slice(1:10) %>% 
+  select(doc_index, skip_number = text)
+```
+
+```{r}
+dk <- v1_cb_content %>% 
+  filter(str_detect(text, "Don't Know")) %>% 
+  slice(1:10) %>% 
+  select(doc_index, dk = text)
+```
+
+```{r}
+refuse <- v1_cb_content %>% 
+  filter(str_detect(text, "Refuse ")) %>% 
+  slice(1:10) %>% 
+  select(doc_index, refuse = text)
+```
+
+```{r}
+na <- v1_cb_content %>% 
+  filter(str_detect(text, "Not Applicable")) %>% 
+  slice(1:10) %>% 
+  select(doc_index, na = text)
+```
+
+```{r}
+v1_cb_key %>% 
+  full_join(dk, by = "doc_index") %>% 
+  full_join(refuse, by = "doc_index") %>% 
+  full_join(na, by = "doc_index") %>% 
+  full_join(skipped, by = "doc_index") %>% 
+  arrange(doc_index) %>% 
+  fill(cb_col_name) %>% 
+  group_by(cb_col_name) %>% 
+  fill(everything(), .direction = "downup") %>% 
+  filter(row_number() == 1) %>% 
+  ungroup()
+```
+
+
+# Other things you may want to do:
+* Automatically extract the name of the tool being used
+
