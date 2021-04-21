@@ -3,9 +3,6 @@ title: "Import and manage Link2Care Survey Data - QDS Visit 1"
 date: "2020-12-23 <br> Updated: `r Sys.Date()`"
 ---
 
-**Delete when done:** 
-2021-01-29: Michael and I had a chat on the phone. He wants all the f/u survey data put into a single complete data frame (QDS, REDCapp, all variables from all visits cleaned) by May 1. That's what I'm attempting to do with this file. Notes/Tasks can be viewed/updated here: https://app.asana.com/0/1152061965261457/1199715313921388
-
 # ⭐️Overview
 
 This file is used to import the Link2Care follow-up visit survey data and do some initial data cleaning (e.g., create calculated variables). 
@@ -35,12 +32,12 @@ Currently, I'm importing all of this data from the UTHealth server. The data sho
 ```{r message=FALSE}
 library(dplyr)
 library(haven)
-library(readxl)
+library(readr)
 library(purrr)
 library(tidyr)
 library(stringr)
-library(forcats)
 library(officer)
+library(testthat)
 ```
 
 ```{r}
@@ -65,9 +62,7 @@ dim(v1) # 264 803
 ```
 
 
-# 🚧Data management 
-
-## Remove columns of missing data
+# Remove columns of missing data
 
 There are quite a few columns that have missing values for all rows. We
 drop those columns below.
@@ -85,98 +80,19 @@ v1 <- v1 %>%
 ncol(v1) # 795 So, 803 - 795 = 8 columns dropped.
 ```
 
-## Clean variable names
 
-**NOTE on changing variable names**
+# Clean variable names
 
-The variable names aren't very descriptive. At first, my plan was to resist the urge to change them in this file. My thought was that I wanted the data that comes out of this file to have variable names that match the variables names in the codebook files. Then I realized, however, that none of the calculated variables will be in the codebook files anyway. Also, there isn't a codebook file for the combined survey data set. So, we can go ahead and rename variables in this file. We will either have to create a new codebook for the combined data or just live without one. 
-
-Having said that, completely changing variable names (e.g., SQ_2 to hispanic) may not be appropriate for this file for a couple of reasons:
-1. It isn't necessarily a high priority for the team and we are on a tight deadline.
-2. Others may not like the names I select. Instead of creating descriptive variable names in this file, we can use descriptive variable names in the individual analysis files as needed.
-
-So, in this file, we will standardize names (e.g., drop "_V1", "HEIGHT_3") so that they are consistent across the various data files and can be merged.
-
-Additionally, we will:
-1. Convert all variable names to lower, snake case.
-2. Create all calculated/created variables using lower, snake case.
-
-**NOTES on naming conventions**
-* The typical way that variables are named in these data sets is: 
-  - <abbreviated_tool_name><question_number>[optionally:dummy_variable_lettered]
-    + For example: BPM1_V1, LSN3_V1
-  - <abbreviated_tool_name>_<question_number>[optionally:dummy_variable_lettered]
-    + For example: Screening Question 2 is named: SQ_2
-    + OR: The dummy variable for the "EMAIL" Response to Screening Question 18 is: SQ_18A
-  - Many questions also have the visit number embedded in the name.
-    + For example: Demographics question 1 is: DEM1V1.
-  - However, there are some exceptions to this rule - intentional or not.
-    + For example, the fifth MMSE question is: MMS4V
-
-* In order to improve consistency in the variable names, we will adopt the following convention:
-  - <abbreviated_tool_name><question_number>[optionally:dummy_variable_lettered]
-    + dummy variables will be numbered a-z
-    + For example, sq12, t14a
-  - We will drop visit number from the variable name an use an explicit visit variable.
-  - Exceptions: Demographic variables that almost anyone should be reasonably able to understand without the codebook will be given intuitive, descriptive names (e.g., age, race, gender, marital_status, etc.)
-
-**NOTE on coercing categorical variables to factors**
-
-Originally, I was coercing categorical variables to factors in this code. However, I decided not to do that anymore because it isn't necessarily a high priority for the team and we are on a tight deadline. In fact, others may not even use R for analysis in which case the factor information would be lost entirely. Instead, we can convert categorical variables to factors in the individual analysis files as needed.
-
-**NOTE on recoding 7, 9, 99, etc. to NA**
-
-Originally, I was converting 7, 9, 99, etc. to NA in this code. However, I decided not to do that anymore because it isn't necessarily a high priority for the team and we are on a tight deadline. In fact, others may want to be able to compare "Don't know" and "Refused", which wouldn't be possible if I convert them all to NA here. Instead, we can convert 7, 9, 99, etc. to NA in the individual analysis files as needed.
-
-Therefore, in this file, just clean up the variable names so that they can be merged and create the calculated variables. 
-
-### Read-in variable names from codebook
-
-Using this method, as opposed to typing the variable names in manually, has a couple of advantages:
-1. It greatly reduces the risk of typos.
-2. It clearly maps any changes between the original codebook name and the new name being used.
-3. It may potentially save some time.
-
-Instructions:
-* Open the RTF version of the codebook (e.g., L2C_V1 Codebook.RTF), which can be downloaded from the UDrive/Kiteworks.
-* Create a .docx version of the codebook using "save as" in Word.
-* Create a "cb_col_name" style to identify existing variable names
-  - Open styles pane, click "New Style..."
-  - Name the new style cb_col_name and change the text color to red (optional).
-* Create a "col_name" style to identify new variable names
-  - Open styles pane, click "New Style..."
-  - Name the new style col_name and change the text color to green (optional).
-* Start marking variable names as such
-  - Place cursor immediately after each variable name and press the return key. Each variable name needs to be on its own line.
-  - Place cursor in each variable name and change the style to cb_col_name in the styles pane.
-* Create new/alternate variable names
-  - Place cursor immediately after each variable name and press the return key again.
-  - Type the new/alternate variable names.
-    + Don't worry about capitalization or underscores. We will fix that programmatically below.
-    + Do worry about correct spelling.
-  - Place cursor in each variable name and change the style to col_name in the styles pane.
-* Use a similar procedure for section_name
-  - Only include sections that actually have questions in them.
-    + For example, NOT Sect-24.	NEGATIVE/POSITIVE AFFECT
+_See "Notes on cleaning individual L2C data sets for merging" for the rationale, sytle guidelines, and instructions for this section._
   
-Assign keyboard shortcut to a style (optional):
-* In styles pane, click drop down arrow to the right of the style name (e.g., cb_col_name).
-* Click "Modify style..."
-* Click "Format" drop down in the bottom left corner of the dialogue box.
-* Click "Shortcut Key..."
-* Enter the new shortcut key in the "Press new keyboard shortcut:" box.
-* Click assign.
-* Save changes in the local file.
-* Click OK.
-  
-#### Extract content from Word codebook
+## Extract content from Word codebook
 
 ```{r}
-v1_cb_content <- read_docx("codebooks/L2C_V1 Codebook.docx") %>% 
+v1_cb_content <- read_docx("docs/codebooks/L2C_V1 Codebook.docx") %>% 
   docx_summary()
 ```
 
-#### Keep the variables of interest only
+## Keep the variables of interest only
 
 ```{r}
 v1_cb_col_names <- v1_cb_content %>%
@@ -188,7 +104,7 @@ v1_cb_col_names <- v1_cb_content %>%
   )
 ```
 
-#### Clean section names
+## Clean section names
 
 ```{r}
 v1_cb_col_names <- v1_cb_col_names %>%
@@ -206,16 +122,20 @@ v1_cb_col_names <- v1_cb_col_names %>%
   fill(section_name)
 ```
 
-#### Record the sections that are at visit 1
+## Record the sections that are at visit 1
 
 We will use this for checking to make sure all of the correct questionnaire sections merged later.
 
 ```{r}
 q_sections <- list(v1 = unique(v1_cb_col_names$section_name))
-q_sections[["v1"]]
+# q_sections[["v1"]]
 ```
 
-#### Reduce to one row per column
+```{r}
+write_rds(q_sections, "data/questionnaire_section.rds")
+```
+
+## Reduce to one row per column
 
 Currently, cb_col_name and col_name are on separate rows. We will spread the different column names vertically across rows so that we can reduce the data frame down to one row per column.
 
@@ -245,35 +165,12 @@ v1_cb_col_names <- v1_cb_col_names %>%
 dim(v1_cb_col_names) # 724   4
 ```
 
-#### Remove _V1 and V1 from column names
+## Standardize new column names
 
-Left off here...
-Just finished cleaning the self-rated health section. Pick back up at PTSD. Make sure col_name matches naming conventions.
-
-```{r}
-# v1_cb_col_names <- 
-v1_cb_col_names %>%
-  mutate(
-    # Remove _V1 from column name
-    # Remove V1 at end of column name (e.g., DEM1V1)
-    # Don't include values for col_name that were changed in the Word
-    # document.
-    col_name = if_else(
-      is.na(col_name),
-      str_replace(cb_col_name, "_V1|V1", ""),
-      col_name
-    )
-  )
-```
-
-Check to make sure this didn't create any duplicate column names
-
-```{r}
-v1_cb_col_names %>% 
-  group_by(col_name) %>% 
-  filter(max(row_number()) > 1)
-```
-
+* Remove _V1 and V1 from column names
+* Replace spaces with underscores
+* Convert to lower case
+* Add underscore in-between the abbreviated tool name and question number
 
 ```{r}
 v1_cb_col_names <- v1_cb_col_names %>%
@@ -284,33 +181,40 @@ v1_cb_col_names <- v1_cb_col_names %>%
     # document.
     col_name = if_else(
       is.na(col_name),
-      str_replace(cb_col_name, "_V1", ""),
+      str_replace(cb_col_name, "_V1|V1", ""),
       col_name
     ),
     # Replace spaces with underscores
     col_name = str_replace_all(col_name, " ", "_"),
     # Convert to lower case
     col_name = str_to_lower(col_name),
-    # Remove underscore between SQ and number for screening questions
-    # The vast majority of the other variable names don’t have an underscore 
-    # between the abbreviated tool name and the question number. Taking out the 
-    # underscore to make SQ consistent.
-    col_name = str_replace(col_name, "^sq_", "sq"),
-    # Remove underscore between MMS and number for screening questions
-    # The vast majority of the other variable names don’t have an underscore 
-    # between the abbreviated tool name and the question number. Taking out the 
-    # underscore to make MMS consistent.
-    col_name = str_replace(col_name, "(^mms_)(\\d)", "mms\\2"),
-    # The demographics variables don't have _V1 at the end. Instead, they have
-    # V1 at the end. But sometimes there is a letter after the V1. We will take
-    # those out here
-    col_name = str_replace(col_name, "(^dem\\d)(V1)", "\\1")
+    # Add underscore in-between the abbreviated tool name and question number
+    col_name = str_replace(col_name, "([a-z])(\\d)", "\\1_\\2")
   )
-
-v1_cb_col_names
 ```
 
-Replace variable names in the full data frame
+## Check for duplicate column names
+
+Check to make sure this process didn't accidentally create any duplicate column names
+
+```{r}
+test_that("No duplicate col_names were created in the visit 1 data.", {
+  check_dup_col_name <- v1_cb_col_names %>% 
+    group_by(col_name) %>% 
+    filter(max(row_number()) > 1) %>% 
+    pull(col_name)
+  
+  expect_length(check_dup_col_name, 0)
+})
+```
+
+Save v1_cb_col_names as a key that maps the new names to the old names in case we need that information in the future. Possibly for the codebook.
+
+```{r}
+write_csv(v1_cb_col_names, "data/columns.csv")
+```
+
+## Replace variable names in the full data frame
 
 Put them in the same order used in the codebook.
 
