@@ -12,7 +12,7 @@ Soon, I will have to start making these myself.
    * In the future, improve the report and make it more automated (officer).
    * Below, there are some notes for improvement. Search for "NOTES".
 
-```{r}
+```{r message=FALSE}
 library(dplyr)
 library(readxl)
 library(freqtables)
@@ -1652,14 +1652,14 @@ bridge %>%
 
 ```{r}
 master_log_screened_in <- read_excel(
-  # "/Volumes/link2Care/Live Documents/L2C_Master_Log.xlsm", 
-  "/Users/bradcannell/Desktop/L2C_Master_Log.xlsm",
+  "/Volumes/link2Care/Live Documents/L2C_Master_Log.xlsm",
+  # "/Users/bradcannell/Desktop/L2C_Master_Log.xlsm",
   sheet = "Screened In",
   col_names = c(
     "id", "status", "date_baseline", "date_v2", "date_v3", "date_v4", "date_v5", "group", "name_first", "name_middle", "name_last", "sex", "race", "hispanic", "date_birth", "age", "clincard_id", "n_clincards", "phone_id", "phone_number", "n_phones", "care_manager", "v1", "v2", "v3", "v4", "v5", "v3_r", "v4_r"
   ),
   col_types = c(
-    "numeric", "text", "date", rep("text", 4), rep("text", 7), "date", "numeric", "text", "numeric", rep("text", 2), "numeric", "text", rep("numeric", 5), "skip", rep("numeric", 2)
+    "numeric", "text", "date", rep("text", 4), rep("text", 7), "date", "numeric", "text", "numeric", rep("text", 2), "numeric", "text", rep("numeric", 5), "skip", rep("numeric", 2), rep("skip", 4)
   ),
   na = c("", ".", "N/A"),
   skip = 1
@@ -1790,7 +1790,7 @@ ggplot(baseline_per_month_by_year, aes(month_f, n, group = year_f)) +
   geom_line(aes(color = year_f)) +
   scale_x_discrete("Month") +
   scale_y_continuous("Number of Participants Enrolled") +
-  scale_color_manual("Year", values = c("#008744", "#0057e7", "#d62d20")) +
+  scale_color_manual("Year", values = c("#008744", "#0057e7", "#d62d20", "black")) +
   theme_classic() 
 ```
 
