@@ -1,0 +1,22 @@
+---
+title: "Notes on files in the data subdirectory"
+date: "Created: 2021-04-23 <br> Updated: `r Sys.Date()`"
+output: github_document
+---
+
+# columns.csv
+
+**Created in:** dev_data_survey_01_qds_v1_import.Rmd   
+**Updated in:** The plan is to update this file for v2-v5. Come back and update this when that happens.   
+**Description:** A key that links all the new column names in the combined analysis data set with the column names from the original separate data set codebooks.    
+
+# questionnaire_section.rds
+
+**Created in:** dev_data_survey_01_qds_v1_import.Rmd   
+**Updated in:** The plan is to update this file for v2-v5. Come back and update this when that happens.   
+**Description:** We will use this for checking to make sure all of the correct questionnaire sections merge later.
+
+# v1_spss_calc_vars.sav
+
+**Created in:** dev_data_survey_01_qds_v1_import.Rmd   
+**Description:** The calculated variables that were created by the SPSS script that converts the visit 1 QDS data into an SPSS .SAV file. We recreate these columns in {file name}, but preserved them in this data set for double checking the calculations.   

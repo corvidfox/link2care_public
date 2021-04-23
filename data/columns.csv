@@ -90,6 +90,7 @@ doc_index,section_name,cb_col_name,col_name
 607,Mini Mental Status Exam Score,MMS_6,mms_7
 611,Mini Mental Status Exam Score,MMS_6A,mms_7a
 616,Mini Mental Status Exam Score,MMS_6B,mms_7b
+622,Mini Mental Status Exam Score,MMS_6C,mms_7c
 630,Mini Mental Status Exam Score,OBJECT,mms_object
 638,Mini Mental Status Exam Score,MMS_7,mms_8
 645,Mini Mental Status Exam Score,MMS_8,mms_9

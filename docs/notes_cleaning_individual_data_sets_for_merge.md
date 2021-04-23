@@ -1,6 +1,6 @@
 Notes on cleaning individual L2C data sets for merging
 ================
-Created: 2021-04-22 <br> Updated: 2021-04-22
+Created: 2021-04-22 <br> Updated: 2021-04-23
 
 # Why change the original variable names?
 
@@ -57,7 +57,8 @@ case.
     -   Exceptions: Demographic variables that almost anyone should be
         reasonably able to understand without the codebook will be given
         intuitive, descriptive names (e.g., age, race, gender,
-        marital\_status, etc.)
+        marital\_status, etc.).  
+    -   I’m also going to change “SUBJECT” to “id”.
 
 # Coercing categorical variables to factors
 

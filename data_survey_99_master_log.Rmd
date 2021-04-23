@@ -1,0 +1,179 @@
+---
+title: "Import and Manage Link2Care Survey Data - Master Log"
+date: "2021-04-23 <br> Updated: `r Sys.Date()`"
+---
+
+# ⭐️Overview
+
+This file is used to import the Link2Care follow-up visit survey data and do some initial data cleaning. 
+
+**NOTE on using multiple import code files:**
+Previously, I was trying to clean all the separate data frames (i.e, QDS v1-v5, REDCap, and Master Log) in a single Rmd file. 
+
+In theory, this is more efficient than importing and cleaning each visit file separately. For example, we can clean "race" instead of cleaning "race_v1", "race_v2", etc.
+
+However, there are at least two issues with that approach:   
+1. There are intentional differences in the variable names (e.g., "V1" and "V2"), and unintentional errors (e.g., HEIGHT_3) in the variable names, from data frame to data frame that make combining them very difficult.   
+2. These differences and errors can be "fixed"; however, doing so makes the variable names so different from the codebook that the codebook is barely usable.
+
+For now, I'm going to try importing and cleaning each data file using a separate code file. There may be opportunities to make this more efficient in the future.
+
+**NOTE on data sources:**
+* The QDS data is exported from QDS in SPSS data format. The data has to be exported by visit (i.e., v1, v2, ... v5). The SPSS data is then added to the UTHealth servers.
+
+* Some of the v3-v5 visits are also done using REDCap. That data is exported from REDCap and added to the UTHealth servers.
+
+**NOTE on Kiteworks:**
+Currently, I'm importing all of this data from the UTHealth server. The data should also be available on Kiteworks if you are unable to connect to the server for some reason.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# 📦Load packages
+
+```{r message=FALSE}
+library(dplyr)
+library(readxl)
+```
+
+
+# 🌎Connect to UTH server 
+
+```{bash eval=FALSE}
+# Don't drill all the way down to live documents because not all of the data is in live documents.
+open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/'
+```
+
+
+# 📥Import data 
+
+## Screened-in
+
+```{r}
+master_log_screened_in <- read_excel(
+  "/Volumes/link2Care/Live Documents/L2C_Master_Log.xlsm",
+  # For testing
+  # "/Users/bradcannell/Desktop/L2C_Master_Log.xlsm",
+  sheet = "Screened In",
+  col_names = c(
+    "id", "status", "date_baseline", "date_v2", "date_v3", "date_v4", "date_v5", 
+    "group", "name_first", "name_middle_init", "name_last", "gender", "race", 
+    "hispanic", "date_birth", "age", "clincard_id", "n_clincards", "phone_id", 
+    "phone_number_l2c", "phone_n_distributed", "care_manager", "v1", "v2", "v3", 
+    "v4", "v5", "v3_r_distributed", "v3_r_completed", "v4_r_distributed", 
+    "v4_r_completed", "v5_r_distributed", "v5_r_completed"
+  ),
+  col_types = c(
+    # Some of the dates must be imported as text because the have embedded 
+    # notes (e.g., "no show")
+    "numeric", "text", "date", rep("text", 11), "date", "numeric", "text", 
+    "numeric", rep("text", 2), "numeric", "text", rep("numeric", 5), "skip", 
+    rep("numeric", 6)
+  ),
+  na = c("", ".", "N/A"),
+  skip = 1
+)
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "Master log imported with", nrow(master_log_screened_in), "rows and",
+  ncol(master_log_screened_in),
+  "columns.\n"
+)
+
+# 2021-04-23: Master log imported with 279 rows and 33 columns.
+```
+
+## Screened-out
+
+```{r}
+master_log_screened_out <- read_excel(
+  "/Volumes/link2Care/Live Documents/L2C_Master_Log.xlsm",
+  # For testing
+  # "/Users/bradcannell/Desktop/L2C_Master_Log.xlsm",
+  sheet = "Screened Out",
+  col_names = c(
+    "id", "name_full", "date_baseline", "gender",  "race", "hispanic", 
+    "date_birth", "age", "reason_1", "reason_2", "reason_3", "notes"
+  ),
+  col_types = c(
+    "numeric", "text", "date", rep("text", 3), "date", "numeric", 
+    rep("text", 3), "skip", "text", "skip"
+  ),
+  skip = 1
+)
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "Master log screened out imported with", nrow(master_log_screened_out), 
+  "rows and", ncol(master_log_screened_out),
+  "columns.\n"
+)
+
+# 2021-04-23: Master log screened out imported with 45 rows and 12 columns.
+```
+
+
+# 🚧Data management
+
+## Coerce data columns
+
+```{r}
+master_log_screened_in <- master_log_screened_in %>% 
+  mutate(
+    across(
+      c(date_v2:date_v5),
+      ~ as.Date(as.numeric(.x), origin = "1899-12-30")
+    )
+  )
+
+# 'NAs introduced by coercion' error is a result of attempting to change text 
+# to numbers. For example, "no show". R converts those to NA instead. That's
+# exactly what we want.
+```
+
+```{r}
+dim(master_log_screened_in) # 279  33
+```
+
+## Coerce group to numeric 
+
+So that it can be combined with the QDS data.
+
+```{r}
+master_log_screened_in <- master_log_screened_in %>%
+  mutate(
+    group = case_when(
+      group == "UCM"    ~ 1,
+      group == "UCM+SP" ~ 2,
+      group == "L2C"    ~ 3
+    )
+  )
+```
+
+```{r}
+table(master_log_screened_in$group)
+```
+
+
+# 🖨Print a message for when this file is being sourced
+
+```{r}
+cat(
+  paste0(Sys.Date(), ":"),
+  "Master log cleaned with", nrow(master_log_screened_in), "rows and",
+  ncol(master_log_screened_in),
+  "columns.\n"
+)
+
+# 2021-04-23: Master log cleaned with 279 rows and 33 columns.
+```
+
+
+```{r echo=FALSE}
+sessionInfo()
+```
