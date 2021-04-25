@@ -85,16 +85,6 @@ v3_cb_col_names <- v3_cb_content %>%
   )
 ```
 
-## Add col_name
-
-Add col_name (the new column names) to the variable list if it wasn't already created by renaming a column directly in the Word codebook.
-
-```{r}
-if (!("col_name" %in% names(v3_cb_col_names))) {
-  v3_cb_col_names[["col_name"]] <- NA
-}
-```
-
 ## Clean section names
 
 ```{r}
