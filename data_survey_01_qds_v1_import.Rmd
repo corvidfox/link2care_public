@@ -62,25 +62,6 @@ cat(
 ```
 
 
-# Remove columns of missing data
-
-There are quite a few columns that have missing values for all rows. We
-drop those columns below.
-
-```{r}
-v1 <- v1 %>% 
-  select(
-    where(
-      ~ !all(is.na(.x))
-    )
-  )
-```
-
-```{r}
-ncol(v1) # 795 So, 803 - 795 = 8 columns dropped.
-```
-
-
 # Clean variable names
 
 _See "Notes on cleaning individual L2C data sets for merging" for the rationale, style guidelines, and instructions for this section._
@@ -166,7 +147,7 @@ v1_cb_col_names <- v1_cb_col_names %>%
 ```
 
 ```{r}
-dim(v1_cb_col_names) # 724   4
+dim(v1_cb_col_names) # 725   4
 ```
 
 ## Standardize new column names
@@ -215,7 +196,25 @@ test_that("No duplicate col_names were created in the visit 1 data.", {
 Save v1_cb_col_names as a key that maps the new names to the old names in case we need that information in the future. Possibly for the codebook.
 
 ```{r}
-write_csv(v1_cb_col_names, "data/columns.csv")
+v1_col_names_key <- v1_cb_col_names %>%  
+  # Drop doc_index column
+  select(-doc_index) %>% 
+  # Add df identifier
+  mutate(df = "v1") %>% 
+  select(df, everything())
+```
+
+```{r}
+col_name_keys <- list(v1 = v1_col_names_key)
+# col_name_keys[["v1"]]
+```
+
+```{r}
+write_rds(col_name_keys, "data/col_name_keys.rds")
+```
+
+```{r}
+rm(col_name_keys, v1_cb_col_names, v1_cb_content)
 ```
 
 ## Differences between codebook columns and data columns
@@ -223,17 +222,11 @@ write_csv(v1_cb_col_names, "data/columns.csv")
 Check to see what differences, if any, exist between the columns in the codebook and the columns in the actual data frame.
 
 ```{r}
-in_cb_not_df <- setdiff(v1_cb_col_names$cb_col_name, names(v1))
+in_cb_not_df <- setdiff(v1_col_names_key$cb_col_name, names(v1))
 in_cb_not_df
 ```
 
-There are **7** column names in the codebook that don't appear in the data.   
-
-* TEST_V1 is a logic test in the survey. It doesn't exist in the data now, but it could at some point in the future. Therefore, we will manually add it to the data and set its value to NA. 
-
-* DEM13EV1, DEM13FV1, DEM13HV1 are dummy variables for high annual incomes. They don't exist in the data now, but they could at some point in the future. Therefore, we will manually add them to the data and set their values to NA.   
-
-* DEM14EV1, DEM14FV1, DEMO16G are dummy variables for high monthly incomes. They don't exist in the data now, but they could at some point in the future. Therefore, we will manually add them to the data and set their values to NA.
+There are **0** column names in the codebook that don't appear in the data.   
 
 ```{r}
 # Future proof this by checking to see if the variables have changed over time.
@@ -241,22 +234,30 @@ There are **7** column names in the codebook that don't appear in the data.
 # handle columns as needed.
 test_that("The expected columns exist in the codebook, but not the v1 df.", {
   expect_equal(
-    in_cb_not_df,
-    c("TEST_V1", "DEM13EV1", "DEM13FV1", "DEM13HV1", "DEM14EV1", "DEM14FV1", "DEMO16G")
+    length(in_cb_not_df),
+    0L
   )
 })
-```
-
-```{r}
-v1[in_cb_not_df] <- NA
 ```
 
 Now, check for columns that exist in the data frame, but not the codebook.
 
 ```{r}
-in_df_not_cb <- setdiff(names(v1), v1_cb_col_names$cb_col_name)
-in_df_not_cb
+in_df_not_cb <- setdiff(names(v1), v1_col_names_key$cb_col_name)
+# in_df_not_cb
 ```
+
+Drop SUBJECT1. It's missing in every row.
+
+```{r}
+v1 <- select(v1, -SUBJECT1)
+```
+
+```{r}
+in_df_not_cb <- setdiff(names(v1), v1_col_names_key$cb_col_name)
+# in_df_not_cb
+```
+
 
 ```{r}
 # Future proof this by checking to see if the variables have changed over time.
@@ -288,7 +289,15 @@ v1 <- v1 %>% select(!all_of(in_df_not_cb))
 ```
 
 ```{r}
-dim(v1) # 264 725
+# Future proof this by checking to see if the variables have changed over time.
+# If this test fails in the future, come back and make adjustments to how we 
+# handle columns as needed.
+test_that("The expected number of columns exist in the v1 df after cleaning.", {
+  expect_equal(
+    length(names(v1)),
+    725L
+  )
+})
 ```
 
 Clean up
@@ -303,20 +312,39 @@ Put them in the same order used in the codebook.
 
 ```{r}
 v1 <- v1 %>% 
-  select(all_of(v1_cb_col_names$cb_col_name))
+  select(all_of(v1_col_names_key$cb_col_name))
 
-names(v1) <- v1_cb_col_names$col_name
+names(v1) <- v1_col_names_key$col_name
+```
+
+
+# Save the data frame
+
+```{r}
+path <- "/Volumes/Link2Care/Participant Data/SPSS Data/QDS Data/v1.sav"
+```
+
+```{r}
+write_sav(v1, path)
+```
+
+Print a message for when this file is being sourced
+
+```{r}
+cat(
+  paste0(Sys.Date(), ":"),
+  "QDS Visit 1 saved to", path
+)
 ```
 
 
 # 🗑Clean up
 
 ```{r}
-rm(v1_cb_col_names, v1_cb_content)
+rm(v1_col_names_key, path)
 ```
 
-
-# 🖨Print a message for when this file is being sourced
+Print a message for when this file is being sourced
 
 ```{r}
 cat(
@@ -327,20 +355,6 @@ cat(
 # 2021-04-23: QDS Visit 1 cleaned with 264 rows and 725 columns.
 ```
 
-
 ```{r echo=FALSE}
 sessionInfo()
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
