@@ -275,7 +275,7 @@ v4_col_names_key <- v4_cols_compare %>%
   - MS4_V4 - there was a typo in the visit 1 codebook   
   - PV1_V4 & PV2_V4 - discrepancy is just caused by the way cb_col_name_join was created.   
   - All of Treatment Quality and Satisfaction Survey - not used in previous visits.   
-  - ENDTIME3 - fixed typos in the visit 4 codebook  
+  - ENDTIME4 - fixed typos in the visit 4 codebook  
   
 ## Check for duplicate column names
 
@@ -311,6 +311,8 @@ test_that("No duplicate col_names were created in the visit 4 data.", {
   expect_length(check_dup_col_name, 0)
 })
 ```
+
+## Save column names
 
 Save v4_col_names_key as a key that maps the new names to the old names in case we need that information in the future. Possibly for the codebook.
 

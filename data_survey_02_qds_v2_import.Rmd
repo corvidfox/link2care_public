@@ -199,6 +199,8 @@ test_that("No duplicate col_names were created in the visit 2 data.", {
 })
 ```
 
+## Save column names
+
 Save v2_cb_col_names as a key that maps the new names to the old names in case we need that information in the future. Possibly for the codebook.
 
 ```{r}
