@@ -160,6 +160,50 @@ table(master_log_screened_in$group)
 ```
 
 
+# Save the data frames
+
+```{r}
+path <- "/Volumes/Link2Care/Participant Data/SPSS Data/master_log_screened_in.sav"
+```
+
+```{r}
+write_sav(master_log_screened_in, path)
+```
+
+Print a message for when this file is being sourced
+
+```{r}
+cat(
+  paste0(Sys.Date(), ":"),
+  "Master Log Screened In saved to", path
+)
+```
+
+```{r}
+path <- "/Volumes/Link2Care/Participant Data/SPSS Data/master_log_screened_out.sav"
+```
+
+```{r}
+write_sav(master_log_screened_out, path)
+```
+
+Print a message for when this file is being sourced
+
+```{r}
+cat(
+  paste0(Sys.Date(), ":"),
+  "Master Log Screened Out saved to", path
+)
+```
+
+
+# 🗑Clean up
+
+```{r}
+rm(path)
+```
+
+
 # 🖨Print a message for when this file is being sourced
 
 ```{r}
