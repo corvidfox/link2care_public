@@ -35,7 +35,6 @@ library(haven)
 library(readr)
 library(tidyr)
 library(stringr)
-library(officer)
 library(testthat)
 ```
 
@@ -320,14 +319,14 @@ names(v2) <- v2_col_names_key$col_name
 ```
 
 
-# Save the data frame
+# 💾Save the data frame
 
 ```{r}
-path <- "/Volumes/Link2Care/Participant Data/SPSS Data/QDS Data/v2.sav"
+path <- "/Volumes/Link2Care/Participant Data/R Data/qds_v2_import.rds"
 ```
 
 ```{r}
-write_sav(v2, path)
+write_rds(v2, path)
 ```
 
 Print a message for when this file is being sourced
@@ -355,7 +354,7 @@ cat(
   "QDS Visit 2 cleaned with", nrow(v2), "rows and", ncol(v2), "columns.\n"
 )
 
-# 2021-04-24: QDS Visit 2 cleaned with 247 rows and 146 columns.
+# 2021-04-28: QDS Visit 2 cleaned with 247 rows and 146 columns.
 ```
 
 ```{r echo=FALSE}
