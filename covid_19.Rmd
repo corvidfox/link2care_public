@@ -1,0 +1,879 @@
+---
+title: "COVID-19 Presentation"
+date: "2021-04-26 <br> Updated: `r Sys.Date()`"
+---
+
+# ⭐️Overview
+
+This file is a mess. It was done very quickly. I may not ever come back and clean it up. It was a quick and dirty one-off analysis.
+
+**2021-04-22, From Jenn:**
+Hi Brad, 
+I have an international panel presentation next week and I was hoping to use the quarterly info from L2C. Do you know when you might have it? I specifically need the covid effects on recruitment/response, etc.
+
+**2021-04-22, From Jenn:**
+Hi James, 
+I thought about what would be helpful for the presentation and this is my wish list:
+
+1. The recruitment figure by year (Figure 3 in the attached Q4 quarterly);
+
+2. I thought we had the change in the completion rate for visits that occurred pre-covid compared to post-covid (including redcap / phone surveys). The calculation would be:   
+  -Pre-COVID: total number of pre-covid interviews that actually occurred / the total number of pre-covid interviews that could have occurred. That ideally would be broken down by visit and only for those who attended V2. An example is below.   
+  -Post-COVID: total number of post-covid interviews that actually occurred / the total number of post-covid interviews that could have occurred. That ideally would be broken down by visit and only for those who attended V2.    
+
+3. Change in missingness over time. Do ya’ll experience any challenges conducting TLFBs by phone? It seems like it would be cumbersome. Any concerns about data quality?   
+  -Pre-covid: how many anthropometric measures are missing by visit?    
+  -Post-covid: how many are missing? A percent would be most helpful here.    
+
+4. Has the inability to reach participants OR refusals changed pre- to post COVID?
+
+5. Wish list item: Has alcohol use changed due to:
+  -COVID (pre vs. post, median drinks consumed)   
+  -survey mode (within subjects, what is the variation in alcohol or drug use for those who completed an in-person pre-covid survey and a follow-up by REDCap or phone?    
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# 📦Load packages
+
+```{r message=FALSE}
+library(dplyr)
+library(haven)
+library(purrr)
+library(tidyr)
+library(lubridate)
+library(ggplot2)
+library(stringr)
+library(flextable)
+library(officer)
+```
+
+
+# 🌎Connect to UTH server 
+
+```{bash eval=FALSE}
+# Make sure you are connected to the VPN
+open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/'
+```
+
+Paths to the needed files on the UTHealth server
+
+```{r}
+qds_spss_path    <- "/Volumes/Link2Care/Participant Data/SPSS Data/QDS Data/"
+redcap_spss_path <- "/Volumes/Link2Care/Participant Data/REDCap/All_Visits_Redcap.sav"
+master_log_path  <- "/Volumes/Link2Care/Participant Data/SPSS Data/master_log_screened_in.sav"
+```
+
+
+# 📥Import data 
+
+## Import QDS data
+
+```{r}
+walk(
+  .x = c(1:5),
+  .f = function(x) {
+    new_nm <- paste0("v", x)
+    sav_nm <- paste0(new_nm, ".sav")
+    path <- paste0(qds_spss_path, sav_nm)
+    assign(new_nm, read_sav(path), envir = .GlobalEnv)
+  }
+)
+```
+
+```{r}
+walk(
+  .x = c(1:5),
+  .f = function(x) {
+    df_nm <- paste0("v", x)
+    df <- get(df_nm, envir = .GlobalEnv)
+    # Print a message for when this file is being sourced
+    cat(
+      paste0(Sys.Date(), ":"),
+      df_nm, "imported with", nrow(df), "rows and", ncol(df), "columns.\n"
+    )
+  }
+)
+
+# These are expected to change over time as we add more people to the study.
+# However, drastic changes from month-to-month, or even quarter-to-quarter,
+# should initiate an investigation into what's going on.
+# 2021-04-26: v1 imported with 264 rows and 725 columns.
+# 2021-04-26: v2 imported with 247 rows and 146 columns.
+# 2021-04-26: v3 imported with 180 rows and 449 columns.
+# 2021-04-26: v4 imported with 137 rows and 502 columns.
+# 2021-04-26: v5 imported with 129 rows and 550 columns.
+```
+
+## Import REDCap data
+
+```{r message=FALSE}
+redcap <- read_sav(redcap_spss_path)
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "REDCap imported with", nrow(redcap), "rows and", ncol(redcap), "columns.\n"
+)
+
+# 2021-04-26: REDCap imported with 12 rows and 909 columns.
+```
+
+## Master Log
+
+This data was created in data_survey_07_master_log.Rmd.
+
+```{r}
+master_log_screened_in <- read_sav("/Volumes/Link2Care/Participant Data/SPSS Data/master_log_screened_in.sav")
+```
+
+```{r}
+dim(master_log_screened_in) # 279  33
+```
+
+
+# 🚧Data management
+
+## Combine all the QDS data frames
+
+```{r}
+qds <- v1 %>% 
+  bind_rows(v2) %>% 
+  bind_rows(v3) %>% 
+  bind_rows(v4) %>% 
+  bind_rows(v5)
+```
+
+```{r}
+qds <- qds %>% 
+  select(subject, visit, today, group, everything()) %>% 
+  arrange(subject, visit)
+```
+
+## Create a single group variable
+
+```{r}
+qds <- qds %>% 
+  # Fill values of group down within id
+  group_by(subject) %>% 
+  fill(group, .direction = "downup") %>% 
+  
+  # Now check for multiple group values within id
+  mutate(mult_group = unique(group) %>% length() > 1) %>% 
+  ungroup()
+```
+
+Manually review id's with multiple group values
+
+```{r}
+qds %>% 
+  filter(mult_group == TRUE)
+```
+
+**NOTE on multiple groups per id:**
+Manually fix group value and let James know that they need to be fixed in QDS. After they are fixed, they will no longer show up here. Still, use these notes to keep a record.
+
+2021-01-11, From James: 
+* P2023: V5 grouping entered incorrectly on QDS. Entered 'L2C' (3) instead of 'UCM+SP' (2) 
+* P2057: V3 grouping entered incorrectly on QDS. Entered 'UCM' (1) instead of 'L2C' (3) 
+* P2136: V5 grouping entered incorrectly on QDS. Entered 'UCM+SP' (2) instead of 'L2C' (3)
+
+```{r}
+# Do it this way instead of with dplyr, so you don't have to mess with class
+qds[qds$subject == 2023, "group"] <- 2
+qds[qds$subject == 2057, "group"] <- 3
+qds[qds$subject == 2136, "group"] <- 3
+```
+
+Do one more check for multiple group values
+
+Wrapping this data check in a stop function for when this file is sourced.
+
+```{r}
+# For data checks
+check_qds_group_values <- qds %>% 
+  group_by(subject) %>% 
+  # Now check for multiple group values within id
+  filter(unique(group) %>% length() > 1)
+
+if (nrow(check_qds_group_values) > 0) {
+  stop("At least one participant in the QDS data is assigned to more than one group. Please investigate further in data_survey_01_import.Rmd.")
+}
+```
+
+Now, the value of group is the same in every row for each id. So, just use the first row for each id.
+
+```{r}
+group_qds <- qds %>% 
+  group_by(subject) %>% 
+  filter(row_number() == 1) %>% 
+  select(subject, group) %>% 
+  ungroup()
+```
+
+### REDCap: Check for differences in the REDCap data
+
+Are the group values consistent in REDCap?
+
+Wrapping this data check in a stop function for when this file is sourced.
+
+```{r}
+# For data checks
+check_redcap_group_values <- redcap %>% 
+  group_by(record_id) %>% 
+  filter(unique(group) %>% length() > 1)
+
+if (nrow(check_redcap_group_values) > 0) {
+  stop("At least one participant in the REDCap data is assigned to more than one group. Please investigate further in data_survey_01_import.Rmd.")
+}
+```
+
+Yes, so now we don't need to worry about visit number. We can just keep one row per id, and check to make sure that group in REDCap matches group in the QDS data.
+
+```{r}
+group_redcap <- redcap %>% 
+  distinct(record_id, group)
+```
+
+Manually check for differences between group assignment in QDS and REDCap.
+
+```{r}
+group_redcap %>% 
+  left_join(
+    group_qds %>% 
+      select(subject, group) %>% 
+      # To prevent type mismatch error:
+      mutate(subject = as.character(subject)),
+    by = c("record_id" = "subject"),
+    suffix = c("_rc", "_qds")
+  ) %>% 
+  rowwise() %>% 
+  filter(length(unique(c_across(group_rc:group_qds))) > 1)
+```
+
+Manually fill in data values in the QDS data.
+
+```{r}
+group_qds <- group_qds %>% 
+  add_row(subject = 2252, group = 2) %>% 
+  add_row(subject = 2253, group = 3) %>%
+  add_row(subject = 2260, group = 2)
+```
+
+### Master log: Supplement with Excel master log data
+
+Manually check for differences between group assignment in QDS and master log.
+
+```{r}
+check_qds_ml_group_diffs <- master_log_screened_in %>%
+  select(id, group) %>% 
+  left_join(
+    group_qds %>% 
+      select(subject, group),
+    by = c("id" = "subject"),
+    suffix = c("_ml", "_qds")
+  ) %>% 
+  rowwise() %>% 
+  filter(length(unique(c_across(group_ml:group_qds))) > 1)
+```
+
+There are a bunch of id's with group membership data in master log, but not in QDS. Mostly, because these people haven't completed a v3 in QDS yet. We will go ahead and fill in the missing group data from the master log.
+
+Below, we will formally check to see if there are any conflicting group values aside from group simply being missing in the QDS data. We will also wrap this data check in a stop function for when this file is sourced.
+
+```{r}
+# For data checks
+check_qds_ml_group_diffs_not_na <- check_qds_ml_group_diffs %>% 
+  filter(!is.na(group_qds))
+
+if (nrow(check_qds_ml_group_diffs_not_na) > 0) {
+  stop("At least one participant is assigned to different groups in the QDS and master log data. This not simply due to a missing group value in master log. Please investigate further in data_survey_01_import.Rmd.")
+}
+```
+
+Now there are no "conflicts" between group in the QDS data and group in the master log. The differences were all simply due to the fact that there is no group membership information at all in QDS for these participants. Therefore, we can just go ahead and row bind. In the future, if there are conflicts between group_diffs\$group_diffs and group_diffs\$group_qds, we will need to manage them.
+
+```{r}
+group_qds <- group_qds %>% 
+  select(subject) %>% 
+  left_join(
+    master_log_screened_in %>% 
+      select(subject = id, group),
+    by = "subject"
+  )
+```
+
+How many participants are assigned to a group?
+
+```{r}
+n_randomized <- group_qds %>% 
+  filter(!is.na(group)) %>% 
+  nrow()
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"), n_randomized, 
+  "participants have been randomized to a treatment group.\n"
+)
+
+# 2021-04-26: 248 participants have been randomized to a treatment group.
+```
+
+At this point, each person who was assigned to a group should have one, and only one, group value.
+
+```{r}
+rm(
+  check_qds_group_values, check_qds_ml_group_diffs, check_qds_ml_group_diffs_not_na, 
+  check_redcap_group_values
+)
+```
+
+
+## Create a long version of the screened in data
+
+```{r}
+master_log_screened_in_long <- master_log_screened_in %>% 
+  select(id, date_baseline:group) %>% 
+  pivot_longer(
+    cols = c(date_baseline:date_v5),
+    names_prefix = "date_",
+    names_to = "visit",
+    values_to = "date"
+  )
+```
+
+
+# 📈Analysis
+
+## Figure 3. Monthly recruitment stratified by year.
+
+2021-04-22, from Jenn: 
+1. The recruitment figure by year (Figure 3 in the attached Q4 quarterly);
+
+* Can't just count calls by month because months will be combined across years.
+* Can't just paste month and year together because they will be displayed in alphabetical order rather than chronological order.
+* Need to create a factor for year and month.
+
+```{r}
+baseline_per_month_by_year <- master_log_screened_in %>% 
+  select(date_baseline) %>% 
+  mutate(year_month = format(date_baseline, "%Y-%b")) %>% 
+  count(year_month) %>% 
+  mutate(date = ymd(year_month, truncated = 1)) %>% 
+  # Fill in the missing months and set n to zero.
+  complete(
+    date = seq.Date(as.Date("2018-04-01"), Sys.Date(), "months"), 
+    fill = list(n = 0)
+  ) %>% 
+  mutate(
+    month = format(date, "%b"),
+    month_f = factor(month, month.abb),
+    year = year(date),
+    year_f = factor(year)
+  )
+```
+
+```{r}
+fig_3 <- ggplot(baseline_per_month_by_year, aes(month_f, n, group = year_f)) +
+  geom_line(aes(color = year_f)) +
+  scale_x_discrete("Month") +
+  scale_y_continuous("Number of Participants Enrolled") +
+  scale_color_manual("Year", values = c("#008744", "#0057e7", "#d62d20", "black")) +
+  theme_classic() 
+```
+
+Save figure for copy and paste into report
+
+```{r}
+ggsave("fig_3.jpeg", width = 7, height = 4)
+```
+
+
+## Appointment completion rates
+
+2. I thought we had the change in the completion rate for visits that occurred pre-covid compared to post-covid (including redcap / phone surveys). The calculation would be:   
+  
+  -Pre-COVID: total number of pre-covid interviews that actually occurred / the total number of pre-covid interviews that could have occurred. That ideally would be broken down by visit and only for those who attended V2. An example is below.   
+  
+  -Post-COVID: total number of post-covid interviews that actually occurred / the total number of post-covid interviews that could have occurred. That ideally would be broken down by visit and only for those who attended V2. 
+  
+```{r}
+# I checked and it looks like the REDCap attendance is already stored in the 
+# master log.
+has_v2 <- master_log_screened_in_long %>% 
+  group_by(id) %>% 
+  mutate(has_v2 = max(!is.na(date) & visit == "v2")) %>% 
+  ungroup() %>% 
+  filter(has_v2 == 1) %>% 
+  select(-has_v2)
+```
+
+Currently, I can see if a person made it to a visit (i.e., there is a valid date) or not (i.e., data is missing). However, when date is missing, there's nothing in the data that tells me whether or the scheduled data that they missed was before or after 2020-03-13. 
+
+James told me that scheduled dates are added as comments for no-shows in the Excel sheet. I will use those. But, that will require a manual review. 
+
+To make that process faster, I'm going to narrow down the cases to review. Nobody with a baseline date after 2020-03-13 needs to be reviewed. And, realistically, nobody with a V2 date prior to 2020 needs to be reviewed.
+
+```{r}
+has_v2_wide <- master_log_screened_in %>% 
+  select(id, date_baseline:group) %>% 
+  # Keep people with a V2 only
+  filter(!is.na(date_v2))
+```
+
+```{r}
+review_dates <- has_v2_wide %>% 
+  # Keep people who had a baseline before 2020-03-13
+  filter(date_baseline < "2020-03-13") %>% 
+  # Keep people who had a V2 in 2021
+  filter(date_v2 >= "2020-01-01") %>% 
+  # That leaves 32 rows that potentially need to be manually reviewed
+  # Let's further refine by keeping rows that are missing date_v3:date_v5
+  filter(if_any(date_v3:date_v5, is.na))
+  # That leaves 19 rows to manually review in the master log spreadsheet
+```
+
+Add date scheduled columns that we can use to separate the data into pre- and post-.
+
+```{r}
+has_v2_wide <- has_v2_wide %>% 
+  # Add a column for date scheduled
+  # If date completed is not missing, then date scheduled will be equal to
+  # date completed.
+  # If date completed is missing and baseline date is after 2020-03-13, then
+  # date scheduled will be set to 2020-03-13. Doesn't need to be accurate. 
+  # We are just using it to filter pre-/post-
+  # If date completed is missing and V2 date is prior to 2020-01-01, then
+  # date scheduled will be set to 2020-01-01. Doesn't need to be accurate. 
+  # We are just using it to filter pre-/post-
+  # In the next step, we will add the actual scheduled dates for the people who
+  # don't meet the 19 people we manually reviewed above.
+  mutate(
+    across(
+      date_v3:date_v5,
+      ~ case_when(
+        !is.na(.x) ~ .x,
+        date_baseline > "2020-03-13" ~ as.Date("2020-03-13"),
+        date_v2 < "2020-01-01" ~ as.Date("2020-01-01")
+      ),
+      .names = "scheduled_{col}"
+    )
+  )
+```
+
+Fill in the remaining scheduled dates that had to be manually reviewed
+
+```{r}
+review_dates
+```
+
+```{r}
+has_v2_wide <- has_v2_wide %>% 
+  mutate(
+    # 2201
+    scheduled_date_v3 = if_else(id == 2201, as.Date("2020-02-03"), scheduled_date_v3),
+    scheduled_date_v4 = if_else(id == 2201, as.Date("2020-04-03"), scheduled_date_v4),
+    scheduled_date_v5 = if_else(id == 2201, as.Date("2020-07-05"), scheduled_date_v5),
+    # 2202 
+    scheduled_date_v4 = if_else(id == 2202, as.Date("2020-04-13"), scheduled_date_v4),
+    # 2205 
+    scheduled_date_v4 = if_else(id == 2205, as.Date("2020-04-16"), scheduled_date_v4),
+    scheduled_date_v5 = if_else(id == 2205, as.Date("2020-07-17"), scheduled_date_v5),
+    # 2206 
+    scheduled_date_v3 = if_else(id == 2206, as.Date("2020-02-17"), scheduled_date_v3),
+    scheduled_date_v4 = if_else(id == 2206, as.Date("2020-04-17"), scheduled_date_v4),
+    # 2207 
+    scheduled_date_v3 = if_else(id == 2207, as.Date("2020-02-17"), scheduled_date_v3),
+    scheduled_date_v4 = if_else(id == 2207, as.Date("2020-04-17"), scheduled_date_v4),
+    scheduled_date_v5 = if_else(id == 2207, as.Date("2020-07-20"), scheduled_date_v5),
+    # 2208 
+    scheduled_date_v5 = if_else(id == 2208, as.Date("2020-07-24"), scheduled_date_v5),
+    # 2209 
+    scheduled_date_v4 = if_else(id == 2209, as.Date("2020-04-23"), scheduled_date_v4),
+    # 2210 
+    scheduled_date_v3 = if_else(id == 2210, as.Date("2020-02-28"), scheduled_date_v3),
+    scheduled_date_v4 = if_else(id == 2210, as.Date("2020-04-30"), scheduled_date_v4),
+    scheduled_date_v5 = if_else(id == 2210, as.Date("2020-07-31"), scheduled_date_v5),
+    # 2211 
+    scheduled_date_v3 = if_else(id == 2211, as.Date("2020-02-28"), scheduled_date_v3),
+    scheduled_date_v4 = if_else(id == 2211, as.Date("2020-04-30"), scheduled_date_v4),
+    scheduled_date_v5 = if_else(id == 2211, as.Date("2020-07-31"), scheduled_date_v5),
+    # 2214 
+    scheduled_date_v4 = if_else(id == 2214, as.Date("2020-05-07"), scheduled_date_v4),
+    # 2216 
+    scheduled_date_v5 = if_else(id == 2216, as.Date("2020-08-13"), scheduled_date_v5),
+    # 2217 
+    scheduled_date_v5 = if_else(id == 2217, as.Date("2020-08-14"), scheduled_date_v5),
+    # 2218 
+    scheduled_date_v5 = if_else(id == 2218, as.Date("2020-08-17"), scheduled_date_v5),
+    # 2219 
+    scheduled_date_v5 = if_else(id == 2219, as.Date("2020-08-20"), scheduled_date_v5),
+    # 2220 
+    scheduled_date_v3 = if_else(id == 2220, as.Date("2020-03-19"), scheduled_date_v3),
+    scheduled_date_v5 = if_else(id == 2220, as.Date("2020-08-20"), scheduled_date_v5),
+    # 2224 
+    scheduled_date_v5 = if_else(id == 2224, as.Date("2020-08-31"), scheduled_date_v5),
+    # 2228
+    scheduled_date_v3 = if_else(id == 2228, as.Date("2020-04-06"), scheduled_date_v3),
+    scheduled_date_v4 = if_else(id == 2228, as.Date("2020-06-05"), scheduled_date_v4),
+    scheduled_date_v5 = if_else(id == 2228, as.Date("2020-09-07"), scheduled_date_v5),
+    # 2230 
+    scheduled_date_v5 = if_else(id == 2230, as.Date("2020-09-04"), scheduled_date_v5),
+    # 2231
+    scheduled_date_v4 = if_else(id == 2231, as.Date("2020-06-04"), scheduled_date_v4)
+  )
+```
+
+At this point, there are no missing scheduled dates.
+
+For the analysis:
+* We want a long data frame   
+* Split the data into pre- and post- COVID based on scheduled date
+
+```{r}
+has_v2_long <- has_v2_wide %>% 
+  pivot_longer(
+    cols = c(date_baseline:date_v5, scheduled_date_v3:scheduled_date_v5),
+    names_to = c(".value", "visit"),
+    names_pattern = "(date|scheduled_date)_(.+)"
+  ) %>% 
+  # Drop baseline and v2. No longer need
+  filter(!(visit %in% c("baseline", "v2"))) %>% 
+  # Add COVID date
+  mutate(covid_date = as.Date("2020-03-13"))
+```
+
+Break into pre- and post-covid data frames
+
+```{r}
+pre_covid <- has_v2_long %>% 
+  filter(scheduled_date < covid_date)
+```
+
+```{r}
+post_covid <- has_v2_long %>% 
+  filter(scheduled_date >= covid_date)
+```
+
+Is everyone accounted for?
+
+```{r}
+nrow(pre_covid) + nrow(post_covid) == nrow(has_v2_long)
+```
+
+Yes
+
+```{r}
+pre_covid_summary <- pre_covid %>% 
+  group_by(visit) %>% 
+  summarise(
+    completed_pre = sum(!is.na(date)),
+    scheduled_pre = sum(!is.na(scheduled_date)),
+    prop_pre = completed_pre / scheduled_pre
+  )
+```
+
+The denominator changes at each visit because some people's visits straddle 2020-03-13. For example:
+
+```{r}
+has_v2_long %>% 
+  filter(id == "2198")
+```
+
+So, you can't say that everybody how had a v3 scheduled pre-covid also had a v4 scheduled pre-covid.
+
+```{r}
+post_covid_summary <- post_covid %>% 
+  group_by(visit) %>% 
+  summarise(
+    completed_post = sum(!is.na(date)),
+    scheduled_post = sum(!is.na(scheduled_date)),
+    prop_post = completed_post / scheduled_post
+  )
+```
+
+Combine the results into a single table
+
+```{r}
+table_compliance <- left_join(pre_covid_summary, post_covid_summary, by = "visit") %>% 
+  mutate(across(where(is.numeric), ~ round(.x, 2)))
+```
+
+Make into a flextable
+
+```{r}
+table_compliance_ft <- flextable(table_compliance) %>% 
+  set_header_labels(
+    completed_pre = "completed \n pre",
+    scheduled_pre = "scheduled \n pre",
+    prop_pre = "prop \n pre",
+    completed_post = "completed \n post",
+    scheduled_post = "scheduled \n post",
+    prop_post = "prop \n post"
+  ) %>% 
+  set_table_properties(layout = "autofit") %>% 
+  # Change font to times new roman
+  font(fontname = "Times New Roman", part = "all")
+```
+
+## Anthropormorphic analysis
+
+-Pre-covid: how many anthropometric measures are missing by visit?
+
+-Post-covid: how many are missing? A percent would be most helpful here. 
+
+```{r}
+anthro <- qds %>% 
+  select(subject, visit, date = today, weight:co) %>% 
+  # Never done at visit 2
+  filter(visit != 2)
+```
+
+## Add a pre-/post-covid column
+
+First, Check for missing values of date
+
+```{r}
+anthro %>% 
+  filter(is.na(date))
+```
+
+Fill in the missing dates
+
+```{r}
+dates <- master_log_screened_in_long %>% 
+  mutate(
+    visit = if_else(visit == "baseline", "v1", visit),
+    visit = str_remove(visit, "v") %>% as.numeric()
+  ) %>% 
+  select(id, visit, date)
+```
+
+
+```{r}
+anthro <- anthro %>% 
+  left_join(dates, by = c("subject" = "id", "visit"), suffix = c("_an", "_ml")) %>% 
+  mutate(date = if_else(is.na(date_an), as.Date(date_ml), date_an)) %>% 
+  select(-date_an, -date_ml)
+```
+
+Check again
+
+```{r}
+anthro %>% 
+  filter(is.na(date))
+```
+
+Now, create the covid column
+
+```{r}
+anthro <- anthro %>% 
+  mutate(
+    covid = if_else(date < "2020-03-13", "Pre-COVID", "Post-COVID"),
+    covid = factor(covid, c("Pre-COVID", "Post-COVID"))
+  )
+```
+
+Check for outlying values
+
+```{r}
+anthro %>% 
+  summarise(
+    across(
+      weight:co,
+      list(min = min, max = max)
+    )
+  )
+```
+
+Zero is not a valid value for these measures.
+
+```{r}
+anthro %>% 
+  filter(
+    if_any(
+      weight:co,
+      ~ .x == 0
+    )
+  )
+```
+
+There are 80 rows that include a value of 0 for at least one of weight, height, waist circumference, or carbon monoxide. 55 of them have a value of 0 for all. I'm changing all of those to NA.
+
+```{r}
+anthro <- anthro %>% 
+  mutate(
+    across(
+      weight:co,
+      ~ if_else(.x == 0, NA_real_, .x)
+    )
+  )
+```
+
+Count missing for each of weight, height, waist circumference, and carbon monoxide.
+
+```{r}
+table_anthro <- anthro %>% 
+  group_by(covid) %>% 
+  summarise(
+    across(
+      weight:co,
+      ~ sum(is.na(.x))
+    )
+  )
+```
+
+```{r}
+table_anthro_ft <- flextable(table_anthro) %>% 
+  set_table_properties(layout = "autofit") %>% 
+  # Change font to times new roman
+  font(fontname = "Times New Roman", part = "all")
+```
+
+## Alcohol use
+
+-COVID (pre vs. post, median drinks consumed)
+
+-survey mode (within subjects, what is the variation in alcohol or drug use for those who completed an in-person pre-covid survey and a follow-up by REDCap or phone?
+
+```{r}
+alc <- qds %>%
+  select(subject, visit, date = today, af_1:af_8su, drinks) %>% 
+  rowwise() %>% 
+  mutate(drink_sum = sum(c_across(af_2m:af_8su))) %>% 
+  ungroup() %>% 
+  mutate(drink_sum = if_else(af_1 == 0, 0, drink_sum)) %>% 
+  # Never done at visit 2
+  filter(visit != 2)
+```
+
+## Add a pre-/post-covid column
+
+First, Check for missing values of date
+
+```{r}
+alc %>% 
+  filter(is.na(date))
+```
+
+Fill in the missing dates
+
+```{r}
+dates <- master_log_screened_in_long %>% 
+  mutate(
+    visit = if_else(visit == "baseline", "v1", visit),
+    visit = str_remove(visit, "v") %>% as.numeric()
+  ) %>% 
+  select(id, visit, date)
+```
+
+
+```{r}
+alc <- alc %>% 
+  left_join(dates, by = c("subject" = "id", "visit"), suffix = c("_alc", "_ml")) %>% 
+  mutate(date = if_else(is.na(date_alc), as.Date(date_ml), date_alc)) %>% 
+  select(-date_alc, -date_ml)
+```
+
+Check again
+
+```{r}
+alc %>% 
+  filter(is.na(date))
+```
+
+Now, create the covid column
+
+```{r}
+alc <- alc %>% 
+  mutate(
+    covid = if_else(date < "2020-03-13", "Pre-COVID", "Post-COVID"),
+    covid = factor(covid, c("Pre-COVID", "Post-COVID"))
+  )
+```
+
+Check for outlying values
+
+```{r}
+table_alc <- alc %>% 
+  select(subject, visit, drink_sum, covid) %>% 
+  group_by(covid) %>% 
+  summarise(
+    min = min(drink_sum, na.rm = TRUE),
+    median = median(drink_sum, na.rm = TRUE),
+    mean = mean(drink_sum, na.rm = TRUE),
+    max = max(drink_sum, na.rm = TRUE)
+  )
+```
+
+```{r}
+table_alc_ft <- flextable(table_alc) %>% 
+  set_table_properties(layout = "autofit") %>% 
+  # Change font to times new roman
+  font(fontname = "Times New Roman", part = "all")
+```
+
+  
+  
+# Compile into Word Report
+
+```{r}
+covid_19_report <- read_docx("template_covid_19_report.docx") %>%
+  # Add date updated
+  body_replace_text_at_bkm(
+    bookmark = "date",
+    value = format(Sys.Date(), "%B %d, %Y")
+  )
+
+# Add figure 3 to report
+covid_19_report <- covid_19_report %>% 
+  body_replace_img_at_bkm(
+    bookmark = "fig_3", 
+    value = external_img("fig_3.jpeg", 7, 4)
+  )
+
+# Add compliance table to report
+covid_19_report <- covid_19_report %>% 
+  body_replace_text_at_bkm(
+    bookmark = "n_has_v2_wide",
+    value = nrow(has_v2_wide) %>% as.character()
+  ) %>% 
+  body_replace_flextable_at_bkm(
+    bookmark = "table_compliance",
+    value = table_compliance_ft
+  )
+
+# Add missing anthropometric measures table
+covid_19_report <- covid_19_report %>% 
+  body_replace_flextable_at_bkm(
+    bookmark = "table_anthropometric",
+    value = table_anthro_ft
+  )
+
+# Add Alcohol consumption by COVID 
+covid_19_report <- covid_19_report %>% 
+  body_replace_flextable_at_bkm(
+    bookmark = "table_alc",
+    value = table_alc_ft
+  )
+```
+
+```{r}
+print(
+  covid_19_report, 
+  "L2C COVID-19 Report.docx"
+)
+```
+
+
+# 🗑Clean up
+
+```{r}
+# rm(list = ls())
+```
+
+```{r echo=FALSE}
+sessionInfo()
+```
