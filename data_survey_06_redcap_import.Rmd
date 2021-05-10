@@ -35,7 +35,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r message=FALSE}
 library(dplyr)
-library(readxl)
+library(haven)
+library(readr)
 ```
 
 
@@ -58,13 +59,142 @@ cat(
   "REDCap imported with", nrow(redcap), "rows and", ncol(redcap), "columns.\n"
 )
 
-# 2021-04-23: REDCap imported with 12 rows and 909 columns.
+# 2021-04-28: REDCap imported with 12 rows and 909 columns.
 ```
 
 
-# 🚧Data management
+# Clean variable names
 
-## Coerce data columns
+_See "Notes on cleaning individual L2C data sets for merging" for the rationale, style guidelines, and instructions for this section._
+
+## Assess current column name differences
+
+Assess current differences between the existing column names in the REDCap data and the column names used in the previously imported QDS data.
+
+```{r}
+qds_col_names %>% 
+  filter(col_name == "ii")
+```
+
+
+```{r}
+redcap_col_names <- names(redcap)
+```
+
+```{r}
+qds_col_names <- read_rds("data/col_name_keys.rds") %>% 
+  bind_rows() %>% 
+  pull(col_name) %>% 
+  unique
+```
+
+# Export QDS column names 
+
+Michael's team is going to fill out a key linking REDCAp variable names to QDS variable names.
+
+```{r}
+qds_col_names <- read_rds("data/col_name_keys.rds") %>% 
+  bind_rows()
+
+write_csv(qds_col_names, "/Users/bradcannell/Desktop/qds_col_names.csv")
+```
+
+In Excel, I'm going to create a second sheet that has just the unique column names. They an use it to translate.
+
+
+
+
+
+
+
+### Differences between QDS columns and REDCap columns
+
+Check to see what differences, if any, exist between the columns in the QDS data and the columns in the REDCap data frame.
+
+```{r}
+in_qds_not_rc <- setdiff(qds_col_names, redcap_col_names)
+in_qds_not_rc
+```
+
+There are **855** column names in the QDS data that don't appear in the REDCAp data.  
+
+```{r}
+# Future proof this by checking to see if the variables have changed over time.
+# If this test fails in the future, come back and make adjustments to how we 
+# handle columns as needed.
+test_that("The expected columns exist in the codebook, but not the v3 df.", {
+  expect_equal(
+    length(in_cb_not_df),
+    0L
+  )
+})
+```
+
+Now, check for columns that exist in the data frame, but not the codebook.
+
+```{r}
+in_rc_not_qds <- setdiff(redcap_col_names, qds_col_names)
+in_rc_not_qds
+```
+
+There are **870** column names in the QDS data that don't appear in the REDCAp data.
+
+```{r}
+
+```
+
+
+```{r}
+# Future proof this by checking to see if the variables have changed over time.
+# If this test fails in the future, come back and make adjustments to how we 
+# handle columns as needed.
+test_that("The expected columns exist in the v3 df, but not the v3 codebook.", {
+  expect_equal(
+    length(in_df_not_cb),
+    77L
+  )
+})
+```
+
+The remainder of these variables are calculated variables created by the SPSS export script. We will save them in a separate data frame and deal with them later. 
+
+```{r}
+v3_spss_calc_vars <- v3 %>% 
+  select(id = SUBJECT, visit = VISIT_V3, all_of(in_df_not_cb))
+```
+
+```{r}
+write_sav(v3_spss_calc_vars, "data/v3_spss_calc_vars.sav")
+```
+
+Remove calculated variables from the v3 data. This makes it easier to merge with the other QDS data frames later.
+
+```{r}
+v3 <- v3 %>% select(!all_of(in_df_not_cb))
+```
+
+```{r}
+# Future proof this by checking to see if the variables have changed over time.
+# If this test fails in the future, come back and make adjustments to how we 
+# handle columns as needed.
+test_that("The expected number of columns exist in the v3 df after cleaning.", {
+  expect_equal(
+    length(names(v3)),
+    449L
+  )
+})
+```
+
+Clean up
+
+```{r}
+rm(v3_spss_calc_vars, in_cb_not_df, in_df_not_cb)
+```
+
+
+
+
+
 
 # 🖨Print a message for when this file is being sourced
 
