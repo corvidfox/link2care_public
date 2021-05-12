@@ -7,6 +7,9 @@ date: "2021-05-10 <br> Updated: `r Sys.Date()`"
 
 Run this file to create the Link2Care Quarterly Reports.
 
+
+# Instructions
+
 Click "Run All Chunks Below" to crete the  quarterly report as a Word document.
 
 ```{r setup, include=FALSE}
@@ -86,7 +89,7 @@ cat(
   "columns.\n"
 )
 
-# 2021-05-10: Master log imported with 283 rows and 33 columns.
+# 2021-05-11: Master log imported with 283 rows and 33 columns.
 ```
 
 ## Master log Screened-out
@@ -116,7 +119,7 @@ cat(
   "columns.\n"
 )
 
-# 2021-05-10: Master log screened out imported with 46 rows and 12 columns.
+# 2021-05-11: Master log screened out imported with 46 rows and 12 columns.
 ```
 
 ## Phone terminations
@@ -347,18 +350,25 @@ remote <- remote %>%
 
 Keep UCM+SP and L2C rows only for EMA analysis.
 
-Also, only keep participants who have gone through all 12 cycles (id < 2233). Right now, I'm just looking that up on the spreadsheet. Later, I need to come up with a better way. Maybe be scheduled completion date.
+Also, only keep participants who have gone through all 12 cycles (id < 2233). Right now, I'm just looking that up on the spreadsheet. Later, I need to come up with a better way. Maybe by scheduled completion date.
 
 ```{r}
 # Check for misspellings
 unique(ema$group)
 ```
 
+What is the highest id with all 12 cycles
+
+```{r}
+# ema %>% 
+#   
+```
+
 
 ```{r}
 ema <- ema %>% 
   filter(group %in% c("UCM+SP", "L2C")) %>% 
-  filter(id < 2233)
+  filter(id < 2253)
 ```
 
 Setting NA to zero in 15 day EMA log
@@ -615,7 +625,7 @@ recruitment <- master_log_screened_in %>%
 
 # 📈Analysis
 
-### 📌 Note on Table names
+## 📌 Note on Table names
 
 You should probably use descriptive names for these tables instead of numbers. The numbers may change over time. You might also want to organize this Rmd file by sections that match the quarterly report. But maybe not.
 
@@ -664,17 +674,6 @@ t1_cat_stats_si <- map_df(
 ```
 
 Add group n and row bind cont and cat stats
-
-```{r}
-# table_1_si <- tibble(
-#   var = "",
-#   cat = "",
-#   formatted_stats = paste0("(n = ", n_screened_in, ")")
-# ) %>% 
-#   bind_rows(t1_cont_stats_si) %>% 
-#   bind_rows(t1_cat_stats_si) %>% 
-#   rename(screened_in = formatted_stats)
-```
 
 ```{r}
 table_1_si <- t1_cont_stats_si %>% 
@@ -921,7 +920,7 @@ Table 3. Payment card and phone loss.
 Total number of ClinCards distributed
 
 ```{r}
-sum(master_log_screened_in$n_clincards, na.rm = TRUE)
+n_ccsum(master_log_screened_in$n_clincards, na.rm = TRUE)
 ```
 
 Total number of participants with ClinCard replacements
