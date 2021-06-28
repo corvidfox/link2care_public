@@ -37,6 +37,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(haven)
 library(readr)
+library(readxl)
 ```
 
 
@@ -67,39 +68,15 @@ cat(
 
 _See "Notes on cleaning individual L2C data sets for merging" for the rationale, style guidelines, and instructions for this section._
 
-## Assess current column name differences
+## Extract content from Excel codebook
 
-Assess current differences between the existing column names in the REDCap data and the column names used in the previously imported QDS data.
+The column names in QDS and REDCap do not match. The Excel spreadsheet we import below is a key that bridges the QDS names to the REDCap names. 
 
 ```{r}
-qds_col_names %>% 
-  filter(col_name == "ii")
+rc_col_key <- read_excel("docs/codebooks/L2C Column Name Key.xlsx")
 ```
 
 
-```{r}
-redcap_col_names <- names(redcap)
-```
-
-```{r}
-qds_col_names <- read_rds("data/col_name_keys.rds") %>% 
-  bind_rows() %>% 
-  pull(col_name) %>% 
-  unique
-```
-
-# Export QDS column names 
-
-Michael's team is going to fill out a key linking REDCAp variable names to QDS variable names.
-
-```{r}
-qds_col_names <- read_rds("data/col_name_keys.rds") %>% 
-  bind_rows()
-
-write_csv(qds_col_names, "/Users/bradcannell/Desktop/qds_col_names.csv")
-```
-
-In Excel, I'm going to create a second sheet that has just the unique column names. They an use it to translate.
 
 
 
