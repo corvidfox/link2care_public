@@ -1,0 +1,363 @@
+---
+title: "Timeline Followback"
+date: "2021-06-30 <br> Updated: `r Sys.Date()`"
+---
+
+# ⭐️Overview
+
+This file is used to import the Link2Care follow-up visit survey data and do some initial data cleaning. 
+
+**NOTE on data sources:**
+
+The TLFB data is exported from somewhere as 3 individual Excel files (i.e., alcohol, drug use, location) for each participant. Those individual files are stored on the the UTHealth servers in Participant Data > TLFB Data. At some point, SPSS is used to merge (and possibly clean?) these individual data sets. The merged TLFB data is stored on the UTHealth servers in Participant Data > SPSS Data > TLFB Data. That is the data we are importing below.
+
+
+# 📦Load packages
+
+```{r message=FALSE}
+library(dplyr)
+library(haven)
+library(readr)
+library(testthat)
+```
+
+# 🌎Connect to UTH server 
+
+```{bash eval=FALSE}
+# Don't drill all the way down to live documents because not all of the data is in live documents.
+open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/'
+```
+
+
+# 📥Import data 
+
+```{r}
+tlfb <- read_sav("/Volumes/Link2Care/Participant Data/SPSS Data/TLFB Data/TLFB_Database.sav")
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "TLFB", nrow(tlfb), "rows and", ncol(tlfb), "columns.\n"
+)
+
+# 2021-06-30: TLFB 1156 rows and 21 columns.
+```
+
+
+# Clean variable names
+
+_See "Notes on cleaning individual L2C data sets for merging" for the rationale, style guidelines, and instructions for this section._
+
+```{r}
+
+```
+
+  
+## Extract content from Word codebook
+
+```{r}
+tlfb_cb_content <- read_docx("docs/codebooks/L2C_tlfb Codebook.docx") %>% 
+  docx_summary()
+```
+
+## Keep the variables of interest only
+
+```{r}
+tlfb_cb_col_names <- tlfb_cb_content %>%
+  filter(style_name %in% c("section_name", "cb_col_name", "col_name")) %>% 
+  select(doc_index, style_name:text) %>% 
+  pivot_wider(
+    names_from = "style_name",
+    values_from = "text"
+  )
+```
+
+## Clean section names
+
+```{r}
+tlfb_cb_col_names <- tlfb_cb_col_names %>%
+  mutate(
+    # Remove "Sect-number."
+    section_name = str_remove(section_name, "Sect-\\d{1,}."),
+    # Remove asterisks
+    section_name = str_remove_all(section_name, "\\*"),
+    # Remove empty spaces
+    section_name = str_trim(section_name)
+  ) %>% 
+  # Fill section down across rows
+  fill(section_name)
+```
+
+## Record the sections that are completed at visit 2
+
+We will use this for checking to make sure all of the correct questionnaire sections merge later.
+
+**NOTE:** q_sections was created in data_survey_01_qds_v1_import.Rmd
+
+```{r}
+q_sections <- read_rds("data/questionnaire_section.rds")
+```
+
+```{r}
+q_sections[["tlfb"]] <- unique(tlfb_cb_col_names$section_name)
+# q_sections[["tlfb"]]
+```
+
+```{r}
+write_rds(q_sections, "data/questionnaire_section.rds")
+```
+
+```{r}
+rm(q_sections)
+```
+
+## Reduce to one row per column
+
+Currently, cb_col_name and col_name are on separate rows. We will spread the different column names vertically across rows so that we can reduce the data frame down to one row per column.
+
+```{r}
+tlfb_cb_col_names <- tlfb_cb_col_names %>%
+  # Spread cb_col_name across rows
+  fill(cb_col_name) %>% 
+  # Spread col_name across rows within cb_col_name
+  group_by(cb_col_name) %>% 
+  fill(col_name, .direction = "up") %>% 
+  # # For data checking
+  # filter(section_name == "Self-Rated Health Questionnaire") %>%
+  # ungroup() %>%
+  # slice(-1) %>%
+  # summarise(
+  #   length(unique(cb_col_name)),
+  #   length(unique(col_name))
+  # )
+  group_by(cb_col_name) %>% 
+  filter(row_number() == 1) %>% 
+  ungroup() %>% 
+  # Remove first row
+  slice(-1)
+```
+
+```{r}
+dim(tlfb_cb_col_names) # 146   4
+```
+
+## Standardize new column names
+
+* Remove _tlfb and tlfb from column names
+* Replace spaces with underscores
+* Convert to lower case
+* Add underscore in-between the abbreviated tool name and question number
+
+```{r}
+tlfb_cb_col_names <- tlfb_cb_col_names %>%
+  mutate(
+    # Remove _tlfb from column name
+    # Remove tlfb at end of column name (e.g., DEM1tlfb)
+    # Don't include values for col_name that were changed in the Word
+    # document.
+    col_name = if_else(
+      is.na(col_name),
+      str_replace(cb_col_name, "_tlfb|tlfb", ""),
+      as.character(col_name)
+    ),
+    # Replace spaces with underscores
+    col_name = str_replace_all(col_name, " ", "_"),
+    # Convert to lower case
+    col_name = str_to_lower(col_name),
+    # Add underscore in-between the abbreviated tool name and question number
+    col_name = str_replace(col_name, "([a-z])(\\d)", "\\1_\\2"),
+    # Fix ptlfb -- an exception
+    col_name = str_replace(col_name, "p_v_2", "pv_2")
+  )
+```
+
+## Check for duplicate column names
+
+Check to make sure this process didn't accidentally create any duplicate column names
+
+```{r}
+test_that("No duplicate col_names were created in the visit 2 data.", {
+  check_dup_col_name <- tlfb_cb_col_names %>% 
+    group_by(col_name) %>% 
+    filter(max(row_number()) > 1) %>% 
+    pull(col_name)
+  
+  expect_length(check_dup_col_name, 0)
+})
+```
+
+## Save column names
+
+Save tlfb_cb_col_names as a key that maps the new names to the old names in case we need that information in the future. Possibly for the codebook.
+
+```{r}
+tlfb_col_names_key <- tlfb_cb_col_names %>%  
+  # Drop doc_index column
+  select(-doc_index) %>% 
+  # Add df identifier
+  mutate(df = "tlfb") %>% 
+  select(df, everything())
+```
+
+**NOTE:** col_name_keys.rds was created in data_survey_01_qds_v1_import.Rmd
+
+```{r}
+col_name_keys <- read_rds("data/col_name_keys.rds")
+```
+
+```{r}
+col_name_keys[["tlfb"]] <- tlfb_col_names_key
+# col_name_keys[["tlfb"]]
+```
+
+```{r}
+write_rds(col_name_keys, "data/col_name_keys.rds")
+```
+
+```{r}
+rm(col_name_keys, tlfb_cb_col_names, tlfb_cb_content)
+```
+
+## Differences between codebook columns and data columns
+
+Check to see what differences, if any, exist between the columns in the codebook and the columns in the actual data frame.
+
+```{r}
+in_cb_not_df <- setdiff(tlfb_col_names_key$cb_col_name, names(tlfb))
+in_cb_not_df
+```
+
+There are **0** column names in the codebook that don't appear in the data.  
+
+```{r}
+# Future proof this by checking to see if the variables have changed over time.
+# If this test fails in the future, come back and make adjustments to how we 
+# handle columns as needed.
+test_that("The expected columns exist in the codebook, but not the tlfb df.", {
+  expect_equal(
+    length(in_cb_not_df),
+    0L
+  )
+})
+```
+
+Now, check for columns that exist in the data frame, but not the codebook.
+
+```{r}
+in_df_not_cb <- setdiff(names(tlfb), tlfb_col_names_key$cb_col_name)
+in_df_not_cb
+```
+
+```{r}
+# Future proof this by checking to see if the variables have changed over time.
+# If this test fails in the future, come back and make adjustments to how we 
+# handle columns as needed.
+test_that("The expected columns exist in the tlfb df, but not the tlfb codebook.", {
+  expect_equal(
+    length(in_df_not_cb),
+    53L
+  )
+})
+```
+
+The remainder of these variables are calculated variables created by the SPSS export script. We will save them in a separate data frame and deal with them later. 
+
+```{r}
+tlfb_spss_calc_vars <- tlfb %>% 
+  select(id = SUBJECT, visit = VISIT_tlfb, all_of(in_df_not_cb))
+```
+
+```{r}
+write_sav(tlfb_spss_calc_vars, "data/tlfb_spss_calc_vars.sav")
+```
+
+Remove calculated variables from the tlfb data. This makes it easier to merge with the other QDS data frames later.
+
+```{r}
+tlfb <- tlfb %>% select(!all_of(in_df_not_cb))
+```
+
+```{r}
+# Future proof this by checking to see if the variables have changed over time.
+# If this test fails in the future, come back and make adjustments to how we 
+# handle columns as needed.
+test_that("The expected number of columns exist in the tlfb df after cleaning.", {
+  expect_equal(
+    length(names(tlfb)),
+    146L
+  )
+})
+```
+
+Clean up
+
+```{r}
+rm(tlfb_spss_calc_vars, in_cb_not_df, in_df_not_cb)
+```
+
+## Replace variable names in the full data frame
+
+Put them in the same order used in the codebook.
+
+```{r}
+tlfb <- tlfb %>% 
+  select(all_of(tlfb_col_names_key$cb_col_name))
+
+names(tlfb) <- tlfb_col_names_key$col_name
+```
+
+
+# 💾Save the data frame
+
+```{r}
+path <- "/Volumes/Link2Care/Participant Data/R Data/qds_tlfb_import.rds"
+```
+
+```{r}
+write_rds(tlfb, path)
+```
+
+Print a message for when this file is being sourced
+
+```{r}
+cat(
+  paste0(Sys.Date(), ":"),
+  "QDS Visit 2 saved to", path
+)
+```
+
+
+# 🗑Clean up
+
+```{r}
+rm(tlfb_col_names_key, path)
+```
+
+
+# 🖨Print a message for when this file is being sourced
+
+```{r}
+cat(
+  paste0(Sys.Date(), ":"),
+  "QDS Visit 2 cleaned with", nrow(tlfb), "rows and", ncol(tlfb), "columns.\n"
+)
+
+# 2021-04-28: QDS Visit 2 cleaned with 247 rows and 146 columns.
+```
+
+```{r echo=FALSE}
+sessionInfo()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
