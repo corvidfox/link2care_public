@@ -104,16 +104,17 @@ rc_col_key <- read_excel(
 Put current REDCap column names into a data frame so that we can use `left_join()` below.
 
 ```{r}
-current_names <- tibble(current_names = names(redcap))
+current_col_names <- tibble(current_names = names(redcap))
 ```
 
 Review column names that don't have a match in the QDS data.
 
-```{r}
-current_names %>% 
+```{r eval=FALSE}
+current_col_names %>% 
   left_join(rc_col_key, by = c("current_names" = "rc_name")) %>% 
   filter(is.na(qds_name))
 ```
+
 Did a manual review of current REDCap names that aren't matched to a QDS column name. They all appear to be variables that truly don't exist in QDS. Many of them are time stamps marking the beginning and end of survey sections. 
 
 Some exceptions:   
@@ -126,146 +127,65 @@ Some exceptions:
 
 * sq_7b2 says, "You selected that you received a flyer about the study from the Dallas County Jail. Please enter the study flyer number." This variable doesn't exist in QDS. We will leave it and it will have a missing value for all QDS rows in the combined data.
 
-* Question 27 on the tobacco questionnaire. Need to fix this. This variable wasn't previously in QDS. I need to go back and see how the changes Joe made to it affect the QDS data now before moving on. 
-
-
-
+* vac1, vac2, and vac3 are COVID questions that don't appear in QDS. We will leave them and they will have a missing value for all QDS rows in the combined data.
 
 ```{r}
-redcap %>% select(visit_gender, gender)
+redcap <- redcap %>% 
+  select(-ii_v1, -visit_v1, -gender)
+```
+
+Put current REDCap column names into a data frame so that we can use `left_join()` below. We have to do this step again because we dropped variables above.
+
+```{r}
+current_col_names <- tibble(current_names = names(redcap))
+```
+
+Join the QDS names to the REDCap names
+
+```{r eval=FALSE}
+current_col_names <- current_col_names %>% 
+  left_join(rc_col_key, by = c("current_names" = "rc_name"))
+```
+
+## Rename REDCap columns to match QDS
+
+Create a final new set of column names. The new name will be equal to qds_name unless qds_name is missing (i.e., that variable doesn't appear in the QDS data). When qds_name is missing, then the column will keep its current column name.
+
+```{r}
+new_col_names <- current_col_names %>% 
+  mutate(new_names = if_else(is.na(qds_name), current_names, qds_name))
 ```
 
 ```{r}
-redcap %>% 
-  select(-ii_v1, -visit_v1)
+names(redcap) <- pull(new_col_names, new_names)
 ```
 
 
-
-Does the REDcap data have the same number of unique column names as the REDCap column in the column name key?
+# 💾Save the data frame
 
 ```{r}
-length(unique(names(redcap)))
+path <- "/Volumes/Link2Care/Participant Data/R Data/redcap_import.rds"
 ```
 
 ```{r}
-length(unique(na.omit(rc_col_key$rc_name)))
+write_rds(redcap, path)
 ```
 
-No, the REDCap data has 914 - 794 = 120 more columns than the key has column names. Which columns appear in the REDCap data, but not in the column name key?
+Print a message for when this file is being sourced
 
 ```{r}
-df_col_names <- names(redcap) # 914
-key_col_names <- rc_col_key$rc_name %>% na.omit() # 794
+cat(
+  paste0(Sys.Date(), ":"),
+  "REDCap data saved to", path
+)
 ```
+
+
+# 🗑Clean up
 
 ```{r}
-setdiff(df_col_names, key_col_names)
+rm(current_col_names, new_col_names, rc_col_key, path)
 ```
-
-
-
-## Rename REDCap columns using the key
-
-```{r}
-redcap %>% 
-  select(rc_col_key$)
-```
-
-
-
-
-
-
-
-
-### Differences between QDS columns and REDCap columns
-
-Check to see what differences, if any, exist between the columns in the QDS data and the columns in the REDCap data frame.
-
-```{r}
-in_qds_not_rc <- setdiff(qds_col_names, redcap_col_names)
-in_qds_not_rc
-```
-
-There are **855** column names in the QDS data that don't appear in the REDCAp data.  
-
-```{r}
-# Future proof this by checking to see if the variables have changed over time.
-# If this test fails in the future, come back and make adjustments to how we 
-# handle columns as needed.
-test_that("The expected columns exist in the codebook, but not the v3 df.", {
-  expect_equal(
-    length(in_cb_not_df),
-    0L
-  )
-})
-```
-
-Now, check for columns that exist in the data frame, but not the codebook.
-
-```{r}
-in_rc_not_qds <- setdiff(redcap_col_names, qds_col_names)
-in_rc_not_qds
-```
-
-There are **870** column names in the QDS data that don't appear in the REDCAp data.
-
-```{r}
-
-```
-
-
-```{r}
-# Future proof this by checking to see if the variables have changed over time.
-# If this test fails in the future, come back and make adjustments to how we 
-# handle columns as needed.
-test_that("The expected columns exist in the v3 df, but not the v3 codebook.", {
-  expect_equal(
-    length(in_df_not_cb),
-    77L
-  )
-})
-```
-
-The remainder of these variables are calculated variables created by the SPSS export script. We will save them in a separate data frame and deal with them later. 
-
-```{r}
-v3_spss_calc_vars <- v3 %>% 
-  select(id = SUBJECT, visit = VISIT_V3, all_of(in_df_not_cb))
-```
-
-```{r}
-write_sav(v3_spss_calc_vars, "data/v3_spss_calc_vars.sav")
-```
-
-Remove calculated variables from the v3 data. This makes it easier to merge with the other QDS data frames later.
-
-```{r}
-v3 <- v3 %>% select(!all_of(in_df_not_cb))
-```
-
-```{r}
-# Future proof this by checking to see if the variables have changed over time.
-# If this test fails in the future, come back and make adjustments to how we 
-# handle columns as needed.
-test_that("The expected number of columns exist in the v3 df after cleaning.", {
-  expect_equal(
-    length(names(v3)),
-    449L
-  )
-})
-```
-
-Clean up
-
-```{r}
-rm(v3_spss_calc_vars, in_cb_not_df, in_df_not_cb)
-```
-
-
-
-
 
 
 # 🖨Print a message for when this file is being sourced
@@ -273,11 +193,13 @@ rm(v3_spss_calc_vars, in_cb_not_df, in_df_not_cb)
 ```{r}
 cat(
   paste0(Sys.Date(), ":"),
-  "REDCap cleaned with", nrow(redcap), "rows and", ncol(redcap), "columns.\n"
+  "REDCap data cleaned with", nrow(redcap), "rows and", ncol(redcap), "columns.\n"
 )
-```
 
+# 2021-06-30: REDCap data cleaned with 21 rows and 911 columns.
+```
 
 ```{r echo=FALSE}
 sessionInfo()
 ```
+
