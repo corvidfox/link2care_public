@@ -64,6 +64,25 @@ cat(
 ```
 
 
+# Remove fake data rows
+
+Joe created some fake data rows in REDCap that need to be removed.
+
+```{r}
+redcap <- redcap %>% filter(record_id > 2000)
+```
+
+```{r}
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "After dropping fake participant rows, REDCap data contains", nrow(redcap), "rows and", ncol(redcap), "columns.\n"
+)
+
+# 2021-06-30: After dropping fake participant rows, REDCap data contains 21 rows and 914 columns.
+```
+
+
 # Clean variable names
 
 _See "Notes on cleaning individual L2C data sets for merging" for the rationale, style guidelines, and instructions for this section._
@@ -75,23 +94,50 @@ The column names in QDS and REDCap do not match. The Excel spreadsheet we import
 ```{r}
 rc_col_key <- read_excel(
   "docs/codebooks/L2C Column Name Key.xlsx",
-  sheet = "QDS to REDCap Key (Edited)",
+  sheet = "QDS to REDCap Key (Final)",
   col_names = c("qds_name", "rc_name"),
-  col_types = c("text"),
+  col_types = c("text", "text", rep("skip", 5)),
   skip = 1
 )
 ```
 
-## Rename REDCap columns
+Put current REDCap column names into a data frame so that we can use `left_join()` below.
 
 ```{r}
 current_names <- tibble(current_names = names(redcap))
 ```
 
+Review column names that don't have a match in the QDS data.
+
 ```{r}
-# current_names <- 
 current_names %>% 
-  left_join(rc_col_key, by = c("current_names" = "rc_name"))
+  left_join(rc_col_key, by = c("current_names" = "rc_name")) %>% 
+  filter(is.na(qds_name))
+```
+Did a manual review of current REDCap names that aren't matched to a QDS column name. They all appear to be variables that truly don't exist in QDS. Many of them are time stamps marking the beginning and end of survey sections. 
+
+Some exceptions:   
+
+* There is an ii column, which does have a matching variable in QDS, but there is also an ii_v1 column. It doesn't contain any values. we will just drop it.   
+
+* There is a visit column, which does have a matching variable in QDS, but there is also an visit_v1. It doesn't contain any values. we will just drop it.   
+
+* There is a visit_gender column, which does have a matching variable in QDS, but there is also a gender column. It doesn't contain any values. we will just drop it.   
+
+* sq_7b2 says, "You selected that you received a flyer about the study from the Dallas County Jail. Please enter the study flyer number." This variable doesn't exist in QDS. We will leave it and it will have a missing value for all QDS rows in the combined data.
+
+* Question 27 on the tobacco questionnaire. Need to fix this. This variable wasn't previously in QDS. I need to go back and see how the changes Joe made to it affect the QDS data now before moving on. 
+
+
+
+
+```{r}
+redcap %>% select(visit_gender, gender)
+```
+
+```{r}
+redcap %>% 
+  select(-ii_v1, -visit_v1)
 ```
 
 
