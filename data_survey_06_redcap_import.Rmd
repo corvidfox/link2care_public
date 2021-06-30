@@ -73,9 +73,58 @@ _See "Notes on cleaning individual L2C data sets for merging" for the rationale,
 The column names in QDS and REDCap do not match. The Excel spreadsheet we import below is a key that bridges the QDS names to the REDCap names. 
 
 ```{r}
-rc_col_key <- read_excel("docs/codebooks/L2C Column Name Key.xlsx")
+rc_col_key <- read_excel(
+  "docs/codebooks/L2C Column Name Key.xlsx",
+  sheet = "QDS to REDCap Key (Edited)",
+  col_names = c("qds_name", "rc_name"),
+  col_types = c("text"),
+  skip = 1
+)
 ```
 
+## Rename REDCap columns
+
+```{r}
+current_names <- tibble(current_names = names(redcap))
+```
+
+```{r}
+# current_names <- 
+current_names %>% 
+  left_join(rc_col_key, by = c("current_names" = "rc_name"))
+```
+
+
+
+Does the REDcap data have the same number of unique column names as the REDCap column in the column name key?
+
+```{r}
+length(unique(names(redcap)))
+```
+
+```{r}
+length(unique(na.omit(rc_col_key$rc_name)))
+```
+
+No, the REDCap data has 914 - 794 = 120 more columns than the key has column names. Which columns appear in the REDCap data, but not in the column name key?
+
+```{r}
+df_col_names <- names(redcap) # 914
+key_col_names <- rc_col_key$rc_name %>% na.omit() # 794
+```
+
+```{r}
+setdiff(df_col_names, key_col_names)
+```
+
+
+
+## Rename REDCap columns using the key
+
+```{r}
+redcap %>% 
+  select(rc_col_key$)
+```
 
 
 
