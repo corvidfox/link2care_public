@@ -1,0 +1,240 @@
+---
+title: "Import and Manage Bridge Sessions Data"
+date: "2021-04-23 <br> Updated: `r Sys.Date()`"
+---
+
+# ⭐️Overview
+
+This file is used to import the Link2Care Bridge sessions data and do some initial data cleaning. 
+
+**NOTE on data sources:**
+
+The Bridge sessions data is securely stored as an Excel file on the the UTHealth servers in Participant Data > Bridge Session Data.
+
+
+# 📦Load packages
+
+```{r message=FALSE}
+library(dplyr)
+library(readxl)
+library(stringr)
+library(tidyr)
+library(readr)
+```
+
+
+# 🌎Connect to UTH server 
+
+```{bash eval=FALSE}
+# Don't drill all the way down to live documents because not all of the data is in live documents.
+open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/'
+```
+
+
+# 📥Import data 
+
+* Bridge session Excel file is password protected and the password can't be removed. Therefore, you have to open the password protected file, select all the data, copy, and then paste into a new Excel file that is not password protected.   
+
+```{r}
+bridge <- read_excel(
+  "/Volumes/Link2Care/Participant Data/Bridge Session Data/NoPasswordCurrent_Bridge Session Minutes_as of_6-8-21.xlsx",
+  sheet = "Sheet1",
+  col_names = c(
+    "subject", "bridge_baseline_date", "bridge_v2_rand_date", 
+    "bridge_v5_sched_final_visit_date", "bridge_date_session", "bridge_type", 
+    "bridge_duration", "bridge_flag_ns_v2", "bridge_flag_dropped", "bridge_notes"
+  ),
+  col_types = c(
+    "numeric", rep("date", 3), "text", rep("numeric", 4), "text"
+  ),
+  skip = 10
+)
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "Bridge session data", nrow(bridge), "rows and", ncol(bridge), "columns.\n"
+)
+
+# 2021-06-30: Bridge session data 2745 rows and 10 columns.
+```
+
+
+# 🚧Data management
+
+Remove text from date columns and convert to dates.
+
+```{r}
+bridge <- bridge %>% 
+  mutate(
+    bridge_date_session = str_remove_all(bridge_date_session, "[A-z]|[a-z]"),
+    bridge_date_session = as.numeric(bridge_date_session),
+    bridge_date_session = as.Date(bridge_date_session, origin = "1899-12-30")
+  )
+```
+
+Remove instructions from "notes" column of rows 1 and 2.
+
+```{r}
+bridge[1, "bridge_notes"] <- NA_character_
+bridge[2, "bridge_notes"] <- NA_character_
+```
+
+Drop blank rows. In the Excel sheet there were some blank spacer rows.
+
+* `c_across()` doesn't work with columns of different types. So, creating missing data dummy variables.
+
+```{r} 
+bridge <- bridge %>%
+  # Create missing data dummy variables
+  mutate(
+    across(
+      everything(),
+      is.na,
+      .names = "{col}_miss"
+    )
+  ) %>% 
+  # Sum missing data dummy variables
+  rowwise() %>% 
+  mutate(
+    n_missing = sum(c_across(ends_with("_miss")))
+  ) %>% 
+  ungroup() %>% 
+  # Drop missing data dummy variables
+  select(-ends_with("_miss")) %>% 
+  # Drop rows that are missing in every column
+  filter(!n_missing == ncol(bridge))
+```
+
+Carry forward id numbers. In the Excel sheet, the id number is only given in the first row of each set of rows for each participant.
+
+```{r}
+bridge <- bridge %>%
+  # Carry forward id
+  fill(subject) %>% 
+  group_by(subject) %>% 
+  # Carry forward other variables grouped by id
+  fill(
+    bridge_baseline_date, bridge_v2_rand_date, bridge_v5_sched_final_visit_date
+  ) %>% 
+  ungroup()
+```
+
+Create a factor for session type and a dummy variable for case management.
+
+```{r}
+bridge <- bridge %>%
+    mutate(
+    # Change NA to None for type
+    bridge_type = if_else(is.na(bridge_type), 4, bridge_type),
+    # Create factor version
+    bridge_type_f = factor(
+      bridge_type,
+      1:4,
+      c("case_management", "crisis_management", "other", "none")
+    ),
+    # Create dummy variable for case management
+    bridge_case_management = bridge_type_f == "case_management"
+  )
+```
+
+Create a dummy variable for    
+* "Used at least one session of regular case management."    
+* "Used at least one session of crisis case management."    
+* "Used at least one session of other case management."    
+* "Used no forms of Bridge case management."    
+
+```{r}
+bridge <- bridge %>%
+  group_by(subject) %>% 
+  mutate(
+    bridge_row = row_number(),
+    bridge_total_sessions = sum(bridge_type %in% 1:3),
+    bridge_total_minutes = sum(bridge_duration, na.rm = TRUE),
+    bridge_any_case_management = any(bridge_type_f == "case_management"),
+    bridge_any_crisis_management = any(bridge_type_f == "crisis_management"),
+    bridge_any_other = any(bridge_type_f == "other"),
+    bridge_all_none = all(bridge_type_f == "none")
+  ) %>% 
+  ungroup()
+```
+
+Create a "wide" version of the data with one row per participant.
+
+```{r}
+bridge_wide <- bridge %>% 
+  filter(bridge_row == 1)
+```
+
+
+# 💾Save the data frames
+
+```{r}
+path <- "/Volumes/Link2Care/Participant Data/R Data/bridge.rds"
+```
+
+```{r}
+write_rds(bridge, path)
+```
+
+Print a message for when this file is being sourced
+
+```{r}
+cat(
+  paste0(Sys.Date(), ":"),
+  "Bridge session long data saved to", path
+)
+
+# 2021-06-30: Bridge session long data saved to /Volumes/Link2Care/Participant Data/R Data/bridge.rds
+```
+
+```{r}
+path <- "/Volumes/Link2Care/Participant Data/R Data/bridge_wide.rds"
+```
+
+```{r}
+write_rds(bridge_wide, path)
+```
+
+Print a message for when this file is being sourced
+
+```{r}
+cat(
+  paste0(Sys.Date(), ":"),
+  "Bridge session wide data saved to", path
+)
+
+# 2021-06-30: Bridge session wide data saved to /Volumes/Link2Care/Participant Data/R Data/bridge_wide.rds
+```
+
+
+# 🗑Clean up
+
+```{r}
+rm(path)
+```
+
+
+# 🖨Print a message for when this file is being sourced
+
+```{r}
+cat(
+  paste0(Sys.Date(), ":"),
+  "Bridge session long data cleaned with", nrow(bridge), "rows and", ncol(bridge), "columns.\n"
+)
+
+# 2021-06-30: Bridge session long data cleaned with 2214 rows and 20 columns.
+```
+
+```{r}
+cat(
+  paste0(Sys.Date(), ":"),
+  "Bridge session wide data cleaned with", nrow(bridge_wide), "rows and", ncol(bridge_wide), "columns.\n"
+)
+
+# 2021-06-30: Bridge session wide data cleaned with 289 rows and 20 columns.
+```
+
+```{r echo=FALSE}
+sessionInfo()
+```
