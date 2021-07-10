@@ -32,6 +32,7 @@ Currently, I'm importing all of this data from the UTHealth server. The data sho
 ```{r message=FALSE}
 library(dplyr)
 library(haven)
+library(officer)
 library(readr)
 library(tidyr)
 library(stringr)
@@ -57,7 +58,7 @@ cat(
   "QDS Visit 2 imported with", nrow(v2), "rows and", ncol(v2), "columns.\n"
 )
 
-# 2021-04-23: QDS Visit 2 imported with 247 rows and 199 columns.
+# 2021-07-09: QDS Visit 2 imported with 271 rows and 210 columns.
 ```
 
 
@@ -72,7 +73,7 @@ v2_cb_content <- read_docx("docs/codebooks/L2C_v2 Codebook.docx") %>%
   docx_summary()
 ```
 
-## Keep the variables of interest only
+### Keep the variables of interest only
 
 ```{r}
 v2_cb_col_names <- v2_cb_content %>%
@@ -84,7 +85,7 @@ v2_cb_col_names <- v2_cb_content %>%
   )
 ```
 
-## Clean section names
+### Clean section names
 
 ```{r}
 v2_cb_col_names <- v2_cb_col_names %>%
@@ -100,7 +101,7 @@ v2_cb_col_names <- v2_cb_col_names %>%
   fill(section_name)
 ```
 
-## Record the sections that are completed at visit 2
+### Record the sections that are completed at visit 2
 
 We will use this for checking to make sure all of the correct questionnaire sections merge later.
 
@@ -123,7 +124,7 @@ write_rds(q_sections, "data/questionnaire_section.rds")
 rm(q_sections)
 ```
 
-## Reduce to one row per column
+### Reduce to one row per column
 
 Currently, cb_col_name and col_name are on separate rows. We will spread the different column names vertically across rows so that we can reduce the data frame down to one row per column.
 
@@ -153,7 +154,7 @@ v2_cb_col_names <- v2_cb_col_names %>%
 dim(v2_cb_col_names) # 146   4
 ```
 
-## Standardize new column names
+### Standardize new column names
 
 * Remove _v2 and v2 from column names
 * Replace spaces with underscores
@@ -180,6 +181,43 @@ v2_cb_col_names <- v2_cb_col_names %>%
     col_name = str_replace(col_name, "([a-z])(\\d)", "\\1_\\2"),
     # Fix pv2 -- an exception
     col_name = str_replace(col_name, "p_v_2", "pv_2")
+  )
+```
+
+## New column: Visit type
+
+On 2021-06-10, VISIT_TYPE was added to QDS, but not the codebook. Therefore, we will create a new row for v2_cb_col_names that will include the VISIT_TYPE variables that would have been there if it were in the codebook. 
+
+```{r}
+v2_cb_col_names <- v2_cb_col_names %>%
+  add_row(
+    # To help with nesting it in the correct place in the current variable list
+    doc_index    = NA,
+    section_name = "Admin",
+    cb_col_name  = "VISIT_TYPE",
+    col_name     = "visit_type",
+    .after       = which(v2_cb_col_names$cb_col_name == "TODAY_V2")
+  )
+```
+
+## New columns: COVID vaccine 
+
+On 2021-03-08, questions about COVID vaccine were added to QDS, but not the codebook. Therefore, we will create new rows for v2_cb_col_names that will add the COVID variables that would have been there if the new variables were in the codebook. 
+
+```{r}
+v2_cb_col_names <- v2_cb_col_names %>%
+  add_row(
+    # To help with nesting it in the correct place in the current variable list
+    doc_index    = NA,
+    section_name = "COVID",
+    cb_col_name  = c(
+      "VAC1_V2", "VAC2_V2", "VAC2_V2Y", "VAC2_V2M", "VAC2_V2D", "VAC3_V2",  
+      "VAC3_V2Y", "VAC3_V2M", "VAC3_V2D"
+    ),
+    col_name     = c(
+      "vac_1", "vac_2", "vac_2y", "vac_2m", "vac_2d", "vac_3", "vac_3y", 
+      "vac_3m", "vac_3d"
+    )
   )
 ```
 
@@ -257,7 +295,13 @@ Now, check for columns that exist in the data frame, but not the codebook.
 
 ```{r}
 in_df_not_cb <- setdiff(names(v2), v2_col_names_key$cb_col_name)
-in_df_not_cb
+# in_df_not_cb
+```
+
+II_V1 shouldn't be in this data frame. Drop it.
+
+```{r}
+in_df_not_cb <- in_df_not_cb[in_df_not_cb != "II_V1"]
 ```
 
 ```{r}
@@ -289,6 +333,18 @@ Remove calculated variables from the v2 data. This makes it easier to merge with
 v2 <- v2 %>% select(!all_of(in_df_not_cb))
 ```
 
+2021-07-09: 
+
+* There were 9 COVID vaccine questions added around 2021-03-08. 
+* Visit type was added to QDS on 2021-06-15.
+* II_V1 shouldn't be in this data frame. Drop it.
+
+```{r}
+v2 <- v2 %>% select(-II_V1)
+```
+
+After the above adjustments, the expected number of columns in v2 changes from 146 to 156. 
+
 ```{r}
 # Future proof this by checking to see if the variables have changed over time.
 # If this test fails in the future, come back and make adjustments to how we 
@@ -296,7 +352,7 @@ v2 <- v2 %>% select(!all_of(in_df_not_cb))
 test_that("The expected number of columns exist in the v2 df after cleaning.", {
   expect_equal(
     length(names(v2)),
-    146L
+    156L
   )
 })
 ```
@@ -354,7 +410,7 @@ cat(
   "QDS Visit 2 cleaned with", nrow(v2), "rows and", ncol(v2), "columns.\n"
 )
 
-# 2021-04-28: QDS Visit 2 cleaned with 247 rows and 146 columns.
+# 2021-07-09: QDS Visit 2 cleaned with 271 rows and 156 columns.
 ```
 
 ```{r echo=FALSE}

@@ -7,36 +7,11 @@ date: "2021-04-28 <br> Updated: `r Sys.Date()`"
 
 This file is used to merged together multiple data sets containing survey responses.
 
-**NOTE on using multiple import code files:**
-Previously, I was trying to clean all the separate data frames (i.e, QDS v3-v5, REDCap, and Master Log) in a single Rmd file. 
-
-In theory, this is more efficient than importing and cleaning each visit file separately. For example, we can clean "race" instead of cleaning "race_v3", "race_v3", etc.
-
-However, there are at least two issues with that approach:   
-1. There are intentional differences in the variable names (e.g., "V1" and "V2"), and unintentional errors (e.g., HEIGHT_3) in the variable names, from data frame to data frame that make combining them very difficult.   
-2. These differences and errors can be "fixed"; however, doing so makes the variable names so different from the codebook that the codebook is barely usable.
-
-For now, I'm going to try importing and cleaning each data file using a separate code file. There may be opportunities to make this more efficient in the future.
-
-**NOTE on data sources:**
-* The QDS data is exported from QDS in SPSS data format. The data has to be exported by visit (i.e., v1, v2, ... v5). The SPSS data is then added to the UTHealth servers.
-
-* Some of the v3-v5 visits are also done using REDCap. That data is exported from REDCap and added to the UTHealth servers.
-
-**NOTE on Kiteworks:**
-Currently, I'm importing all of this data from the UTHealth server. The data should also be available on Kiteworks if you are unable to connect to the server for some reason.
-
-
 # 📦Load packages
 
 ```{r message=FALSE}
 library(dplyr)
-library(haven)
 library(readr)
-library(tidyr)
-library(stringr)
-library(officer)
-library(testthat)
 ```
 
 # 🌎Connect to UTH server 
@@ -49,102 +24,66 @@ open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/'
 
 # 📥Import data 
 
-## Import QDS data
+We previously imported and did some initial cleaning of the following data sets:
+
+* QDS (data_survey_01_qds_v1_import.Rmd - data_survey_05_qds_v5_import.Rmd)   
+* REDCap (data_survey_06_redcap_import.Rmd)    
+* Master log (data_survey_07_master_log_import.Rmd)   
+* Timeline followback (data_survey_08_tlfb_import.Rmd)   
+* Arrest data (data_survey_09_arrests_import.Rmd)   
+* Bridge sessions data (data_survey_10_bridge_sessions_import.Rmd)   
+
+Most of the data cleaning that was done was to standardize column names. [Click here](https://github.com/brad-cannell/link2care_public/blob/master/data/notes_cleaning_individual_data_sets_for_merge.md) for notes on column naming conventions. 
+
+After doing this initial cleaning, the individual files were saved in RDS format on the U drive.
 
 ```{r}
-walk(
-  .x = c(1:5),
-  .f = function(x) {
-    new_nm <- paste0("v", x)
-    sav_nm <- paste0("Visit_", x, "_Data.SAV")
-    path <- paste0(qds_spss_path, sav_nm)
-    assign(new_nm, read_sav(path), envir = .GlobalEnv)
-  }
+path <- "/Volumes/Link2Care/Participant Data/R data/"
+```
+
+```{r}
+data_frames <- c(
+  qds_v1 = "qds_v1_import.rds", 
+  qds_v2 = "qds_v2_import.rds",
+  qds_v3 = "qds_v3_import.rds",
+  qds_v4 = "qds_v4_import.rds",
+  qds_v5 = "qds_v5_import.rds",
+  rc     = "redcap_import.rds",
+  ml     = "master_log_screened_in.rds",
+  tlfb   = "tlfb.rds",
+  arrest = "arrest.rds",
+  bridge = "bridge_wide.rds"
 )
 ```
 
 ```{r}
-walk(
-  .x = c(1:5),
-  .f = function(x) {
-    df_nm <- paste0("v", x)
-    df <- get(df_nm, envir = .GlobalEnv)
-    # Print a message for when this file is being sourced
-    cat(
-      paste0(Sys.Date(), ":"),
-      df_nm, "imported with", nrow(df), "rows and", ncol(df), "columns.\n"
-    )
-  }
-)
-
-# These are expected to change over time as we add more people to the study.
-# However, drastic changes from month-to-month, or even quarter-to-quarter,
-# should initiate an investigation into what's going on.
-# 2021-01-28: v1 imported with 263 rows and 803 columns.
-# 2021-01-28: v2 imported with 246 rows and 199 columns.
-# 2021-01-28: v3 imported with 178 rows and 526 columns.
-# 2021-01-28: v4 imported with 136 rows and 582 columns.
-# 2021-01-28: v5 imported with 129 rows and 630 columns.
-```
-
-**NOTE on converting to lowercase:** Don't convert to lowercase in this script. Leaving the column names in uppercase makes it easier to use the Word code book and the SPSS code that Michael wrote. The variables that I'm creating and using for analysis are all given lower, snake case names anyway. It should be the case that any variable that isn't in lowercase is a variable I'm not using in analysis.
-
-## Import REDCap data
-
-In some cases, we will need to supplement the QDS data with data that is captured in REDCap.
-
-For now, keep only the id and group from REDCap. We may need other information in the future.
-
-```{r message=FALSE}
-redcap <- read_sav(redcap_spss_path) %>% 
-  select(id = record_id, visit, group) %>% 
-  arrange(id, visit)
-
-# Print a message for when this file is being sourced
-cat(
-  paste0(Sys.Date(), ":"),
-  "REDCap imported with", nrow(redcap), "rows and", ncol(redcap), "columns.\n"
-)
-
-# 2021-01-28: REDCap imported with 12 rows and 3 columns.
-```
-
-## Import Excel master log
-
-This is primarily to supplement the group membership data (i.e., L2C, UCM, UCM+SP). Group membership is randomly assigned at visit 2, but it is not recorded in QDS until visit 3 and beyond. Therefore, if we only rely on QDS data, it appears as though many participants haven't been randomized to a group even though they have. The study staff manually tracks group assignment in the Excel Master Log. We can use that data to cross-check and impute group membership. It is not ideal, but it seems to be the best option we have.
-
-For now, keep only the id and group from the master log. We may need other information in the future.
-
-```{r}
-master_log <- read_excel(
-  master_log_path, 
-  sheet = "Screened In",
-  col_names = c("id", "group"),
-  col_types = c("text", rep("skip", 6), "text", rep("skip", 25)),
-  skip = 1
-) %>% 
-  # Coerce group to numeric so that it can be combined with the QDS data.
-  mutate(
-    group = case_when(
-      group == "UCM"    ~ 1,
-      group == "UCM+SP" ~ 2,
-      group == "L2C"    ~ 3
-    )
+for (i in seq_along(data_frames)) {
+  full_path <- paste0(path, data_frames[[i]])
+  df_nm     <- names(data_frames)[[i]]
+  df        <- read_rds(full_path)
+  assign(df_nm, df, envir = .GlobalEnv)
+  # Print a message for when this file is being sourced
+  cat(
+    paste0(Sys.Date(), ":"),
+    data_frames[[i]], "imported as", df_nm, "with", nrow(df), "rows and", ncol(df), "columns .\n"
   )
-
-# Print a message for when this file is being sourced
-cat(
-  paste0(Sys.Date(), ":"),
-  "Master log imported with", nrow(master_log), "rows and", ncol(master_log),
-  "columns.\n"
-)
-
-# 2021-01-28: Master log imported with 263 rows and 2 columns.
+}
 ```
 
-```{r}
-rm(master_log_path, qds_spss_path, redcap_spss_path)
-```
+
+# 🔄Merge data 
+
+## QDS files
+
+
+
+
+
+
+
+
+
+
 
 
 

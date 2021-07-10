@@ -32,6 +32,7 @@ Currently, I'm importing all of this data from the UTHealth server. The data sho
 ```{r message=FALSE}
 library(dplyr)
 library(haven)
+library(officer)
 library(readr)
 library(tidyr)
 library(stringr)
@@ -57,7 +58,7 @@ cat(
   "QDS Visit 1 imported with", nrow(v1), "rows and", ncol(v1), "columns.\n"
 )
 
-# 2021-04-23: QDS Visit 1 imported with 264 rows and 803 columns.
+# 2021-07-09: QDS Visit 1 imported with 295 rows and 810 columns.
 ```
 
 
@@ -72,7 +73,7 @@ v1_cb_content <- read_docx("docs/codebooks/L2C_V1 Codebook.docx") %>%
   docx_summary()
 ```
 
-## Keep the variables of interest only
+### Keep the variables of interest only
 
 ```{r}
 v1_cb_col_names <- v1_cb_content %>%
@@ -84,7 +85,11 @@ v1_cb_col_names <- v1_cb_content %>%
   )
 ```
 
-## Clean section names
+```{r}
+rm(v1_cb_content)
+```
+
+### Clean section names
 
 ```{r}
 v1_cb_col_names <- v1_cb_col_names %>%
@@ -102,9 +107,11 @@ v1_cb_col_names <- v1_cb_col_names %>%
   fill(section_name)
 ```
 
-## Record the sections that are completed at visit 1
+### Record the sections that are completed at visit 1
 
 We will use this for checking to make sure all of the correct questionnaire sections merge later.
+
+**NOTE:** If you rerun this section, you must run the files to clean v2-v5 again.
 
 ```{r}
 q_sections <- list(v1 = unique(v1_cb_col_names$section_name))
@@ -119,7 +126,7 @@ write_rds(q_sections, "data/questionnaire_section.rds")
 rm(q_sections)
 ```
 
-## Reduce to one row per column
+### Reduce to one row per column
 
 Currently, cb_col_name and col_name are on separate rows. We will spread the different column names vertically across rows so that we can reduce the data frame down to one row per column.
 
@@ -149,7 +156,7 @@ v1_cb_col_names <- v1_cb_col_names %>%
 dim(v1_cb_col_names) # 725   4
 ```
 
-## Standardize new column names
+### Standardize new column names
 
 * Remove _V1 and V1 from column names
 * Replace spaces with underscores
@@ -174,6 +181,77 @@ v1_cb_col_names <- v1_cb_col_names %>%
     col_name = str_to_lower(col_name),
     # Add underscore in-between the abbreviated tool name and question number
     col_name = str_replace(col_name, "([a-z])(\\d)", "\\1_\\2")
+  )
+```
+
+## New column: Visit type
+
+On 2021-06-10, VISIT_TYPE was added to QDS, but not the codebook. Therefore, we will create a new row for v1_cb_col_names that will include the VISIT_TYPE variables that would have been there if it were in the codebook. 
+
+```{r}
+v1_cb_col_names <- v1_cb_col_names %>%
+  add_row(
+    doc_index    = NA,
+    section_name = "Admin",
+    cb_col_name  = "VISIT_TYPE",
+    col_name     = "visit_type",
+    .after       = which(v1_cb_col_names$cb_col_name == "TODAY_V1")
+  )
+```
+
+## New columns: Tobacco 26 questions
+
+On 2021-06-05, Joe Waring found a discrepancy between the way Tobacco 26 was being asked in QDS and REDCap. 
+
+In QDS, T26_V1, T26_V3, T26_V4, and T26_V5 read:
+
+Which option would give you the best chance for quitting smoking?
+1	=	Medications
+2	=	Counseling
+3	=	Both medications and counseling
+4	=	Smartphone app
+5	=	Both smartphone app and medications
+6	=	Quitting "cold turkey" - without counseling or medications
+9	=	skipped
+
+And only one answer choice was possible.
+
+In REDCap, t26_v1 reads:
+
+If you were to try to quit smoking, which of the following wouldyou prefer to receive: (select all that apply)
+
+1 t26_v1___1 Medications
+2 t26_v1___2 Group Counseling
+3 t26_v1___3 Smartphone app
+4 t26_v1___4 In person individual counseling
+5 t26_v1___5 Helpline phone counseling
+6 t26_v1___6 None of the above
+
+Where multiple answers are possible and t26_v1___1 - t26_v1___6 are dummy variables.
+
+On 2021-06-30 the QDS survey was changed to be more like the REDCap survey. The QDS data now has T26A_V1, T26A_V1A, T26A_V1B, T26A_V1C, T26A_V1D, T26A_V1E, and T26A_V1F that correspond to t26_v1___1 - t26_v1___6 in REDCap. 
+
+These variables will not exist in the Word codebooks, so we will manually add them to v1_cb_col_names and manually make sure they follow naming conventions.
+
+Remember that because of a naming error with T3B_V1, T26_V1 was already manually changed to T27 in the codebook by MBC. Changing "T26_V1" (the name that appears in the outdated codebook) to "T26A_V1" (the name that actually appears in the data frame now).
+
+```{r}
+v1_cb_col_names <- v1_cb_col_names %>% 
+  mutate(cb_col_name = if_else(cb_col_name == "T26_V1", "T26A_V1", cb_col_name))
+```
+
+Next, create new rows for v1_cb_col_names that will add the T26 dummy variables that would have been there if the new variables were in the codebook. 
+
+```{r}
+v1_cb_col_names <- v1_cb_col_names %>%
+  add_row(
+    doc_index    = NA,
+    section_name = "Tobacco History Questionnaire",
+    cb_col_name  = c(
+      "T26A_V1A", "T26A_V1B", "T26A_V1C", "T26A_V1D", "T26A_V1E", "T26A_V1F"
+    ),
+    col_name     = c("t_27a", "t_27b", "t_27c", "t_27d", "t_27e", "t_27f"),
+    .after       = which(v1_cb_col_names$cb_col_name == "T26A_V1")
   )
 ```
 
@@ -217,7 +295,7 @@ write_rds(col_name_keys, "data/col_name_keys.rds")
 ```
 
 ```{r}
-rm(col_name_keys, v1_cb_col_names, v1_cb_content)
+rm(col_name_keys, v1_cb_col_names)
 ```
 
 ## Differences between codebook columns and data columns
@@ -261,7 +339,6 @@ in_df_not_cb <- setdiff(names(v1), v1_col_names_key$cb_col_name)
 # in_df_not_cb
 ```
 
-
 ```{r}
 # Future proof this by checking to see if the variables have changed over time.
 # If this test fails in the future, come back and make adjustments to how we 
@@ -291,6 +368,8 @@ Remove calculated variables from the v1 data. This makes it easier to merge with
 v1 <- v1 %>% select(!all_of(in_df_not_cb))
 ```
 
+2021-07-09: After adding visit_type and the T26 dummy variables, the expected number of columns in v1 changes from 725 to 732.
+
 ```{r}
 # Future proof this by checking to see if the variables have changed over time.
 # If this test fails in the future, come back and make adjustments to how we 
@@ -298,7 +377,7 @@ v1 <- v1 %>% select(!all_of(in_df_not_cb))
 test_that("The expected number of columns exist in the v1 df after cleaning.", {
   expect_equal(
     length(names(v1)),
-    725L
+    732L
   )
 })
 ```
@@ -355,7 +434,7 @@ cat(
   "QDS Visit 1 cleaned with", nrow(v1), "rows and", ncol(v1), "columns.\n"
 )
 
-# 2021-04-28: QDS Visit 1 cleaned with 264 rows and 725 columns.
+# 2021-07-09: QDS Visit 1 cleaned with 295 rows and 732 columns.
 ```
 
 ```{r echo=FALSE}

@@ -32,6 +32,7 @@ Currently, I'm importing all of this data from the UTHealth server. The data sho
 ```{r message=FALSE}
 library(dplyr)
 library(haven)
+library(officer)
 library(readr)
 library(tidyr)
 library(stringr)
@@ -57,7 +58,7 @@ cat(
   "QDS Visit 3 imported with", nrow(v3), "rows and", ncol(v3), "columns.\n"
 )
 
-# 2021-04-25: QDS Visit 3 imported with 180 rows and 526 columns.
+# 2021-07-09: QDS Visit 3 imported with 194 rows and 542 columns.
 ```
 
 
@@ -72,7 +73,7 @@ v3_cb_content <- read_docx("docs/codebooks/L2C_v3 Codebook.docx") %>%
   docx_summary()
 ```
 
-## Keep the variables of interest only
+### Keep the variables of interest only
 
 ```{r}
 v3_cb_col_names <- v3_cb_content %>%
@@ -84,7 +85,7 @@ v3_cb_col_names <- v3_cb_content %>%
   )
 ```
 
-## Clean section names
+### Clean section names
 
 ```{r}
 v3_cb_col_names <- v3_cb_col_names %>%
@@ -100,7 +101,7 @@ v3_cb_col_names <- v3_cb_col_names %>%
   fill(section_name)
 ```
 
-## Record the sections that are completed at visit 3
+### Record the sections that are completed at visit 3
 
 We will use this for checking to make sure all of the correct questionnaire sections merge later.
 
@@ -123,7 +124,7 @@ write_rds(q_sections, "data/questionnaire_section.rds")
 rm(q_sections)
 ```
 
-## Reduce to one row per column
+### Reduce to one row per column
 
 Currently, cb_col_name and col_name are on separate rows. We will spread the different column names vertically across rows so that we can reduce the data frame down to one row per column.
 
@@ -153,7 +154,7 @@ v3_cb_col_names <- v3_cb_col_names %>%
 dim(v3_cb_col_names) # 449   4
 ```
 
-## Standardize new column names
+### Standardize new column names
 
 * Remove _v3 and v3 from column names
 * Replace spaces with underscores
@@ -181,6 +182,82 @@ v3_cb_col_names <- v3_cb_col_names %>%
   )
 ```
 
+## New column: Visit type
+
+On 2021-06-10, VISIT_TYPE was added to QDS, but not the codebook. Therefore, we will create a new row for v3_cb_col_names that will include the VISIT_TYPE variables that would have been there if it were in the codebook. 
+
+```{r}
+v3_cb_col_names <- v3_cb_col_names %>%
+  add_row(
+    doc_index    = NA,
+    section_name = "Admin",
+    cb_col_name  = "VISIT_TYPE",
+    col_name     = "visit_type",
+    .after       = which(v3_cb_col_names$cb_col_name == "TODAY_V3")
+  )
+```
+
+## New columns: Tobacco 26 questions
+
+```{r}
+v3 %>% select(starts_with("t26"))
+```
+
+
+On 2021-06-05, Joe Waring found a discrepancy between the way Tobacco 26 was being asked in QDS and REDCap. 
+
+In QDS, T26_V1, T26_V3, T26_V4, and T26_V5 read:
+
+Which option would give you the best chance for quitting smoking?
+1	=	Medications
+2	=	Counseling
+3	=	Both medications and counseling
+4	=	Smartphone app
+5	=	Both smartphone app and medications
+6	=	Quitting "cold turkey" - without counseling or medications
+9	=	skipped
+
+And only one answer choice was possible.
+
+In REDCap, t26_v1 reads:
+
+If you were to try to quit smoking, which of the following wouldyou prefer to receive: (select all that apply)
+
+1 t26_v1___1 Medications
+2 t26_v1___2 Group Counseling
+3 t26_v1___3 Smartphone app
+4 t26_v1___4 In person individual counseling
+5 t26_v1___5 Helpline phone counseling
+6 t26_v1___6 None of the above
+
+Where multiple answers are possible and t26_v1___1 - t26_v1___6 are dummy variables.
+
+On 2021-06-30 the QDS survey was changed to be more like the REDCap survey. The QDS data now has T26A_V3, T26A_V3A, T26A_V3B, T26A_V3C, T26A_V3D, T26A_V3E, and T26A_V3F that correspond to t26_v1___1 - t26_v1___6 in REDCap. 
+
+These variables will not exist in the Word codebooks, so we will manually add them to v3_cb_col_names and manually make sure they follow naming conventions.
+
+Changing "T26_V3" (the name that appears in the outdated codebook) to "T26A_V3" (the name that actually appears in the data frame now).
+
+```{r}
+v3_cb_col_names <- v3_cb_col_names %>% 
+  mutate(cb_col_name = if_else(cb_col_name == "T26_V3", "T26A_V3", cb_col_name))
+```
+
+Next, create new rows for v3_cb_col_names that will add the T26 dummy variables that would have been there if the new variables were in the codebook. 
+
+```{r}
+v3_cb_col_names <- v3_cb_col_names %>%
+  add_row(
+    doc_index    = NA,
+    section_name = "Tobacco History Questionnaire",
+    cb_col_name  = c(
+      "T26A_V3A", "T26A_V3B", "T26A_V3C", "T26A_V3D", "T26A_V3E", "T26A_V3F"
+    ),
+    col_name     = c("t_27a", "t_27b", "t_27c", "t_27d", "t_27e", "t_27f"),
+    .after       = which(v3_cb_col_names$cb_col_name == "T26A_V3")
+  )
+```
+
 ## Create a column name key
 
 That we can use to rename columns in the v3 data using column names already used at previous visits. 
@@ -205,7 +282,7 @@ Prepare the visit 3 column names to be compared to the previously established co
 ```{r}
 v3_cols_compare <- v3_cb_col_names %>% 
   # Don't need doc_index
-  select(-doc_index) %>% 
+  select(-doc_index, -section_name) %>% 
   # If we just join on col_name below, we can't see how col_name in the 
   # current visit data and col_name in the past visit data differ.
   # If we try to join on the codebook col_names, we don't get many joins
@@ -248,12 +325,14 @@ not_match <- function(x, y) {
 
 Manually review the differences in column names and correct typos in the visit 3 codebook as needed. However, don't create new col_name values in the visit 3 codebook if we can just grab them from the "columns" data frame. Doing so makes typos less likely if we make changes to the column names in the future, we only have to make those changes in one place. For example, if we decided to change "dem_employ_status" to "dem_employ", we would only have to make that change in the visit 1 codebook -- not the visit 3 codebook.
 
+
+
 ```{r}
 v3_col_names_key <- v3_cols_compare %>%
   left_join(established_cols_compare, by = "cb_col_name_join") %>%
   # For manual data checking
-  # mutate(diff = not_match(col_name_v3, col_name_saved)) %>%
-  # filter(diff) %>% 
+  mutate(diff = not_match(col_name_v3, col_name_saved)) %>%
+  filter(diff) %>%
   mutate(
     col_name = col_name_saved,
     col_name = if_else(is.na(col_name), col_name_v3, col_name)
