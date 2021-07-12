@@ -12,7 +12,9 @@
 
 standardize_col_names <- function(.data) {
   # Get the existing column names
-  old_names <- names(.data)
+  # When used inside of rename_with(), the column names are automatically
+  # passed into the function with/as .data. There is no need for names(.data).
+  old_names <- .data
   # Create a string that contains _V1 through _V5 and V1 through V5 to pass to
   # the regular expression below
   v_num <- paste0("_V", 1:5, collapse = "|")
@@ -32,38 +34,4 @@ standardize_col_names <- function(.data) {
 }
 
 # For testing
-# v1 <- tibble(
-#   SUBJECT  = c(2001, 2002),
-#   TODAY_V1 = as.Date(c("2018-04-07", "2018-05-03")),
-#   VISIT_V1 = 1,
-#   SQ_2     = c(1, 0),
-#   WEIGHT   = c(179, 194),
-#   DEMO16G  = c(0, 1),
-#   DEM15V1  = c(1, 0),
-#   T26A_V1  = c(2, 4),
-#   T26A_V1A = c(0, 0),
-#   T26A_V1B = c(1, 0)
-# )
-# standardize_col_names(v1)
-
-test_that("standardize_col_names produces the expected column names.", {
-  v1_test <- tibble(
-    SUBJECT  = c(2001, 2002),
-    TODAY_V1 = as.Date(c("2018-04-07", "2018-05-03")),
-    VISIT_V1 = 1,
-    SQ_2     = c(1, 0),
-    WEIGHT   = c(179, 194),
-    DEMO16G  = c(0, 1),
-    DEM15V1  = c(1, 0),
-    T26A_V1  = c(2, 4),
-    T26A_V1A = c(0, 0),
-    T26A_V1B = c(1, 0),
-    TEST_V8 = 0
-  )
-  new_names <- standardize_col_names(v1_test)
-  expceted_new_names <- c(
-    "subject", "today", "visit", "sq_2", "weight", "demo_16g", "dem_15", 
-    "t_26a", "t_26aa", "t_26ab", "test_v_8"
-  )
-  expect_equal(new_names, expceted_new_names)
-})
+# rename_with(v1, standardize_col_names)
