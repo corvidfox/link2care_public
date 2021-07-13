@@ -29,9 +29,35 @@ standardize_col_names <- function(.data) {
   new_names <- stringr::str_to_lower(new_names)
   # Add underscore in-between the abbreviated tool name and question number
   new_names <- stringr::str_replace(new_names, "([a-z])(\\d)", "\\1_\\2")
+  
+  # Check for duplicate names
+  # -------------------------
+  if (!length(new_names) == length(unique(new_names))) {
+    name_counts <- table(new_names)
+    dup_names <- name_counts[name_counts > 1]
+    dup_names <- names(dup_names)
+    # Create a vector of names to follow-up on and change manually
+    names_to_check <- vector(mode = "character")
+    # Set the column names back to their original names
+    for (i in seq_along(dup_names)) {
+      index <- which(new_names == dup_names[[i]])
+      new_names[index] <- old_names[index]
+      # Add column names to follow-up on to names_to_check
+      names_to_check <- c(names_to_check, old_names[index])
+    }
+    # Assign names_to_check to the global environment
+    # assign("names_to_check", names_to_check, envir = .GlobalEnv)
+    # Print a message letting the user know what happened
+    warning(
+      "Warning: The following column name(s) could not be standardized because it/they would have created a duplicate column name: ", 
+      paste(names_to_check, collapse = ", "), "\n"
+    )
+  }
+  
   # Return character vector of standardized column names
   new_names
 }
 
 # For testing
-# rename_with(v1, standardize_col_names)
+# standardize_col_names(names(v2))
+# rename_with(v2, standardize_col_names)

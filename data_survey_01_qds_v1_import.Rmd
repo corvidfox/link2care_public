@@ -31,6 +31,7 @@ Currently, I'm importing all of this data from the UTHealth server. The data sho
 
 ```{r message=FALSE}
 library(dplyr)
+library(purrr)
 library(haven)
 library(officer)
 library(readr)
@@ -38,6 +39,11 @@ library(tidyr)
 library(stringr)
 library(testthat)
 ```
+
+```{r}
+source("R/standardize_col_names.R")
+```
+
 
 # 🌎Connect to UTH server 
 
@@ -49,17 +55,423 @@ open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/'
 
 # 📥Import data 
 
-```{r}
-v1 <- read_sav("/Volumes/Link2Care/Participant Data/SPSS Data/QDS Data/Visit_1_Data.SAV")
+Import all 5 QDS data frames
 
-# Print a message for when this file is being sourced
-cat(
-  paste0(Sys.Date(), ":"),
-  "QDS Visit 1 imported with", nrow(v1), "rows and", ncol(v1), "columns.\n"
+```{r}
+qds_spss_path <- "/Volumes/Link2Care/Participant Data/SPSS Data/QDS Data/"
+
+walk(
+  .x = c(1:5),
+  .f = function(x) {
+    new_nm <- paste0("v", x)
+    sav_nm <- paste0("Visit_", x, "_Data.SAV")
+    path <- paste0(qds_spss_path, sav_nm)
+    assign(new_nm, read_sav(path), envir = .GlobalEnv)
+  }
 )
 
-# 2021-07-09: QDS Visit 1 imported with 295 rows and 810 columns.
+rm(qds_spss_path)
 ```
+
+Print a message for when this file is being sourced
+
+```{r}
+walk(
+  .x = c(1:5),
+  .f = function(x) {
+    df_nm <- paste0("v", x)
+    df <- get(df_nm, envir = .GlobalEnv)
+    # Print a message for when this file is being sourced
+    cat(
+      paste0(Sys.Date(), ":"),
+      df_nm, "imported with", nrow(df), "rows and", ncol(df), "columns.\n"
+    )
+  }
+)
+
+# These are expected to change over time as we add more people to the study.
+# However, drastic changes from month-to-month, or even quarter-to-quarter,
+# should initiate an investigation into what's going on.
+# 2021-07-12: v1 imported with 295 rows and 810 columns.
+# 2021-07-12: v2 imported with 271 rows and 210 columns.
+# 2021-07-12: v3 imported with 194 rows and 542 columns.
+# 2021-07-12: v4 imported with 145 rows and 598 columns.
+# 2021-07-12: v5 imported with 133 rows and 639 columns.
+```
+
+
+# Clean column names
+
+We have to make the column names match across visits so that we can merge all of the individual QDS data frames into one.
+
+## Reorder columnn names and manual changes 1
+
+1. The columns in the data are not arranged in the order that they exist in the actual QDS survey for some reason. This makes the data harder to work with, and it will make the codebook we eventually create difficult to use. So, we are going to reorder them. To prevent us from typing out 810 variable names manually, we are going to read-in the variable names from the codebook and then create a blog of text that we copy and paste into a code chunk using `select()` below. Prepping the codebook to be able to do this took a long time and isn't very future-proof. However, we should only have to do this step once. As changes occur to QDS in the future, we can just update the code chunk with the `select()` function.
+
+2. There are some instances where it makes sense to make manual changes to column names now, before the standardization process below. For example, the MMSE columns. It's better to manually change them now because after standardize_col_names you can no longer cut and paste from the Word codebooks. Also, it becomes difficult to be sure which variables in the data correspond to which variables in the codebook (e.g., "mms_4" and "mms_4v").There will also be additional manual changes made after the standardization process. 
+
+### Extract content from Word codebook
+
+_See "Notes on cleaning individual L2C data sets for merging" for the rationale, style guidelines, and instructions for this section._
+
+```{r eval=FALSE}
+word_cb_content <- read_docx("docs/codebooks/L2C_V1 Codebook.docx") %>% 
+  docx_summary()
+```
+
+Keep the parts of the codebook we are interested in for this process (i.e., section names and column names)
+
+```{r eval=FALSE}
+# Rename because the step above takes so long to run.
+word_cb_secs_cols <- word_cb_content %>%
+  filter(style_name %in% c("section_name", "cb_col_name", "col_name")) %>% 
+  select(doc_index, style_name:text) %>% 
+  pivot_wider(
+    names_from = "style_name",
+    values_from = "text"
+  )
+```
+
+Clean up the section names and prep the data for new_name = old_name format that I can copy and paste into `select()` later.
+
+```{r eval=FALSE}
+word_cb_secs_cols <- word_cb_secs_cols %>%
+  mutate(
+    # Remove "Sect-number."
+    section_name = str_remove(section_name, "Sect-\\d{1,}."),
+    # Remove asterisks
+    section_name = str_remove_all(section_name, "\\*"),
+    # Remove empty spaces
+    section_name = str_trim(section_name),
+    # Clean " (SQ_7 - SQ_11)" from exclusion criteria
+    section_name = str_remove(section_name, " \\(SQ_7 - SQ_11\\)")
+  ) %>% 
+  # Add underscores to the new column names
+  mutate(
+    col_name = str_replace_all(col_name, " ", "_"),
+    col_name = str_replace(col_name, "([a-z])(\\d)", "\\1_\\2")
+  ) %>% 
+  # Fill section down across rows
+  fill(section_name) %>% 
+  
+  # Spread cb_col_name across rows
+  fill(cb_col_name) %>% 
+  # Spread col_name across rows within cb_col_name
+  group_by(cb_col_name) %>% 
+  fill(col_name, .direction = "up") %>% 
+  group_by(cb_col_name) %>% 
+  filter(row_number() == 1) %>% 
+  # cb_col_name is currently NA for the first row of each section.
+  # Drop those rows.
+  filter(!is.na(cb_col_name)) %>% 
+  
+  # Add the copy and paste values to the data frame
+  mutate(
+    copy_and_paste = if_else(
+      is.na(col_name), cb_col_name, 
+      paste(col_name, cb_col_name, sep = " = ")
+    )
+  )
+```
+
+Record the sections that are completed at visit 1. We will use this for checking to make sure all of the correct questionnaire sections merge later.
+
+**NOTE:** If you rerun this section, you must run the files to clean v2-v5 again.
+
+```{r eval=FALSE}
+q_sections <- list(v1 = unique(word_cb_secs_cols$section_name))
+# q_sections[["v1"]]
+```
+
+```{r eval=FALSE}
+write_rds(q_sections, "data/questionnaire_section.rds")
+```
+
+```{r eval=FALSE}
+rm(q_sections)
+```
+
+**NOTE:** There are more columns in the data than there are in the codebooks. This is due to calculated variables that were created when the raw QDS data was passed through an SPSS script. We may change that process at some point in the future. 
+
+Have R write out the column names in the order that they appear in QDS. Then, we will copy and paste into the `select()` function. We will do this instead of directly passing the column order to `select()` because we need to make some manual changes to the column names now. Again, we should only have to do this once, and all future updates will be done directly in the code chunk with `select()`. 
+
+```{r eval=FALSE}
+paste(word_cb_secs_cols$copy_and_paste, collapse = ", ")
+```
+
+Reorder columnn names and manual changes 1
+
+**Change log:**
+
+On 2021-06-10, VISIT_TYPE was added to QDS.
+
+On 2021-06-05, Joe Waring found a discrepancy between the way Tobacco 26 was being asked in QDS and REDCap. 
+
+In QDS, T26_V1, T26_V3, T26_V4, and T26_V5 read:
+
+Which option would give you the best chance for quitting smoking?
+1	=	Medications
+2	=	Counseling
+3	=	Both medications and counseling
+4	=	Smartphone app
+5	=	Both smartphone app and medications
+6	=	Quitting "cold turkey" - without counseling or medications
+9	=	skipped
+
+And only one answer choice was possible.
+
+In REDCap, t26_v1 reads:
+
+If you were to try to quit smoking, which of the following would you prefer to receive: (select all that apply)
+
+1 t26_v1___1 Medications
+2 t26_v1___2 Group Counseling
+3 t26_v1___3 Smartphone app
+4 t26_v1___4 In person individual counseling
+5 t26_v1___5 Helpline phone counseling
+6 t26_v1___6 None of the above
+
+Where multiple answers are possible and t26_v1___1 - t26_v1___6 are dummy variables.
+
+On 2021-06-30 the QDS survey was changed to be more like the REDCap survey. The QDS data now has T26A_V1, T26A_V1A, T26A_V1B, T26A_V1C, T26A_V1D, T26A_V1E, and T26A_V1F that correspond to t26_v1___1 - t26_v1___6 in REDCap.
+
+Remember that because of a naming error with T3B_V1, T26_V1 was already manually changed to T27 in the codebook by MBC. Changing "T26_V1" (the name that appears in the outdated codebook) to "T26A_V1" (the name that actually appears in the data frame now).
+
+We manually make these changes in the code chunk below. 
+
+```{r}
+v1 %>% 
+  select(
+    TODAY_V1, VISIT_TYPE, II_V1, VISIT_V1, TEST_V1, 
+    
+    # Add intuitive names to the screening question (demographic) variables
+    # Rename gender to conform to naming conventions.
+    sq_gender = GENDER, sq_hispanic = SQ_2, sq_hispanic = SQ_2, sq_race = SQ_3, sq_age = SQ_4, SQ_5, SQ_6, SQ_7, SQ_7A, SQ_7B, SQ_7C, SQ_7D, SQ_8, SQ_9, SQ_9L, SQ_10, SQ_11, SQ_12, SQ_13, SQ_14, SQ_15, SQ_16, SQ_17, SQ_18, SQ_18A, SQ_18B, SQ_18C, SQ_18D, SQ_18E, SQ_18F, SQ_18G, SQ_18H, SQ_18I, SQ_19, SQ_20, SQ_21, SQ_22, SQ_22A, SQ_22B, SQ_22C, SQ_22D, SQ_22E, SQ_22F, SQ_22G, SQ_22H,
+    
+    # Changes to MMSE column names
+    # In visit 1, the MMSE questions go MMS_4, MMS_4A-MMS_4F, COUNT, MMS4V, 
+    # MMS4VA-MMS4VF, NUM, MMS_5. However, MMS4V should have been MMS_5 and 
+    # MMS_5 should have been MMS_6, etc. This proliferates all the way down 
+    # the questions. We need to fix these before the standardization process.
+
+    # Better to do this now because after standardize_col_names you can no 
+    # longer cut and paste from the Word codebooks. Also, it becomes difficult 
+    # to be sure which variables in the data correspond to which variables in 
+    # the codebook (e.g., "mms_4" and "mms_4v").
+
+    # Additionally, I'm going to add the section name (mms) in front of some of 
+    # the column names that don't include it. For example, RECAL1 to mms_recall1.
+   MMS_1A, MMS_1B, MMS_1C, MMS_1D, MMS_1E, MMS_1, MMS_2A, MMS_2B, MMS_2C, MMS_2D, MMS_2E, MMS_2, MMS_3, MMS_3G, MMS_3H, MMS_3I, MMS_3J, mms_recall_1 = RECAL1, MMS_4, MMS_4A, MMS_4B, MMS_4C, MMS_4D, MMS_4E, MMS_4F, mms_count = COUNT, mms_5 = MMS4V, mms_5a = MMS4VA, mms_5b = MMS4VB, mms_5c = MMS4VC, mms_5d = MMS4VD, mms_5e = MMS4VE, mms_5f = MMS4VF, mms_num = NUM, mms_6 = MMS_5, mms_6a = MMS_5A, mms_6b = MMS_5B, mms_6c = MMS_5C, mms_6d = MMS_5D, mms_recall_2 = RECAL2, mms_7 = MMS_6, mms_7a = MMS_6A, mms_7b = MMS_6B, mms_7c = MMS_6C, mms_object = OBJECT, mms_8 = MMS_7, mms_9 = MMS_8, mms_9a = MMS_8A, mms_9b = MMS_8B, mms_9c = MMS_8C, mms_9d = MMS_8D, mms_paper = PAPER, mms_10 = MMS_9, mms_11 = MMS_10, mms_12 = MMS_11, MMS_S, 
+   
+    REALM, REALMA, REALMB, REALMC, REALMD, REALME, REALMF, REALMG, REALMH, REALMI, realm_total = REALM_S, SQ_23, SUBJECT, WEIGHT, HEIGHT, WAIST_C, CO_V1, READ1_V1, READ2_V1, read_3 = READ3_V5, CTIME_V1, 
+    
+    # Add intuitive names to the Demographic/Background Information Questionnaire 
+    # variables.
+    # Also, demo_16g was incorrectly numbered when the data was created.
+   dem_marital_status = DEM1V1, dem_children = DEM2V1, dem_race = DEM3V1, dem_race_mult_n = DEM4V1, dem_race_mult_white = DEM4V1A, dem_race_mult_black = DEM4V1B, dem_race_mult_asian = DEM4V1C, dem_race_mult_pacific = DEM4V1D, dem_race_mult_native = DEM4V1E, dem_race_mult_other = DEM4V1F, dem_edu_20_cat = DEM5V1, dem_edu_ged = DEM5AV1, dem_employ_status = DEM6V1, dem_employ_hpw = DEM6AV1, dem_employ_7days = DME6BV1, dem_ins = DEM7V1, dem_ins_medicare = DEM7V1A, dem_medicaid = DEM7V1B, dem_ins_military = DEM7V1C, dem_ins_private = DEM7V1D, dem_ins_none = DEM7V1E, dem_social_security = DEM8V1, dem_social_security_amount = DEM9V1, dem_snap = DEM10V1, dem_snap_amount = DEM11V1, dem_income_source = DEM12V1, dem_income_source_work = DEM12V1A, dem_income_source_criminalized = DEM12V1B, dem_income_source_disability = DEM12V1C, dem_income_source_emp_benefits = DEM12V1D, dem_income_source_self_emp = DEM12V1E, dem_income_source_sex = DEM12V1F, dem_income_source_drugs = DEM12V1G, dem_income_source_social_assistance = DEM12V1H, dem_income_source_student_loans = DEM12V1I, dem_income_source_friends_relatives = DEM12V1J, dem_income_source_other = DEM12V1K, dem_income_source_none = DEM12V1L, dem_income_12_mnth_8_cat = DEM13V1, DEM13AV1, DEM13BV1, DEM13CV1, DEM13DV1, DEM13EV1, DEM13FV1, DEM13GV1, DEM13HV1, dem_income_1_mnth_7_cat = DEM14V1, DEM14AV1, DEM14BV1, DEM14CV1, DEM14DV1, DEM14EV1, DEM14FV1, dem_14g = DEMO16G, dem_veteran = DEM15V1, DEM16V1, dem_sexual_orientation = DEM17V1, dem_transgender = DEM18V1, BH1V1, BH1V1Y, BH1V1M, BH1V1D, BH2V1, BH3V1, BH4V1, BH4V1Y, BH4V1M, BH4V1D, BH5V1, BH6V1, BH7V1, BH7V1Y, BH7V1M, BH7V1W, BH8V1, BH9V1, BH10V1, bh_11 = BH11AV1, bh_12 = BH12AV1, bh_12a = BH12AV1A, bh_12b = BH12AV1B, bh_12c = BH12AV1C, bh_12d = BH12AV1D, bh_12e = BH12AV1E, bh_12f = BH12AV1F, bh_12g = BH12AV1G, bh_12h = BH12AV1H, bh_12i = BH12AV1I, bh_12j = BH12AV1J, bh_12k = BH12AV1K, bh_12l = BH12AV1L, BH13AV1, BH13AV1A, BH13AV1B, BH13AV1C, BH13AV1D, BH13AV1E, BH13AV1F, BH13BV1, BH13BV1A, BH13BV1B, BH13BV1C, BH13BV1D, BH13BV1E, BH13BV1F, BH13BV1G, BH13BV1H, BH13CV1, BH13CV1A, BH13CV1B, BH13CV1C, BH13CV1D, BH13CV1E, BH13CV1F, BH13CV1G, BH13CV1H, BH14V1, BH14BV1, BH14BV1Y, BH14BV1M, BH14BV1W, BH15V1, BH15AV1, BH16V1, BH17V1, BH17V1Y, BH17V1M, BH17V1W, BH18V1, BH18BV1, BH18BV1A, BH18BV1B, BH18BV1C, BH18BV1D, BH18BV1E, BH18BV1F, BH18BV1G, BH18BV1H, BH18B1V1, BH19V1, BH20V1, SSS1_V1, SSS2_V1, PHQ1_V1, PHQ2_V1, PHQ3_V1, PHQ4_V1, PHQ5_V1, PHQ6_V1, PHQ7_V1, PHQ8_V1, PHQ9_V1, PHQ10_V1, PHQ11_V1, PHQ12_V1, PHQ13_V1, PHQ14_V1, PHQ15_V1, HS1_V1, HS2_V1, HS3_V1, HS4_V1, HS5_V1, HS6_V1, HS7_V1, HS8_V1, HS9_V1, HS10_V1, HS11_V1, HS12_V1, HRQ1_V1, HRQ2_V1, HRQ3_V1, srh_1 = S2_V1, srh_1a = S2_V1A, srh_1b = S2_V1B, srh_1c = S2_V1C, srh_1d = S2_V1D, srh_1e = S2_V1E, srh_1f = S2_V1F, srh_1g = S2_V1G, srh_1h = S2_V1H, srh_2a = SR3A_V1, srh_2b = SR3B_V1, srh_2c = SR3C_V1, srh_2d = SR3D_V1, srh_2e = SR3E_V1, srh_2f = SR3F_V1, srh_3 = S3_V1, srh_4 = S4_V1, srh_5a = S4_V1A, srh_5b = S4_V1B, srh_5c = S4_V1C, srh_5d = S4_V1D, srh_5e = S4_V1E, srh_5f = S4_V1F, srh_5g = S4_V1G, srh_5h = S4_V1H, srh_5 = S5_V1, srh_6 = S6_V1, srh_7 = S7_V1, srh_7a = S7_V1A, srh_7b = S7_V1B, srh_7c = S7_V1C, srh_7d = S7_V1D, srh_7e = S7_V1E, srh_7f = S7_V1F, srh_7g = S7_V1G, srh_8 = S8_V1, srh_8a = S8_V1A, srh_8b = S8_V1B, srh_8c = S8_V1C, srh_8d = S8_V1D, srh_8e = S8_V1E, srh_8f = S8_V1F, srh_8g = S8_V1G, srh_9 = S9_V1, srh_9a = S9_V1A, srh_9b = S9_V1B, srh_9c = S9_V1C, srh_9d = S9_V1D, srh_9e = S9_V1E, srh_9f = S9_V1F, srh_9g = S9_V1G, srh_9h = S9_V1H, srh_9i = S9_V1I, srh_9j = S9_V1J, srh_9k = S9_V1K, srh_9l = S9_V1L, srh_9m = S9_V1M, srh_9n = S9_V1N, srh_9o = S9_V1O, srh_9p = S9_V1P, srh_9q = S9_V1Q, srh_9r = S9_V1R, srh_10 = S10_V1, srh_11 = S11_V1, srh_12 = S12_V1, srh_13 = S13_V1, srh_14 = S14_V1, srh_14a = S14_V1A, srh_14b = S14_V1B, srh_14c = S14_V1C, srh_14d = S14_V1D, srh_15 = S15_V1, srh_16 = S16_V1, srh_17 = S17_V1, srh_18 = S18_V1, srh_18a = S18_V1A, srh_18b = S18_V1B, srh_18c = S18_V1C, srh_18d = S18_V1D, srh_18e = S18_V1E, srh_18f = S18_V1F, srh_18g = S18_V1G, srh_18h = S18_V1H, srh_18i = S18_V1I, srh_18j = S18_V1J, srh_18k = S18_V1K, srh_18l = S18_V1L, srh_19 = S19_V1, srh_20 = S20_V1, srh_21 = S21_V1, srh_22 = S22_V1, srh_23 = S23_V1, srh_24 = S24_V1, srh_24a = S24_V1A, srh_24b = S24_V1B, srh_24c = S24_V1C, srh_24d = S24_V1D, srh_24e = S24_V1E, srh_24f = S24_V1F, srh_25 = S25A_V1, srh_26 = S26A_V1, srh_26a = S26A_V1A, srh_26b = S26A_V1B, srh_26c = S26A_V1C, srh_26d = S26A_V1D, srh_26e = S26A_V1E, srh_26f = S26A_V1F, srh_26g = S26A_V1G, srh_27 = S25B_V1, srh_28 = S26B_V1, srh_28a = S26B_V1A, srh_28b = S26B_V1B, srh_28c = S26B_V1C, srh_28d = S26B_V1D, srh_28e = S26B_V1E, srh_28f = S26B_V1F, srh_28g = S26B_V1G, srh_29 = S25C_V1, srh_30 = S26C_V1, srh_30a = S26C_V1A, srh_30b = S26C_V1B, srh_30c = S26C_V1C, srh_30d = S26C_V1D, srh_30e = S26C_V1E, srh_30f = S26C_V1F, srh_30g = S26C_V1G, srh_31 = S25D_V1, srh_32 = S26D_V1, srh_32a = S26D_V1A, srh_32b = S26D_V1B, srh_32c = S26D_V1C, srh_32d = S26D_V1D, srh_32e = S26D_V1E, srh_32f = S26D_V1F, srh_32g = S26D_V1G, srh_33 = S25E_V1, srh_34 = S26E_V1, srh_34a = S26E_V1A, srh_34b = S26E_V1B, srh_34c = S26E_V1C, srh_34d = S26E_V1D, srh_34e = S26E_V1E, srh_34f = S26E_V1F, srh_34g = S26E_V1G, srh_35 = S27_V1, srh_36 = S28_V1, srh_37 = S29_V1, srh_38 = S30_V1, srh_38a = S30_V1A, srh_38b = S30_V1B, srh_38c = S30_V1C, srh_38d = S30_V1D, srh_38e = S30_V1E, srh_38f = S30_V1F, srh_38g = S30_V1G, srh_39 = S31_V1, srh_40 = S32_V1, srh_40a = S32_V1A, srh_40b = S32_V1B, srh_40c = S32_V1C, srh_40d = S32_V1D, srh_40e = S32_V1E, srh_40f = S32_V1F, srh_40g = S32_V1G, srh_40h = S32_V1H, srh_40i = S32_V1I, srh_41 = S33_V1, srh_42 = S34_V1, srh_43 = S35_V1, srh_44 = S36_V1, srh_45 = S37_V1, srh_46 = S38_V1, srh_47 = S39A_V1, srh_48 = S39B_V1, srh_49 = S40_V1, srh_50 = S41_V1, srh_51 = S42_V1, srh_52 = S43_V1, srh_52a = S43_V1A, srh_52b = S43_V1B, srh_52c = S43_V1C, srh_52d = S43_V1D, srh_52e = S43_V1E, srh_52f = S43_V1F, srh_52g = S43_V1G, srh_52h = S43_V1H, srh_52i = S43_V1I, PTSD1_V1, PTSD2_V1, PTSD3_V1, PTSD4_V1, T1_V1, T2_V1, t_3 = T3A_V1, t_3y = T3A_V1Y, t_3m = T3A_V1M, t_4 = T3B_V1, t_5 = T4_V1, t_6 = T5_V1, t_6a = T5A1_V1, t_6b = T5A2_V1, t_6c = T5A3_V1, t_6d = T5A4_V1, t_6e = T5A5_V1, t_6f = T5A6_V1, t_7 = T6_V1, t_7a = T6A1_V1, t_7b = T6A2_V1, t_7c = T6A3_V1, t_7d = T6A4_V1, t_7e = T6A5_V1, t_7f = T6A6_V1, t_8 = T7_V1, t_9 = T8_V1, t_10 = T9_V1, t_11 = T10_V1, t_12 = T11_V1, t_13 = T12_V1, t_13a = T12A_V1, t_13b = T12B_V1, t_14 = T13_V1, t_15 = T14_V1, t_15a = T14_V1A, t_15b = T14_V1B, t_15c = T14_V1C, t_15d = T14_V1D, t_15e = T14_V1E, t_15f = T14_V1F, t_15g = T14_V1G, t_15h = T14_V1H, t_15i = T14_V1I, t_16 = T15_V1, t_17 = T16_V1, t_18 = T17_V1, t_19 = T18_V1, t_20 = T19_V1, t_21 = T20_V1, t_22 = T21_V1, t_23 = T22_V1, t_24 = T23_V1, t_24a = T23_V1A, t_24b = T23_V1B, t_24c = T23_V1C, t_24d = T23_V1D, t_24e = T23_V1E, t_24f = T23_V1F, t_24g = T23_V1G, t_24h = T23_V1H, t_25 = T24_V1, t_26 = T25_V1, t_27 = T26_V1, t_28 = T27_V1, t_29 = T28_V1, t_30 = T29_V1, t_31 = T30_V1, t_32 = T31_V1, t_32a = T31_V1A, t_32b = T31_V1B, t_32c = T31_V1C, t_32d = T31_V1D, t_32e = T31_V1E, t_32f = T31_V1F, t_32g = T31_V1G, t_32h = T31_V1H, t_32i = T31_V1I, t_32j = T31_V1J, t_33 = T31B_V1, t_33a = T31B_V1A, t_33b = T31B_V1B, t_33c = T31B_V1C, t_34 = T32_V1, t_35 = T33_V1, t_35a = T33_V1A, t_35b = T33_V1B, t_35c = T33_V1C, t_35d = T33_V1D, t_35e = T33_V1E, t_35f = T33_V1F, t_35g = T33_V1G, t_35h = T33_V1H, t_35i = T33_V1I, t_35j = T33_V1J, t_36 = T34_V1, t_37 = T35_V1, t_38 = T36_V1, t_39 = T37_V1, t_40 = T38_V1, t_41 = T39_V1, t_42 = T40_V1, HSI1_V1, HSI2_V1, BRS1_V1, BRS2_V1, BRS3_V1, BRS4_V1, BRS5_V1, AF1_V1, AF2M_V1, AF3TU_V1, AF4W_V1, AF5TH_V1, AF6F_V1, AF6SA_V1, AF8SU_V1, DRINKS, AF9_V1, AF9A_V1, AF9B_V1, AF9C_V1, MS1_V1, MS2_V1, MS3_V1, ms_4 = MS8_V1, SB1_V1, SB2_V1, SB3_V1, SB4_V1, SB5_V1, SB6_V1, SB7_V1, SB7_V1A, SB7_V1B, SB7_V1C, SB7_V1D, SB7_V1E, SB7_V1F, SB7_V1G, SB8_V1, SB9_V1, DD1_V1, DD2_V1, DD3_V1, DD4_V1, DD5_V1, DD6_V1, DD7_V1, DD8_V1, DD9_V1, DD10_V1, AQ1_V1, AQ2_V1, AQ3_V1, AQ4_V1, AQ5_V1, AQ6_V1, AQ7_V1, AQ8_V1, AQ9_V1, AQ10_V1, AQ11_V1, AQ12_V1, CES1_V1, CES2_V1, CES3_V1, CES4_V1, CES5_V1, CES6_V1, CES7_V1, CES8_V1, CES9_V1, CES10_V1, IS1_V1, IS2_V1, IS3_V1, IS4_V1, IS5_V1, IS6_V1, IS7_V1, IS8_V1, IS9_V1, IS10_V1, IS11_V1, IS12_V1, RP1_V1, RP2_V1, LSN1_V1, LSN2_V1, LSN3_V1, LSN4_V1, LSN5_V1, LSN6_V1, R1_V1, R2_V1, R3_V1, R4_V1, R5_V1, R6_V1, R7_V1, R8_V1, R9_V1, R10_V1, R11_V1, r_12 = R11B_V1, r_13 = R12_V1, r_14 = R13_V1, r_15 = R14_V1, r_16 = R15_V1, r_16a = R15_V1A, r_16b = R15_V1B, r_16c = R15_V1C, r_16d = R15_V1D, r_16e = R15_V1E, r_16f = R15_V1F, r_16g = R15_V1G, r_16h = R15_V1H, r_16i = R15_V1I, r_16j = R15_V1J, r_16k = R15_V1K, r_16l = R15_V1L, r_16m = R15_V1M, r_16n = R15_V1N, r_16o = R15_V1O, BPM1_V1, BPM2_V1, BPM3_V1, BPM4_V1, BPM5_V1, BPM5_V1A, BPM5_V1B, BPM5_V1C, BPM5_V1D, BPM5_V1E, BPM5_V1F, BPM5_V1G, endtime = ENDTIME1, ETIME_V1,
+   
+   # Add adnfad f
+)
+```
+
+
+```{r}
+v1 %>% 
+  select(
+    TODAY_V1, VISIT_TYPE, II_V1, VISIT_V1, TEST_V1, 
+    
+    # Add intuitive names to the screening question (demographic) variables
+    # Rename gender to conform to naming conventions.
+    sq_gender = GENDER, sq_hispanic = SQ_2, sq_hispanic = SQ_2, sq_race = SQ_3, sq_age = SQ_4, SQ_5, SQ_6, SQ_7, SQ_7A, SQ_7B, SQ_7C, SQ_7D, SQ_8, SQ_9, SQ_9L, SQ_10, SQ_11, SQ_12, SQ_13, SQ_14, SQ_15, SQ_16, SQ_17, SQ_18, SQ_18A, SQ_18B, SQ_18C, SQ_18D, SQ_18E, SQ_18F, SQ_18G, SQ_18H, SQ_18I, SQ_19, SQ_20, SQ_21, SQ_22, SQ_22A, SQ_22B, SQ_22C, SQ_22D, SQ_22E, SQ_22F, SQ_22G, SQ_22H, 
+    
+    # Changes to MMSE column names
+    # In visit 1, the MMSE questions go MMS_4, MMS_4A-MMS_4F, COUNT, MMS4V, 
+    # MMS4VA-MMS4VF, NUM, MMS_5. However, MMS4V should have been MMS_5 and 
+    # MMS_5 should have been MMS_6, etc. This proliferates all the way down 
+    # the questions. We need to fix these before the standardization process.
+
+    # Better to do this now because after standardize_col_names you can no 
+    # longer cut and paste from the Word codebooks. Also, it becomes difficult 
+    # to be sure which variables in the data correspond to which variables in 
+    # the codebook (e.g., "mms_4" and "mms_4v").
+
+    # Additionally, I'm going to add the section name (mms) in front of some of 
+    # the column names that don't include it. For example, RECAL1 to mms_recall1.
+   MMS_1A, MMS_1B, MMS_1C, MMS_1D, MMS_1E, MMS_1, MMS_2A, MMS_2B, MMS_2C, MMS_2D, MMS_2E, MMS_2, MMS_3, MMS_3G, MMS_3H, MMS_3I, MMS_3J, mms_recall_1 = RECAL1, MMS_4, MMS_4A, MMS_4B, MMS_4C, MMS_4D, MMS_4E, MMS_4F, mms_count = COUNT, mms_5 = MMS4V, mms_5a = MMS4VA, mms_5b = MMS4VB, mms_5c = MMS4VC, mms_5d = MMS4VD, mms_5e = MMS4VE, mms_5f = MMS4VF, mms_num = NUM, mms_6 = MMS_5, mms_6a = MMS_5A, mms_6b = MMS_5B, mms_6c = MMS_5C, mms_6d = MMS_5D, mms_recall_2 = RECAL2, mms_7 = MMS_6, mms_7a = MMS_6A, mms_7b = MMS_6B, mms_7c = MMS_6C, mms_object = OBJECT, mms_8 = MMS_7, mms_9 = MMS_8, mms_9a = MMS_8A, mms_9b = MMS_8B, mms_9c = MMS_8C, mms_9d = MMS_8D, mms_paper = PAPER, mms_10 = MMS_9, mms_11 = MMS_10, mms_12 = MMS_11, MMS_S, 
+    
+    REALM, REALMA, REALMB, REALMC, REALMD, REALME, REALMF, REALMG, REALMH, REALMI, realm_total = REALM_S, SQ_23, SUBJECT, WEIGHT, HEIGHT, WAIST_C, CO_V1, READ1_V1, READ2_V1, read_3 = READ3_V5, CTIME_V1, 
+    
+    # Add intuitive names to the Demographic/Background Information Questionnaire 
+    # variables.
+    # Also, demo_16g was incorrectly numbered when the data was created.
+    TODAY_V1, II_V1, VISIT_V1, TEST_V1, GENDER, sq_hispanic = SQ_2, sq_race = SQ_3, sq_age = SQ_4, SQ_5, SQ_6, SQ_7, SQ_7A, SQ_7B, SQ_7C, SQ_7D, SQ_8, SQ_9, SQ_9L, SQ_10, SQ_11, SQ_12, SQ_13, SQ_14, SQ_15, SQ_16, SQ_17, SQ_18, SQ_18A, SQ_18B, SQ_18C, SQ_18D, SQ_18E, SQ_18F, SQ_18G, SQ_18H, SQ_18I, SQ_19, SQ_20, SQ_21, SQ_22, SQ_22A, SQ_22B, SQ_22C, SQ_22D, SQ_22E, SQ_22F, SQ_22G, SQ_22H, MMS_1A, MMS_1B, MMS_1C, MMS_1D, MMS_1E, MMS_1, MMS_2A, MMS_2B, MMS_2C, MMS_2D, MMS_2E, MMS_2, MMS_3, MMS_3G, MMS_3H, MMS_3I, MMS_3J, mms_recall_1 = RECAL1, MMS_4, MMS_4A, MMS_4B, MMS_4C, MMS_4D, MMS_4E, MMS_4F, mms_count = COUNT, mms_5 = MMS4V, mms_5a = MMS4VA, mms_5b = MMS4VB, mms_5c = MMS4VC, mms_5d = MMS4VD, mms_5e = MMS4VE, mms_5f = MMS4VF, mms_num = NUM, mms_6 = MMS_5, mms_6a = MMS_5A, mms_6b = MMS_5B, mms_6c = MMS_5C, mms_6d = MMS_5D, mms_recall_2 = RECAL2, mms_7 = MMS_6, mms_7a = MMS_6A, mms_7b = MMS_6B, mms_7c = MMS_6C, mms_object = OBJECT, mms_8 = MMS_7, mms_9 = MMS_8, mms_9a = MMS_8A, mms_9b = MMS_8B, mms_9c = MMS_8C, mms_9d = MMS_8D, mms_paper = PAPER, mms_10 = MMS_9, mms_11 = MMS_10, mms_12 = MMS_11, MMS_S, REALM, REALMA, REALMB, REALMC, REALMD, REALME, REALMF, REALMG, REALMH, REALMI, realm_total = REALM_S, SQ_23, SUBJECT, WEIGHT, HEIGHT, WAIST_C, CO_V1, READ1_V1, READ2_V1, read_3 = READ3_V5, CTIME_V1, dem_marital_status = DEM1V1, dem_children = DEM2V1, dem_race = DEM3V1, dem_race_mult_n = DEM4V1, dem_race_mult_white = DEM4V1A, dem_race_mult_black = DEM4V1B, dem_race_mult_asian = DEM4V1C, dem_race_mult_pacific = DEM4V1D, dem_race_mult_native = DEM4V1E, dem_race_mult_other = DEM4V1F, dem_edu_20_cat = DEM5V1, dem_edu_ged = DEM5AV1, dem_employ_status = DEM6V1, dem_employ_hpw = DEM6AV1, dem_employ_7days = DME6BV1, dem_ins = DEM7V1, dem_ins_medicare = DEM7V1A, dem_medicaid = DEM7V1B, dem_ins_military = DEM7V1C, dem_ins_private = DEM7V1D, dem_ins_none = DEM7V1E, dem_social_security = DEM8V1, dem_social_security_amount = DEM9V1, dem_snap = DEM10V1, dem_snap_amount = DEM11V1, dem_income_source = DEM12V1, dem_income_source_work = DEM12V1A, dem_income_source_criminalized = DEM12V1B, dem_income_source_disability = DEM12V1C, dem_income_source_emp_benefits = DEM12V1D, dem_income_source_self_emp = DEM12V1E, dem_income_source_sex = DEM12V1F, dem_income_source_drugs = DEM12V1G, dem_income_source_social_assistance = DEM12V1H, dem_income_source_student_loans = DEM12V1I, dem_income_source_friends_relatives = DEM12V1J, dem_income_source_other = DEM12V1K, dem_income_source_none = DEM12V1L, dem_income_12_mnth_8_cat = DEM13V1, DEM13AV1, DEM13BV1, DEM13CV1, DEM13DV1, DEM13EV1, DEM13FV1, DEM13GV1, DEM13HV1, dem_income_1_mnth_7_cat = DEM14V1, DEM14AV1, DEM14BV1, DEM14CV1, DEM14DV1, DEM14EV1, DEM14FV1, dem_14g = DEMO16G, dem_veteran = DEM15V1, DEM16V1, dem_sexual_orientation = DEM17V1, dem_transgender = DEM18V1, BH1V1, BH1V1Y, BH1V1M, BH1V1D, BH2V1, BH3V1, BH4V1, BH4V1Y, BH4V1M, BH4V1D, BH5V1, BH6V1, BH7V1, BH7V1Y, BH7V1M, BH7V1W, BH8V1, BH9V1, BH10V1, bh_11 = BH11AV1, bh_12 = BH12AV1, bh_12a = BH12AV1A, bh_12b = BH12AV1B, bh_12c = BH12AV1C, bh_12d = BH12AV1D, bh_12e = BH12AV1E, bh_12f = BH12AV1F, bh_12g = BH12AV1G, bh_12h = BH12AV1H, bh_12i = BH12AV1I, bh_12j = BH12AV1J, bh_12k = BH12AV1K, bh_12l = BH12AV1L, BH13AV1, BH13AV1A, BH13AV1B, BH13AV1C, BH13AV1D, BH13AV1E, BH13AV1F, BH13BV1, BH13BV1A, BH13BV1B, BH13BV1C, BH13BV1D, BH13BV1E, BH13BV1F, BH13BV1G, BH13BV1H, BH13CV1, BH13CV1A, BH13CV1B, BH13CV1C, BH13CV1D, BH13CV1E, BH13CV1F, BH13CV1G, BH13CV1H, BH14V1, BH14BV1, BH14BV1Y, BH14BV1M, BH14BV1W, BH15V1, BH15AV1, BH16V1, BH17V1, BH17V1Y, BH17V1M, BH17V1W, BH18V1, BH18BV1, BH18BV1A, BH18BV1B, BH18BV1C, BH18BV1D, BH18BV1E, BH18BV1F, BH18BV1G, BH18BV1H, BH18B1V1, BH19V1, BH20V1, SSS1_V1, SSS2_V1, PHQ1_V1, PHQ2_V1, PHQ3_V1, PHQ4_V1, PHQ5_V1, PHQ6_V1, PHQ7_V1, PHQ8_V1, PHQ9_V1, PHQ10_V1, PHQ11_V1, PHQ12_V1, PHQ13_V1, PHQ14_V1, PHQ15_V1, HS1_V1, HS2_V1, HS3_V1, HS4_V1, HS5_V1, HS6_V1, HS7_V1, HS8_V1, HS9_V1, HS10_V1, HS11_V1, HS12_V1, HRQ1_V1, HRQ2_V1, HRQ3_V1, srh_1 = S2_V1, srh_1a = S2_V1A, srh_1b = S2_V1B, srh_1c = S2_V1C, srh_1d = S2_V1D, srh_1e = S2_V1E, srh_1f = S2_V1F, srh_1g = S2_V1G, srh_1h = S2_V1H, srh_2a = SR3A_V1, srh_2b = SR3B_V1, srh_2c = SR3C_V1, srh_2d = SR3D_V1, srh_2e = SR3E_V1, srh_2f = SR3F_V1, srh_3 = S3_V1, srh_4 = S4_V1, srh_5a = S4_V1A, srh_5b = S4_V1B, srh_5c = S4_V1C, srh_5d = S4_V1D, srh_5e = S4_V1E, srh_5f = S4_V1F, srh_5g = S4_V1G, srh_5h = S4_V1H, srh_5 = S5_V1, srh_6 = S6_V1, srh_7 = S7_V1, srh_7a = S7_V1A, srh_7b = S7_V1B, srh_7c = S7_V1C, srh_7d = S7_V1D, srh_7e = S7_V1E, srh_7f = S7_V1F, srh_7g = S7_V1G, srh_8 = S8_V1, srh_8a = S8_V1A, srh_8b = S8_V1B, srh_8c = S8_V1C, srh_8d = S8_V1D, srh_8e = S8_V1E, srh_8f = S8_V1F, srh_8g = S8_V1G, srh_9 = S9_V1, srh_9a = S9_V1A, srh_9b = S9_V1B, srh_9c = S9_V1C, srh_9d = S9_V1D, srh_9e = S9_V1E, srh_9f = S9_V1F, srh_9g = S9_V1G, srh_9h = S9_V1H, srh_9i = S9_V1I, srh_9j = S9_V1J, srh_9k = S9_V1K, srh_9l = S9_V1L, srh_9m = S9_V1M, srh_9n = S9_V1N, srh_9o = S9_V1O, srh_9p = S9_V1P, srh_9q = S9_V1Q, srh_9r = S9_V1R, srh_10 = S10_V1, srh_11 = S11_V1, srh_12 = S12_V1, srh_13 = S13_V1, srh_14 = S14_V1, srh_14a = S14_V1A, srh_14b = S14_V1B, srh_14c = S14_V1C, srh_14d = S14_V1D, srh_15 = S15_V1, srh_16 = S16_V1, srh_17 = S17_V1, srh_18 = S18_V1, srh_18a = S18_V1A, srh_18b = S18_V1B, srh_18c = S18_V1C, srh_18d = S18_V1D, srh_18e = S18_V1E, srh_18f = S18_V1F, srh_18g = S18_V1G, srh_18h = S18_V1H, srh_18i = S18_V1I, srh_18j = S18_V1J, srh_18k = S18_V1K, srh_18l = S18_V1L, srh_19 = S19_V1, srh_20 = S20_V1, srh_21 = S21_V1, srh_22 = S22_V1, srh_23 = S23_V1, srh_24 = S24_V1, srh_24a = S24_V1A, srh_24b = S24_V1B, srh_24c = S24_V1C, srh_24d = S24_V1D, srh_24e = S24_V1E, srh_24f = S24_V1F, srh_25 = S25A_V1, srh_26 = S26A_V1, srh_26a = S26A_V1A, srh_26b = S26A_V1B, srh_26c = S26A_V1C, srh_26d = S26A_V1D, srh_26e = S26A_V1E, srh_26f = S26A_V1F, srh_26g = S26A_V1G, srh_27 = S25B_V1, srh_28 = S26B_V1, srh_28a = S26B_V1A, srh_28b = S26B_V1B, srh_28c = S26B_V1C, srh_28d = S26B_V1D, srh_28e = S26B_V1E, srh_28f = S26B_V1F, srh_28g = S26B_V1G, srh_29 = S25C_V1, srh_30 = S26C_V1, srh_30a = S26C_V1A, srh_30b = S26C_V1B, srh_30c = S26C_V1C, srh_30d = S26C_V1D, srh_30e = S26C_V1E, srh_30f = S26C_V1F, srh_30g = S26C_V1G, srh_31 = S25D_V1, srh_32 = S26D_V1, srh_32a = S26D_V1A, srh_32b = S26D_V1B, srh_32c = S26D_V1C, srh_32d = S26D_V1D, srh_32e = S26D_V1E, srh_32f = S26D_V1F, srh_32g = S26D_V1G, srh_33 = S25E_V1, srh_34 = S26E_V1, srh_34a = S26E_V1A, srh_34b = S26E_V1B, srh_34c = S26E_V1C, srh_34d = S26E_V1D, srh_34e = S26E_V1E, srh_34f = S26E_V1F, srh_34g = S26E_V1G, srh_35 = S27_V1, srh_36 = S28_V1, srh_37 = S29_V1, srh_38 = S30_V1, srh_38a = S30_V1A, srh_38b = S30_V1B, srh_38c = S30_V1C, srh_38d = S30_V1D, srh_38e = S30_V1E, srh_38f = S30_V1F, srh_38g = S30_V1G, srh_39 = S31_V1, srh_40 = S32_V1, srh_40a = S32_V1A, srh_40b = S32_V1B, srh_40c = S32_V1C, srh_40d = S32_V1D, srh_40e = S32_V1E, srh_40f = S32_V1F, srh_40g = S32_V1G, srh_40h = S32_V1H, srh_40i = S32_V1I, srh_41 = S33_V1, srh_42 = S34_V1, srh_43 = S35_V1, srh_44 = S36_V1, srh_45 = S37_V1, srh_46 = S38_V1, srh_47 = S39A_V1, srh_48 = S39B_V1, srh_49 = S40_V1, srh_50 = S41_V1, srh_51 = S42_V1, srh_52 = S43_V1, srh_52a = S43_V1A, srh_52b = S43_V1B, srh_52c = S43_V1C, srh_52d = S43_V1D, srh_52e = S43_V1E, srh_52f = S43_V1F, srh_52g = S43_V1G, srh_52h = S43_V1H, srh_52i = S43_V1I, PTSD1_V1, PTSD2_V1, PTSD3_V1, PTSD4_V1, T1_V1, T2_V1, t_3 = T3A_V1, t_3y = T3A_V1Y, t_3m = T3A_V1M, t_4 = T3B_V1, t_5 = T4_V1, t_6 = T5_V1, t_6a = T5A1_V1, t_6b = T5A2_V1, t_6c = T5A3_V1, t_6d = T5A4_V1, t_6e = T5A5_V1, t_6f = T5A6_V1, t_7 = T6_V1, t_7a = T6A1_V1, t_7b = T6A2_V1, t_7c = T6A3_V1, t_7d = T6A4_V1, t_7e = T6A5_V1, t_7f = T6A6_V1, t_8 = T7_V1, t_9 = T8_V1, t_10 = T9_V1, t_11 = T10_V1, t_12 = T11_V1, t_13 = T12_V1, t_13a = T12A_V1, t_13b = T12B_V1, t_14 = T13_V1, t_15 = T14_V1, t_15a = T14_V1A, t_15b = T14_V1B, t_15c = T14_V1C, t_15d = T14_V1D, t_15e = T14_V1E, t_15f = T14_V1F, t_15g = T14_V1G, t_15h = T14_V1H, t_15i = T14_V1I, t_16 = T15_V1, t_17 = T16_V1, t_18 = T17_V1, t_19 = T18_V1, t_20 = T19_V1, t_21 = T20_V1, t_22 = T21_V1, t_23 = T22_V1, t_24 = T23_V1, t_24a = T23_V1A, t_24b = T23_V1B, t_24c = T23_V1C, t_24d = T23_V1D, t_24e = T23_V1E, t_24f = T23_V1F, t_24g = T23_V1G, t_24h = T23_V1H, t_25 = T24_V1, t_26 = T25_V1, t_27 = T26_V1, t_28 = T27_V1, t_29 = T28_V1, t_30 = T29_V1, t_31 = T30_V1, t_32 = T31_V1, t_32a = T31_V1A, t_32b = T31_V1B, t_32c = T31_V1C, t_32d = T31_V1D, t_32e = T31_V1E, t_32f = T31_V1F, t_32g = T31_V1G, t_32h = T31_V1H, t_32i = T31_V1I, t_32j = T31_V1J, t_33 = T31B_V1, t_33a = T31B_V1A, t_33b = T31B_V1B, t_33c = T31B_V1C, t_34 = T32_V1, t_35 = T33_V1, t_35a = T33_V1A, t_35b = T33_V1B, t_35c = T33_V1C, t_35d = T33_V1D, t_35e = T33_V1E, t_35f = T33_V1F, t_35g = T33_V1G, t_35h = T33_V1H, t_35i = T33_V1I, t_35j = T33_V1J, t_36 = T34_V1, t_37 = T35_V1, t_38 = T36_V1, t_39 = T37_V1, t_40 = T38_V1, t_41 = T39_V1, t_42 = T40_V1, HSI1_V1, HSI2_V1, BRS1_V1, BRS2_V1, BRS3_V1, BRS4_V1, BRS5_V1, AF1_V1, AF2M_V1, AF3TU_V1, AF4W_V1, AF5TH_V1, AF6F_V1, AF6SA_V1, AF8SU_V1, DRINKS, AF9_V1, AF9A_V1, AF9B_V1, AF9C_V1, MS1_V1, MS2_V1, MS3_V1, ms_4 = MS8_V1, SB1_V1, SB2_V1, SB3_V1, SB4_V1, SB5_V1, SB6_V1, SB7_V1, SB7_V1A, SB7_V1B, SB7_V1C, SB7_V1D, SB7_V1E, SB7_V1F, SB7_V1G, SB8_V1, SB9_V1, DD1_V1, DD2_V1, DD3_V1, DD4_V1, DD5_V1, DD6_V1, DD7_V1, DD8_V1, DD9_V1, DD10_V1, AQ1_V1, AQ2_V1, AQ3_V1, AQ4_V1, AQ5_V1, AQ6_V1, AQ7_V1, AQ8_V1, AQ9_V1, AQ10_V1, AQ11_V1, AQ12_V1, CES1_V1, CES2_V1, CES3_V1, CES4_V1, CES5_V1, CES6_V1, CES7_V1, CES8_V1, CES9_V1, CES10_V1, IS1_V1, IS2_V1, IS3_V1, IS4_V1, IS5_V1, IS6_V1, IS7_V1, IS8_V1, IS9_V1, IS10_V1, IS11_V1, IS12_V1, RP1_V1, RP2_V1, LSN1_V1, LSN2_V1, LSN3_V1, LSN4_V1, LSN5_V1, LSN6_V1, R1_V1, R2_V1, R3_V1, R4_V1, R5_V1, R6_V1, R7_V1, R8_V1, R9_V1, R10_V1, R11_V1, r_12 = R11B_V1, r_13 = R12_V1, r_14 = R13_V1, r_15 = R14_V1, r_16 = R15_V1, r_16a = R15_V1A, r_16b = R15_V1B, r_16c = R15_V1C, r_16d = R15_V1D, r_16e = R15_V1E, r_16f = R15_V1F, r_16g = R15_V1G, r_16h = R15_V1H, r_16i = R15_V1I, r_16j = R15_V1J, r_16k = R15_V1K, r_16l = R15_V1L, r_16m = R15_V1M, r_16n = R15_V1N, r_16o = R15_V1O, BPM1_V1, BPM2_V1, BPM3_V1, BPM4_V1, BPM5_V1, BPM5_V1A, BPM5_V1B, BPM5_V1C, BPM5_V1D, BPM5_V1E, BPM5_V1F, BPM5_V1G, endtime = ENDTIME1, ETIME_V1,
+    
+    # Add everything() to make sure no columns are lost. Many of these will be
+    # calculated variables from the SPSS script. 
+    everything()
+)
+```
+
+Finished the Word codebook data frames. Clean up the global environment.
+
+```{r eval=FALSE}
+rm(word_cb_content, word_cb_secs_cols)
+```
+
+
+
+## Manual changes to column names 1
+
+There are some instances where it makes sense to make manual changes to column names now, before the standardization process below. There will also be additional manual changes made after the standardization process. 
+
+### V1: MMSE
+
+In visit 1, the MMSE questions go MMS_4, MMS_4A-MMS_4F, COUNT, MMS4V, MMS4VA-MMS4VF, NUM, MMS_5. However, MMS4V should have been MMS_5 and MMS_5 should have been MMS_6, etc. This proliferates all the way down the questions. We need to fix these before the standardization process.
+
+Better to do this now because after standardize_col_names you can no longer cut and paste from the Word codebooks. Also, it becomes difficult to be sure which variables in the data correspond to which variables in the codebook (e.g., "mms_4" and "mms_4v").
+
+Additionally, I'm going to add the section name (mms) in front of some of the column names that don't include it. For example, RECAL1 to mms_recall1.
+
+```{r}
+# As a double check, I made sure the number of column names I'm altering here (31) matches the number of column names that I changed manually in L2C_V1 Codebook.docx (31).
+v1 <- v1 %>%
+  rename(
+    mms_recall1 = RECAL1, 
+    mms_count = COUNT, 
+    
+    mms_5 = MMS4V, 
+    mms_5a = MMS4VA, 
+    mms_5b = MMS4VB, 
+    mms_5c = MMS4VC, 
+    mms_5d = MMS4VD, 
+    mms_5e = MMS4VE, 
+    mms_5f = MMS4VF, 
+    mms_num = NUM, 
+    
+    mms_6 = MMS_5, 
+    mms_6a = MMS_5A, 
+    mms_6b = MMS_5B, 
+    mms_6c = MMS_5C, 
+    mms_6d = MMS_5D, 
+    mms_recall2 = RECAL2,
+    
+    mms_7 = MMS_6, 
+    mms_7a = MMS_6A, 
+    mms_7b = MMS_6B, 
+    mms_7c = MMS_6C,
+    mms_object = OBJECT,
+    
+    mms_8 = MMS_7,
+    
+    mms_9 = MMS_8, 
+    mms_9a = MMS_8A, 
+    mms_9b = MMS_8B, 
+    mms_9c = MMS_8C, 
+    mms_9d = MMS_8D, 
+    mms_paper = PAPER,
+    
+    mms_10 = MMS_9,
+    mms_11 = MMS_10,
+    mms_12 = MMS_11
+  ) 
+```
+
+## Standardize column names
+
+* Remove _v{1, 2, 3} and v{1, 2, 3} from column names   
+* Replace spaces with underscores   
+* Convert to lower case   
+* Add underscore in-between the abbreviated tool name and question number   
+
+This won’t be perfect, but it will drastically reduce the number of manual changes we have to make.
+
+```{r}
+walk(
+  .x = paste0("v", 1:5),
+  .f = function(df_name) {
+    df <- get(df_name, envir = .GlobalEnv)
+    df <- rename_with(df, standardize_col_names)
+    assign(df_name, df, envir = .GlobalEnv)
+  }
+)
+```
+
+All of the variables above will have to be investigated and fixed manually later.
+
+## Manual changes to column names 1
+
+The step above used to standardize column names fixes most of them, but some manual changes to variable names still need to be made. 
+
+First, only make the changes to the individual data frames that will affect the merge (e.g., weight and weight_3).
+
+After the merge, we will make changes to column names that need to be changed in multiple data frames (e.g., t_26a). By doing this after the merge, it reduces code repetition and reduces the risk of typos in the column names.
+
+```{r}
+v1 %>% 
+  rename(
+    sq_gender = gender,
+    
+    # MMSE
+    mms_recall1 = recal_1, mms_count = count,
+    # MMSV should really be MMS_5. This throws off the numbering for the rest
+    # of the MMSE questions
+    
+  )
+```
+
+```{r}
+names(select(v1, starts_with("MMS")))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+# Give demographic variables more intuitive names
+new_names <- recode(new_names, 
+  "gender" = "sq_gender", "sq_2" = "sq_hispanic", "sq_3" = "sq_race", 
+  "sq_4" = "sq_age"
+)
+
+
+# Left off here. Go through the codebook and do manual recoding.
+# You might want to do all 5 visits in this one Rmd file...
+
+
+# demo_16g was incorrectly numbered when the data was created
+# new_names[new_names == "demo_16g"] <- "dem_14g"
+# new_names[new_names == "dem_15"] <- "dem_veteran"
+# # Take the extra "a" out of all the T26 col names
+# new_names <- str_replace(new_names, "t_26a", "t_26")
+```
+
 
 
 # Clean variable names
