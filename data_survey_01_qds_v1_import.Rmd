@@ -116,71 +116,71 @@ We have to make the column names match across visits so that we can merge all of
 _See "Notes on cleaning individual L2C data sets for merging" for the rationale, style guidelines, and instructions for this section._
 
 ```{r eval=FALSE}
-word_cb_content <- read_docx("docs/codebooks/L2C_V1 Codebook.docx") %>% 
-  docx_summary()
-```
-
-```{r}
-word_cb_path <- "docs/codebooks/"
-
-walk(
+# This shouldn't need to be run again in the future. Just leaving it in the code to preserve an accurate history of what was done. 
+word_cb_content_list <- map(
   .x = c(1:5),
   .f = function(x) {
-    word_cb_full_path <- paste0(word_cb_path, "L2C_V", x, " Codebook.docx")
-    word_cb_content_nm <- paste0("v", x, "_word_cb_content")
-    word_cb_content <- read_docx(word_cb_full_path)
-    word_cb_content <- docx_summary(word_cb_content)
-    assign(word_cb_content_nm, word_cb_content, envir = .GlobalEnv)
+    word_cb_full_path <- paste0("docs/codebooks/", "L2C_V", x, " Codebook.docx")
+    word_cb_content <- read_docx(word_cb_full_path) %>% 
+      docx_summary() %>% 
+      mutate(visit = x)
   }
 )
-
-rm(word_cb_path)
 ```
-
 
 Keep the parts of the codebook we are interested in for this process (i.e., section names and column names)
 
 ```{r eval=FALSE}
-# Rename because the step above takes so long to run.
-word_cb_secs_cols <- get_sec_and_col_names_from_word_cb(word_cb_content)
+# This shouldn't need to be run again in the future. Just leaving it in the code to preserve an accurate history of what was done. 
+word_cb_secs_cols_list <- map(
+  .x = word_cb_content_list,
+  .f = get_sec_and_col_names_from_word_cb
+)
 ```
 
 Clean up the section names. For example, convert `Sect-0.*****Admin*****` to `Admin`
 
-```{r}
-word_cb_secs_cols <- clean_word_cb_sec_names(word_cb_secs_cols)
+```{r eval=FALSE}
+# This shouldn't need to be run again in the future. Just leaving it in the code to preserve an accurate history of what was done. 
+word_cb_secs_cols_list <- map(
+  .x = word_cb_secs_cols_list,
+  .f = clean_word_cb_sec_names
+)
 ```
 
 Create a new column in the new_name = old_name format that we can copy and paste into `select()` later.
 
-```{r}
-word_cb_secs_cols <- create_copy_paste_col(word_cb_secs_cols)
+```{r eval=FALSE}
+# This shouldn't need to be run again in the future. Just leaving it in the code to preserve an accurate history of what was done. 
+word_cb_secs_cols_list <- map(
+  .x = word_cb_secs_cols_list,
+  .f = create_copy_paste_col
+)
 ```
 
 Record the sections that are completed at visit 1. We will use this for checking to make sure all of the correct questionnaire sections merge later.
 
-**NOTE:** If you rerun this section, you must run the files to clean v2-v5 again.
-
-```{r eval=FALSE}
-q_sections <- list(v1 = unique(word_cb_secs_cols$section_name))
-# q_sections[["v1"]]
+```{r}
+# This shouldn't need to be run again in the future. Just leaving it in the code to preserve an accurate history of what was done. 
+q_sections <- map(
+  .x = word_cb_secs_cols_list,
+  .f = ~ unique(.x$section_name)
+)
 ```
 
 ```{r eval=FALSE}
-write_rds(q_sections, "data/questionnaire_section.rds")
+# This shouldn't need to be run again in the future. Just leaving it in the code to preserve an accurate history of what was done. 
+write_rds(q_sections, "data/qds_questionnaire_sections.rds")
 ```
 
 ```{r eval=FALSE}
+# This shouldn't need to be run again in the future. Just leaving it in the code to preserve an accurate history of what was done. 
 rm(q_sections)
 ```
 
 **NOTE:** There are more columns in the data than there are in the codebooks. This is due to calculated variables that were created when the raw QDS data was passed through an SPSS script. We may change that process at some point in the future. 
 
 Have R write out the column names in the order that they appear in QDS. Then, we will copy and paste into the `select()` function. We will do this instead of directly passing the column order to `select()` because we need to make some manual changes to the column names now. Again, we should only have to do this once, and all future updates will be done directly in the code chunk with `select()`. 
-
-```{r eval=FALSE}
-copy_and_paste <- paste(word_cb_secs_cols$copy_and_paste, collapse = ", ")
-```
 
 ### v1: Reorder columnn names and manual changes
 
@@ -222,14 +222,22 @@ Remember that because of a naming error with T3B_V1, T26_V1 was already manually
 
 We manually make these changes in the code chunk below. 
 
+```{r eval=FALSE}
+# This shouldn't need to be run again in the future. Just leaving it in the code to preserve an accurate history of what was done. 
+# paste(word_cb_secs_cols_list[[1]][["copy_and_paste"]], collapse = ", ")
+```
+
 ```{r}
-v1 <- v1 %>% 
+v1_test <- v1 %>% 
   select(
     TODAY_V1, VISIT_TYPE, II_V1, VISIT_V1, TEST_V1, 
     
     # Add intuitive names to the screening question (demographic) variables
-    # Rename gender to conform to naming conventions.
-    sq_gender = GENDER, sq_hispanic = SQ_2, sq_hispanic = SQ_2, sq_race = SQ_3, sq_age = SQ_4, SQ_5, SQ_6, SQ_7, SQ_7A, SQ_7B, SQ_7C, SQ_7D, SQ_8, SQ_9, SQ_9L, SQ_10, SQ_11, SQ_12, SQ_13, SQ_14, SQ_15, SQ_16, SQ_17, SQ_18, SQ_18A, SQ_18B, SQ_18C, SQ_18D, SQ_18E, SQ_18F, SQ_18G, SQ_18H, SQ_18I, SQ_19, SQ_20, SQ_21, SQ_22, SQ_22A, SQ_22B, SQ_22C, SQ_22D, SQ_22E, SQ_22F, SQ_22G, SQ_22H,
+    GENDER, sq_hispanic = SQ_2, sq_race = SQ_3, sq_age = SQ_4, SQ_5, SQ_6, SQ_7, 
+    SQ_7A, SQ_7B, SQ_7C, SQ_7D, SQ_8, SQ_9, SQ_9L, SQ_10, SQ_11, SQ_12, SQ_13, 
+    SQ_14, SQ_15, SQ_16, SQ_17, SQ_18, SQ_18A, SQ_18B, SQ_18C, SQ_18D, SQ_18E, 
+    SQ_18F, SQ_18G, SQ_18H, SQ_18I, SQ_19, SQ_20, SQ_21, SQ_22, SQ_22A, SQ_22B, 
+    SQ_22C, SQ_22D, SQ_22E, SQ_22F, SQ_22G, SQ_22H,
     
     # Changes to MMSE column names
     # In visit 1, the MMSE questions go MMS_4, MMS_4A-MMS_4F, COUNT, MMS4V, 
@@ -244,21 +252,184 @@ v1 <- v1 %>%
 
     # Additionally, I'm going to add the section name (mms) in front of some of 
     # the column names that don't include it. For example, RECAL1 to mms_recall1.
-    MMS_1A, MMS_1B, MMS_1C, MMS_1D, MMS_1E, MMS_1, MMS_2A, MMS_2B, MMS_2C, MMS_2D, MMS_2E, MMS_2, MMS_3, MMS_3G, MMS_3H, MMS_3I, MMS_3J, mms_recall_1 = RECAL1, MMS_4, MMS_4A, MMS_4B, MMS_4C, MMS_4D, MMS_4E, MMS_4F, mms_count = COUNT, mms_5 = MMS4V, mms_5a = MMS4VA, mms_5b = MMS4VB, mms_5c = MMS4VC, mms_5d = MMS4VD, mms_5e = MMS4VE, mms_5f = MMS4VF, mms_num = NUM, mms_6 = MMS_5, mms_6a = MMS_5A, mms_6b = MMS_5B, mms_6c = MMS_5C, mms_6d = MMS_5D, mms_recall_2 = RECAL2, mms_7 = MMS_6, mms_7a = MMS_6A, mms_7b = MMS_6B, mms_7c = MMS_6C, mms_object = OBJECT, mms_8 = MMS_7, mms_9 = MMS_8, mms_9a = MMS_8A, mms_9b = MMS_8B, mms_9c = MMS_8C, mms_9d = MMS_8D, mms_paper = PAPER, mms_10 = MMS_9, mms_11 = MMS_10, mms_12 = MMS_11, MMS_S, 
+    MMS_1A, MMS_1B, MMS_1C, MMS_1D, MMS_1E, MMS_1, MMS_2A, MMS_2B, MMS_2C, MMS_2D, 
+    MMS_2E, MMS_2, MMS_3, MMS_3G, MMS_3H, MMS_3I, MMS_3J, 
+    mms_recall_1 = RECAL1, 
+    MMS_4, MMS_4A, MMS_4B, MMS_4C, MMS_4D, MMS_4E, MMS_4F, 
+    mms_count = COUNT, 
+    mms_5 = MMS4V, 
+    mms_5a = MMS4VA, 
+    mms_5b = MMS4VB, 
+    mms_5c = MMS4VC, 
+    mms_5d = MMS4VD, 
+    mms_5e = MMS4VE, 
+    mms_5f = MMS4VF, 
+    mms_num = NUM, 
+    mms_6 = MMS_5, 
+    mms_6a = MMS_5A, 
+    mms_6b = MMS_5B, 
+    mms_6c = MMS_5C, 
+    mms_6d = MMS_5D, 
+    mms_recall_2 = RECAL2, 
+    mms_7 = MMS_6, 
+    mms_7a = MMS_6A, 
+    mms_7b = MMS_6B, 
+    mms_7c = MMS_6C, 
+    mms_object = OBJECT, 
+    mms_8 = MMS_7, 
+    mms_9 = MMS_8, 
+    mms_9a = MMS_8A, 
+    mms_9b = MMS_8B, 
+    mms_9c = MMS_8C, 
+    mms_9d = MMS_8D, 
+    mms_paper = PAPER, 
+    mms_10 = MMS_9, 
+    mms_11 = MMS_10, 
+    mms_12 = MMS_11, 
+    MMS_S, 
    
-    # Realm and  
-    REALM, REALMA, REALMB, REALMC, REALMD, REALME, REALMF, REALMG, REALMH, REALMI, realm_total = REALM_S,  
+    # Realm  
+    REALM, 
+    realm_a = REALMA, 
+    realm_b = REALMB, 
+    realm_c = REALMC, 
+    realm_d = REALMD, 
+    realm_e = REALME, 
+    realm_f = REALMF, 
+    realm_g = REALMG, 
+    realm_h = REALMH, 
+    realm_i = REALMI, 
+    realm_total = REALM_S,  
    
     # Biological/Anthropometric Measures
-    SQ_23, SUBJECT, WEIGHT, HEIGHT, WAIST_C, CO_V1, READ1_V1, READ2_V1, read_3 = READ3_V5, CTIME_V1,
+    SQ_23, SUBJECT, WEIGHT, HEIGHT, WAIST_C, CO_V1, READ1_V1, READ2_V1, 
+    read_3 = READ3_V5, CTIME_V1,
     
     # Demographic/Background Information Questionnaire
     # Use intuitive names for many of these variables.
     # Also, demo_16g was incorrectly numbered when the data was created.
-    dem_marital_status = DEM1V1, dem_children = DEM2V1, dem_race = DEM3V1, dem_race_mult_n = DEM4V1, dem_race_mult_white = DEM4V1A, dem_race_mult_black = DEM4V1B, dem_race_mult_asian = DEM4V1C, dem_race_mult_pacific = DEM4V1D, dem_race_mult_native = DEM4V1E, dem_race_mult_other = DEM4V1F, dem_edu_20_cat = DEM5V1, dem_edu_ged = DEM5AV1, dem_employ_status = DEM6V1, dem_employ_hpw = DEM6AV1, dem_employ_7days = DME6BV1, dem_ins = DEM7V1, dem_ins_medicare = DEM7V1A, dem_medicaid = DEM7V1B, dem_ins_military = DEM7V1C, dem_ins_private = DEM7V1D, dem_ins_none = DEM7V1E, dem_social_security = DEM8V1, dem_social_security_amount = DEM9V1, dem_snap = DEM10V1, dem_snap_amount = DEM11V1, dem_income_source = DEM12V1, dem_income_source_work = DEM12V1A, dem_income_source_criminalized = DEM12V1B, dem_income_source_disability = DEM12V1C, dem_income_source_emp_benefits = DEM12V1D, dem_income_source_self_emp = DEM12V1E, dem_income_source_sex = DEM12V1F, dem_income_source_drugs = DEM12V1G, dem_income_source_social_assistance = DEM12V1H, dem_income_source_student_loans = DEM12V1I, dem_income_source_friends_relatives = DEM12V1J, dem_income_source_other = DEM12V1K, dem_income_source_none = DEM12V1L, dem_income_12_mnth_8_cat = DEM13V1, DEM13AV1, DEM13BV1, DEM13CV1, DEM13DV1, DEM13EV1, DEM13FV1, DEM13GV1, DEM13HV1, dem_income_1_mnth_7_cat = DEM14V1, DEM14AV1, DEM14BV1, DEM14CV1, DEM14DV1, DEM14EV1, DEM14FV1, dem_14g = DEMO16G, dem_veteran = DEM15V1, DEM16V1, dem_sexual_orientation = DEM17V1, dem_transgender = DEM18V1,
+    dem_marital_status = DEM1V1, 
+    dem_children = DEM2V1, 
+    dem_race = DEM3V1, 
+    dem_race_mult_n = DEM4V1, 
+    dem_race_mult_white = DEM4V1A, 
+    dem_race_mult_black = DEM4V1B, 
+    dem_race_mult_asian = DEM4V1C, 
+    dem_race_mult_pacific = DEM4V1D, 
+    dem_race_mult_native = DEM4V1E, 
+    dem_race_mult_other = DEM4V1F, 
+    dem_edu_20_cat = DEM5V1, 
+    dem_edu_ged = DEM5AV1, 
+    dem_employ_status = DEM6V1, 
+    dem_employ_hpw = DEM6AV1, 
+    dem_employ_7days = DME6BV1, 
+    dem_ins = DEM7V1, 
+    dem_ins_medicare = DEM7V1A, 
+    dem_medicaid = DEM7V1B, 
+    dem_ins_military = DEM7V1C, 
+    dem_ins_private = DEM7V1D, 
+    dem_ins_none = DEM7V1E, 
+    dem_social_security = DEM8V1, 
+    dem_social_security_amount = DEM9V1, 
+    dem_snap = DEM10V1, 
+    dem_snap_amount = DEM11V1,
+    dem_income_source = DEM12V1, 
+    dem_income_source_work = DEM12V1A, 
+    dem_income_source_criminalized = DEM12V1B, 
+    dem_income_source_disability = DEM12V1C, 
+    dem_income_source_emp_benefits = DEM12V1D, 
+    dem_income_source_self_emp = DEM12V1E, 
+    dem_income_source_sex = DEM12V1F, 
+    dem_income_source_drugs = DEM12V1G, 
+    dem_income_source_social_assistance = DEM12V1H, 
+    dem_income_source_student_loans = DEM12V1I, 
+    dem_income_source_friends_relatives = DEM12V1J, 
+    dem_income_source_other = DEM12V1K, 
+    dem_income_source_none = DEM12V1L, 
+    dem_income_12_mnth_8_cat = DEM13V1, 
+    DEM13AV1, DEM13BV1, DEM13CV1, DEM13DV1, DEM13EV1, DEM13FV1, DEM13GV1, DEM13HV1, 
+    dem_income_1_mnth_7_cat = DEM14V1, DEM14AV1, DEM14BV1, DEM14CV1, DEM14DV1, 
+    DEM14EV1, DEM14FV1, 
+    dem_14g = DEMO16G, 
+    dem_veteran = DEM15V1, 
+    DEM16V1, 
+    dem_sexual_orientation = DEM17V1, 
+    dem_transgender = DEM18V1,
    
     # The Brief Homelessness Questionnaire
-    BH1V1, BH1V1Y, BH1V1M, BH1V1D, BH2V1, BH3V1, BH4V1, BH4V1Y, BH4V1M, BH4V1D, BH5V1, BH6V1, BH7V1, BH7V1Y, BH7V1M, BH7V1W, BH8V1, BH9V1, BH10V1, bh_11 = BH11AV1, bh_12 = BH12AV1, bh_12a = BH12AV1A, bh_12b = BH12AV1B, bh_12c = BH12AV1C, bh_12d = BH12AV1D, bh_12e = BH12AV1E, bh_12f = BH12AV1F, bh_12g = BH12AV1G, bh_12h = BH12AV1H, bh_12i = BH12AV1I, bh_12j = BH12AV1J, bh_12k = BH12AV1K, bh_12l = BH12AV1L, BH13AV1, BH13AV1A, BH13AV1B, BH13AV1C, BH13AV1D, BH13AV1E, BH13AV1F, BH13BV1, BH13BV1A, BH13BV1B, BH13BV1C, BH13BV1D, BH13BV1E, BH13BV1F, BH13BV1G, BH13BV1H, BH13CV1, BH13CV1A, BH13CV1B, BH13CV1C, BH13CV1D, BH13CV1E, BH13CV1F, BH13CV1G, BH13CV1H, BH14V1, BH14BV1, BH14BV1Y, BH14BV1M, BH14BV1W, BH15V1, BH15AV1, BH16V1, BH17V1, BH17V1Y, BH17V1M, BH17V1W, BH18V1, BH18BV1, BH18BV1A, BH18BV1B, BH18BV1C, BH18BV1D, BH18BV1E, BH18BV1F, BH18BV1G, BH18BV1H, BH18B1V1, BH19V1, BH20V1, 
+    # Remove the extra "A" from several names (e.g., BH12AV1)
+    # Renumber starting at BH13BV1. BH13BV1, BH13BV1, and BH13CV1 all ask people 
+    # if they've been arrested for various things. Ideally, this should have
+    # been one long question, but it wasn't. I don't like the idea of having
+    # bh_13aa, bh_13ba, bh_13ca, etc. Because the answer choices are all 
+    # entirely different, I'm going to treat these as separate questions and 
+    # renumber them.
+    BH1V1, BH1V1Y, BH1V1M, BH1V1D, BH2V1, BH3V1, BH4V1, BH4V1Y, BH4V1M, BH4V1D, 
+    BH5V1, BH6V1, BH7V1, BH7V1Y, BH7V1M, BH7V1W, BH8V1, BH9V1, BH10V1, 
+    bh_11 = BH11AV1, 
+    bh_12 = BH12AV1, 
+    bh_12a = BH12AV1A, 
+    bh_12b = BH12AV1B, 
+    bh_12c = BH12AV1C, 
+    bh_12d = BH12AV1D, 
+    bh_12e = BH12AV1E, 
+    bh_12f = BH12AV1F, 
+    bh_12g = BH12AV1G, 
+    bh_12h = BH12AV1H, 
+    bh_12i = BH12AV1I, 
+    bh_12j = BH12AV1J, 
+    bh_12k = BH12AV1K, 
+    bh_12l = BH12AV1L, 
+    bh_13 = BH13AV1, 
+    bh_13a = BH13AV1A, 
+    bh_13b = BH13AV1B, 
+    bh_13c = BH13AV1C, 
+    bh_13d = BH13AV1D, 
+    bh_13e = BH13AV1E, 
+    bh_13f = BH13AV1F, 
+    bh_14 = BH13BV1, 
+    bh_14a = BH13BV1A, 
+    bh_14b = BH13BV1B, 
+    bh_14c = BH13BV1C, 
+    bh_14d = BH13BV1D, 
+    bh_14e = BH13BV1E, 
+    bh_14f = BH13BV1F, 
+    bh_14g = BH13BV1G, 
+    bh_14h = BH13BV1H, 
+    bh_15 = BH13CV1, 
+    bh_15a = BH13CV1A, 
+    bh_15b = BH13CV1B, 
+    bh_15c = BH13CV1C, 
+    bh_15d = BH13CV1D, 
+    bh_15e = BH13CV1E, 
+    bh_15f = BH13CV1F, 
+    bh_15g = BH13CV1G, 
+    bh_15h = BH13CV1H, 
+    bh_16 = BH14V1, 
+    bh_17 = BH14BV1, 
+    bh_18y = BH14BV1Y, 
+    bh_18m = BH14BV1M, 
+    bh_18w = BH14BV1W, # Left off here...
+    BH15V1, 
+    BH15AV1, 
+    BH16V1, 
+    BH17V1, 
+    BH17V1Y, 
+    BH17V1M, 
+    BH17V1W, 
+    BH18V1, 
+    BH18BV1, 
+    BH18BV1A, 
+    BH18BV1B, 
+    BH18BV1C, 
+    BH18BV1D, 
+    BH18BV1E, 
+    BH18BV1F, 
+    BH18BV1G, 
+    BH18BV1H, 
+    BH18B1V1, 
+    BH19V1, 
+    BH20V1, 
    
     # MacArthur Scale of Subjective Social Status
     SSS1_V1, SSS2_V1,
@@ -296,7 +467,7 @@ v1 <- v1 %>%
     BRS1_V1, BRS2_V1, BRS3_V1, BRS4_V1, BRS5_V1,
    
     # Alcohol Quantity, Frequency and Binge Drinking Questionnaire
-    AF1_V1, AF2M_V1, AF3TU_V1, AF4W_V1, AF5TH_V1, AF6F_V1, AF6SA_V1, AF8SU_V1, DRINKS, AF9_V1, AF9A_V1, AF9B_V1, AF9C_V1,
+    AF1_V1, AF2M_V1, AF3TU_V1, AF4W_V1, AF5TH_V1, AF6F_V1, AF6SA_V1, AF8SU_V1, af_drinks = DRINKS, AF9_V1, AF9A_V1, AF9B_V1, AF9C_V1,
    
     # Meal Survey
     MS1_V1, MS2_V1, MS3_V1, ms_4 = MS8_V1,
@@ -334,10 +505,163 @@ v1 <- v1 %>%
 )
 ```
 
-Finished the Word codebook data frames. Clean up the global environment.
+
+### v2: Reorder columnn names and manual changes
+
+**Change log:**
+
+On 2021-06-10, VISIT_TYPE was added to QDS.
 
 ```{r eval=FALSE}
-rm(word_cb_content, word_cb_secs_cols, copy_and_paste)
+# This shouldn't need to be run again in the future. Just leaving it in the code to preserve an accurate history of what was done. 
+# paste(word_cb_secs_cols_list[[2]][["copy_and_paste"]], collapse = ", ")
+```
+
+```{r}
+v2_test <- v2 %>% 
+  select(
+    TODAY_V2, VISIT_TYPE, II_V2, SUBJECT, VISIT_V2, TEST_V2, READ1_V2, READ2_V2, READ3_V2, CTIME_V2,
+    
+    # TCU Drug Screen 5
+    DS1_V2, DS2_V2, DS3_V2, DS4_V2, DS5_V2, DS6_V2, DS7_V2, DS8_V2, DS9_V2, DS10A_V2, DS10B_V2, DS11A_V2, DS11B_V2, 
+    
+    # BRFSS Adverse Childhood Experience (ACE) Model
+    BRAC1, BRAC2, BRAC3, BRAC4, BRAC5, BRAC6, BRAC7, BRAC8, BRAC9, BRAC10, BRAC11, 
+    
+    # Personality Beliefs Questionnaire-Short Form- Antisocial Beliefs
+    PBQ1, PBQ2, PBQ3, PBQ4, PBQ5, PBQ6, PBQ7, 
+    
+    # Food Security
+    FSS1_V2, FSS2_V2, FSS3_V2, FSS3A_V2, FSS4_V2, FSS5_V2, 
+    
+    # TCU CJ Client Evaluation of Self and Treatment
+    CJ1_V2, CJ2_V2, CJ3_V2, CJ4_V2, CJ5_V2, CJ6_V2, CJ7_V2, CJ8_V2, CJ9_V2, CJ10_V2, CJ11_V2, CJ12_V2, CJ13_V2, CJ14_V2, CJ15_V2, CJ16_V2, CJ17_V2, CJ18_V2, CJ19_V2, CJ20_V2, CJ21_V2, CJ22_V2, CJ23_V2, CJ24_V2, CJ25_V2, CJ26_V2, CJ27_V2, CJ28_V2, CJ29_V2, CJ30_V2, CJ31_V2, CJ32_V2, CJ33_V2, CJ34_V2, CJ35_V2, CJ36_V2, CJ37_V2, CJ38_V2, CJ39_V2, CJ40_V2, 
+    
+    # MacArthur Major Discrimination
+    MMD1A, MMD1B, MMD1C, MMD1D, MMD1E, MMD1F, MMD1G, MMD1H, MMD1I, MMD1J, MMD1K, MMD2, MMD3, MMD4, 
+    
+    # Urban Life Stressor Scale
+    ULS1_V2, ULS2_V2, ULS3_V2, ULS4_V2, ULS5_V2, ULS6_V2, ULS7_V2, ULS8_V2, ULS9_V2, ULS10_V2, ULS11_V2, ULS12_V2, ULS13_V2, ULS14_V2, ULS15_V2, ULS16_V2, ULS17_V2, ULS18_V2, ULS19_V2, ULS20_V2, ULS21_V2, 
+    
+    # Personal Victimization
+    pv_1 = PV1_V2, pv_2 = PV2_V2, pv_3 = PV3_V2, 
+    
+    # Perceived Stress Scale
+    PS1_V2, PS2_V2, PS3_V2, PS4_V2, 
+    
+    # Distress Tolerance Scale
+    DTS1_V2, DTS2_V2, DTS3_V2, DTS4_V2, DTS5_V2, DTS6_V2, DTS7_V2, DTS8_V2, DTS9_V2, DTS10_V2, DTS11_V2, DTS12_V2, DTS13_V2, DTS14_V2, DTS15_V2, DTS16_V2, endtime = ENDTIME2, ETIME_V2,
+    
+    # Add everything() to make sure no columns are lost. Many of these will be
+    # calculated variables from the SPSS script. 
+    everything()
+) %>% 
+  # Drop unneeded columns
+  select(-II_V1)
+```
+
+
+### v3: Reorder columnn names and manual changes
+
+**Change log:**
+
+On 2021-06-10, VISIT_TYPE was added to QDS.
+
+On 2021-06-30 the QDS survey was changed to be more like the REDCap survey. The QDS data now has T26A_V1, T26A_V1A, T26A_V1B, T26A_V1C, T26A_V1D, T26A_V1E, and T26A_V1F that correspond to t26_v1___1 - t26_v1___6 in REDCap.
+
+```{r eval=FALSE}
+# This shouldn't need to be run again in the future. Just leaving it in the code to preserve an accurate history of what was done. 
+# paste(word_cb_secs_cols_list[[3]][["copy_and_paste"]], collapse = ", ")
+```
+
+```{r}
+v3_test <- v3 %>% 
+  select(
+    TODAY_V3, VISIT_TYPE, II_V3, SUBJECT, GROUP, VISIT_V3, TEST_V3, 
+    
+    # Biological/Anthropometric Measures
+    GENDER, weight = WEIGHT_3, height = HEIGHT_3, waist_c = WAIST_C3, CO_V3, READ1_V3, READ2_V3, READ3_V3, CTIME_V3, 
+    
+    # Demographic/Background Information Questionnaire
+    # Use intuitive names for many of these variables.
+    # I'm going to try leaving these alone and renaming them at the end... Come back and delete this...
+    dem_employ_status = DEM6V3, dem_employ_hpw = DEM6AV3, dem_employ_7days = DME6BV3, dem_ins = DEM7V3, dem_ins_medicare = DEM7V3A, dem_medicaid = DEM7V3B, dem_ins_military = DEM7V3C, dem_ins_private = DEM7V3D, dem_ins_none = DEM7V3E, dem_social_security = DEM8V3, dem_social_security_amount = DEM9V3, dem_snap = DEM10V3, dem_snap_amount = DEM11V3, dem_income_source = DEM12V3, dem_income_source_work = DEM12V3A, dem_income_source_criminalized = DEM12V3B, dem_income_source_disability = DEM12V3C, dem_income_source_emp_benefits = DEM12V3D, dem_income_source_self_emp = DEM12V3E, dem_income_source_sex = DEM12V3F, dem_income_source_drugs = DEM12V3G, dem_income_source_social_assistance = DEM12V3H, dem_income_source_student_loans = DEM12V3I, dem_income_source_friends_relatives = DEM12V3J, dem_income_source_other = DEM12V3K, dem_income_source_none = DEM12V3L, dem_income_1_mnth_7_cat = DEM14V3, DEM14AV3, DEM14BV3, DEM14CV3, DEM14DV3, DEM14EV3, DEM14FV3, DEM14GV3,
+   
+    # The Brief Homelessness Questionnaire
+    BH8V3, BH9V3, BH10V3, bh_11 = BH11AV3, BH14V3, BH14BV3, BH14BV3M, BH14BV3W, BH14BV3D, BH18V3, BH18BV3, BH18BV3A, BH18BV3B, BH18BV3C, BH18BV3D, BH18BV3E, BH18BV3F, BH18BV3G, BH18BV3H, BH18B1V3, 
+   
+    # MacArthur Scale of Subjective Social Status
+    SSS1_V3, SSS2_V3, 
+   
+    # Patient Health Questionnaire
+    PHQ1_V3, PHQ2_V3, PHQ3_V3, PHQ4_V3, PHQ5_V3, PHQ6_V3, PHQ7_V3, PHQ8_V3, PHQ9_V3, PHQ10_V3, PHQ11_V3, PHQ12_V3, PHQ13_V3, PHQ14_V3, PHQ15_V3, 
+   
+    # SF-12 Health Survey 
+    HS1_V3, HS2_V3, HS3_V3, HS4_V3, HS5_V3, HS6_V3, HS7_V3, HS8_V3, HS9_V3, HS10_V3, HS11_V3, HS12_V3, 
+    
+    # Health Related Quality of Life
+    HRQ1_V3, HRQ2_V3, HRQ3_V3, 
+   
+    # Self-Rated Health Questionnaire
+    srh_1 = S2_V3, srh_1a = S2_V3A, srh_1b = S2_V3B, srh_1c = S2_V3C, srh_1d = S2_V3D, srh_1e = S2_V3E, srh_1f = S2_V3F, srh_1g = S2_V3G, srh_1h = S2_V3H, srh_2a = SR3A_V3, srh_2b = SR3B_V3, srh_2c = SR3C_V3, srh_2d = SR3D_V3, srh_2e = SR3E_V3, srh_2f = SR3F_V3, srh_18 = S18_V3, srh_18a = S18_V3A, srh_18b = S18_V3B, srh_18c = S18_V3C, srh_18d = S18_V3D, srh_18e = S18_V3E, srh_18f = S18_V3F, srh_18g = S18_V3G, srh_18h = S18_V3H, srh_18i = S18_V3I, srh_18j = S18_V3J, srh_18k = S18_V3K, srh_18l = S18_V3L, srh_24 = S24_V3, srh_24a = S24_V3A, srh_24b = S24_V3B, srh_24c = S24_V3C, srh_24d = S24_V3D, srh_24e = S24_V3E, srh_24f = S24_V3F, srh_25 = S25A_V3, srh_26 = S26A_V3, srh_26a = S26A_V3A, srh_26b = S26A_V3B, srh_26c = S26A_V3C, srh_26d = S26A_V3D, srh_26e = S26A_V3E, srh_26f = S26A_V3F, srh_26g = S26A_V3G, srh_27 = S25B_V3, srh_28 = S26B_V3, srh_28a = S26B_V3A, srh_28b = S26B_V3B, srh_28c = S26B_V3C, srh_28d = S26B_V3D, srh_28e = S26B_V3E, srh_28f = S26B_V3F, srh_28g = S26B_V3G, srh_29 = S25C_V3, srh_30 = S26C_V3, srh_30a = S26C_V3A, srh_30b = S26C_V3B, srh_30c = S26C_V3C, srh_30d = S26C_V3D, srh_30e = S26C_V3E, srh_30f = S26C_V3F, srh_30g = S26C_V3G, srh_31 = S25D_V3, srh_32 = S26D_V3, srh_32a = S26D_V3A, srh_32b = S26D_V3B, srh_32c = S26D_V3C, srh_32d = S26D_V3D, srh_32e = S26D_V3E, srh_32f = S26D_V3F, srh_32g = S26D_V3G, srh_33 = S25E_V3, srh_34 = S26E_V3, srh_34a = S26E_V3A, srh_34b = S26E_V3B, srh_34c = S26E_V3C, srh_34d = S26E_V3D, srh_34e = S26E_V3E, srh_34f = S26E_V3F, srh_34g = S26E_V3G, srh_35 = S27_V3, srh_36 = S28_V3, srh_40 = S32_V3, srh_40a = S32_V3A, srh_40b = S32_V3B, srh_40c = S32_V3C, srh_40d = S32_V3D, srh_40e = S32_V3E, srh_40f = S32_V3F, srh_40g = S32_V3G, srh_40h = S32_V3H, srh_40i = S32_V3I, srh_41 = S33_V3, srh_45 = S37_V3, srh_47 = S39A_V3, srh_48 = S39B_V3, srh_49 = S40_V3, srh_50 = S41_V3, srh_51 = S42_V3, srh_52 = S43_V3, srh_52a = S43_V3A, srh_52b = S43_V3B, srh_52c = S43_V3C, srh_52d = S43_V3D, srh_52e = S43_V3E, srh_52f = S43_V3F, srh_52g = S43_V3G, srh_52h = S43_V3H, srh_52i = S43_V3I,
+   
+    # Tobacco History Questionnaire
+    # On 2021-06-30 the QDS survey was changed to be more like the REDCap survey. 
+    # Explained above
+    T1_V3, T2_V3, t_3 = T3A_V3, t_3y = T3A_V3Y, t_3m = T3A_V3M, t_4 = T3B_V3, t_6 = T5_V3, t_6a = T5A1_V3, t_6b = T5A2_V3, t_6c = T5A3_V3, t_6d = T5A4_V3, t_6e = T5A5_V3, t_6f = T5A6_V3, t_7 = T6_V3, t_7a = T6A1_V3, t_7b = T6A2_V3, t_7c = T6A3_V3, t_7d = T6A4_V3, t_7e = T6A5_V3, t_7f = T6A6_V3, t_8 = T7_V3, t_11 = T10_V3, t_17 = T16_V3, t_18 = T17_V3, t_23 = T22_V3, t_25 = T24_V3, t_26 = T25_V3, t_27 = T26A_V3, t_27a = T26A_V3A, t_27b = T26A_V3B, t_27c = T26A_V3C, t_27d = T26A_V3D, t_27e = T26A_V3E, t_27f = T26A_V3F, t_28 = T27_V3, t_29 = T28_V3, t_30 = T29_V3, t_31 = T30_V3, t_32 = T31_V3, t_32a = T31_V3A, t_32b = T31_V3B, t_32c = T31_V3C, t_32d = T31_V3D, t_32e = T31_V3E, t_32f = T31_V3F, t_32g = T31_V3G, t_32h = T31_V3H, t_32i = T31_V3I, t_32j = T31_V3J, t_33 = T31B_V3, t_33a = T31B_V3A, t_33b = T31B_V3B, t_33c = T31B_V3C, t_35 = T33_V3, t_35a = T33_V3A, t_35b = T33_V3B, t_35c = T33_V3C, t_35d = T33_V3D, t_35e = T33_V3E, t_35f = T33_V3F, t_35g = T33_V3G, t_35h = T33_V3H, t_35i = T33_V3I, t_35j = T33_V3J, t_36 = T34_V3, t_37 = T35_V3, t_38 = T36_V3, t_39 = T37_V3, t_40 = T38_V3, t_41 = T39_V3, t_42 = T40_V3,
+   
+    # Heaviness of Smoking Index
+    HSI1_V3, hsi_2 = HSI2_V13, 
+   
+    # BRFSS - Inadequate Sleep
+    BRS1_V3, BRS2_V3, BRS3_V3, BRS4_V3, BRS5_V3, 
+   
+    # Alcohol Quantity, Frequency and Binge Drinking Questionnaire
+    AF1_V3, AF2M_V3, AF3TU_V3, AF4W_V3, AF5TH_V3, AF6F_V3, AF6SA_V3, AF8SU_V3, DRINKS, AF9_V3, AF9A_V3, AF9B_V3, AF9C_V3, 
+    
+    # Food Security
+    FSS1_V3, FSS2_V3, FSS3_V3, FSS3A_V3, FSS4_V3, FSS5_V3, 
+    
+    # Meal Survey
+    MS1_V3, MS2_V3, MS3_V3, MS4_V3, 
+    
+    # Detroit Day Discrimination
+    DD1_V3, DD2_V3, DD3_V3, DD4_V3, DD5_V3, DD6_V3, DD7_V3, DD8_V3, DD9_V3, DD10_V3, 
+    
+    # Urban Life Stressor Scale
+    ULS1_V3, ULS2_V3, ULS3_V3, ULS4_V3, ULS5_V3, ULS6_V3, ULS7_V3, ULS8_V3, ULS9_V3, ULS10_V3, ULS11_V3, ULS12_V3, ULS13_V3, ULS14_V3, ULS15_V3, ULS16_V3, ULS17_V3, ULS18_V3, ULS19_V3, ULS20_V3, ULS21_V3, 
+    
+    # Personal Victimization
+    pv_1 = PV1_V3, pv2 = PV2_V3, 
+    
+    # Perceived Stress Scale
+    PS1_V3, PS2_V3, PS3_V3, PS4_V3, 
+    
+    # Aggression Questionnaire
+    AQ1_V3, AQ2_V3, AQ3_V3, AQ4_V3, AQ5_V3, AQ6_V3, AQ7_V3, AQ8_V3, AQ9_V3, AQ10_V3, AQ11_V3, AQ12_V3, 
+    
+    # CES-D
+    CES1_V3, CES2_V3, CES3_V3, CES4_V3, CES5_V3, CES6_V3, CES7_V3, CES8_V3, CES9_V3, CES10_V3, 
+    
+    # Interpersonal Support Evaluation List
+    IS1_V3, IS2_V3, IS3_V3, IS4_V3, IS5_V3, IS6_V3, IS7_V3, IS8_V3, IS9_V3, IS10_V3, IS11_V3, IS12_V3, 
+    
+    # Religious Participation
+    RP1_V3, RP2_V3, 
+    
+    # Lubben Social Network Scale
+    LSN1_V3, LSN2_V3, LSN3_V3, LSN4_V3, LSN5_V3, LSN6_V3, 
+    
+    # Resource Utilization
+    R1_V3, R2_V3, R3_V3, R4_V3, R5_V3, R6_V3, R7_V3, R8_V3, R9_V3, R10_V3, R11_V3, r_12 = R11B_V3, r_13 = R12_V3, r_14 = R13_V3, r_15 = R14_V3, r_16 = R15_V3, r_16a = R15_V3A, r_16b = R15_V3B, r_16c = R15_V3C, r_16d = R15_V3D, r_16e = R15_V3E, r_16f = R15_V3F, r_16g = R15_V3G, r_16h = R15_V3H, r_16i = R15_V3I, r_16j = R15_V3J, r_16k = R15_V3K, r_16l = R15_V3L, r_16m = R15_V3M, r_16n = R15_V3N, r_16o = R15_V3O,
+    
+    # Treatment Quality and Satisfaction Survey
+    TQ1_1V3, TQ2_1V3, TQ14_1V3, TQ1_2V3, TQ2_2V3, TQ3_2V3, TQ4_2V3, TQ9_2V3, TQ10_2V3, TQ11_2V3, TQ12_2V3, TQ13_2V3, TQ14_2V3, TQ1_3V3, TQ2_3V3, TQ3_3V3, TQ4_3V3, TQ5_3V3, TQ6_3V3, TQ7_3V3, TQ8_3V3, TQ9_3V3, TQ10_3V3, TQ11_3V3, TQ12_3V3, TQ13_3V3, TQ14_3V3, TQ15_3V3, TQ16_3V3, TQ17_3V3, TQ18_3V3, endtime = ENDTIME3, ETIME_V3,
+    
+    # Add everything() to make sure no columns are lost. Many of these will be
+    # calculated variables from the SPSS script. 
+    everything()
+)
 ```
 
 ## Standardize column names
@@ -348,6 +672,18 @@ rm(word_cb_content, word_cb_secs_cols, copy_and_paste)
 * Add underscore in-between the abbreviated tool name and question number   
 
 This won’t be perfect, but it will drastically reduce the number of manual changes we have to make.
+
+```{r}
+# For testing
+walk(
+  .x = paste0("v", 1:3, "_test"),
+  .f = function(df_name) {
+    df <- get(df_name, envir = .GlobalEnv)
+    df <- rename_with(df, standardize_col_names)
+    assign(df_name, df, envir = .GlobalEnv)
+  }
+)
+```
 
 ```{r}
 walk(
@@ -361,6 +697,108 @@ walk(
 ```
 
 All of the variables above will have to be investigated and fixed manually later.
+
+
+# Merge visits 1 through 5
+
+```{r}
+qds_all_visits <- v1_test %>% 
+  bind_rows(v2_test) %>% 
+  bind_rows(v3_test) %>% 
+  arrange(subject, visit)
+
+# qds_all_visits
+```
+
+# Left off here... check the names for problems
+
+```{r}
+data.frame(names(qds_all_visits)) %>% slice(1000:1046)
+```
+Standard variables should end at 733, Start again at 811
+
+Renumber the bh variables
+
+```{r}
+v1 %>% select(starts_with("bh18b"))
+v3 %>% select(starts_with("bh18b"))
+qds_all_visits %>% select(starts_with("bh_18b"))
+```
+
+
+
+# Additional data cleaning
+
+* Make a couple more column name changes   
+* Make id the first column   
+* Carry forward time-invariant variables   
+* Drop `test`. Not sure why it exists.   
+* Drop `subject_1`. Not sure why it exists.   
+* Move bh_14bd to behind bh_14bw
+
+```{r}
+# qds_all_visits <- 
+qds_all_visits %>% 
+  rename(id = subject, date_visit = today) %>% 
+  select(-test, -subject_1) %>% 
+  relocate(bh_14bd, .after = bh_14bw) %>% 
+  select(id, everything())
+```
+
+```{r}
+# Future proof this by checking to see if the variables have changed over time.
+# If this test fails in the future, come back and make adjustments to how we 
+# handle columns as needed.
+test_that("The expected columns exists in the qds_all_visits data.", {
+  expect_equal(
+    length(qds_all_visits),
+    1046L
+  )
+})
+```
+
+
+# 💾Save the data frame
+
+```{r}
+path <- "/Volumes/Link2Care/Participant Data/R Data/qds_all_visits_import.rds"
+```
+
+```{r}
+write_rds(qds_all_visits, path)
+```
+
+Print a message for when this file is being sourced
+
+```{r}
+cat(
+  paste0(Sys.Date(), ":"),
+  "QDS data saved to", path
+)
+```
+
+
+# 🗑Clean up
+
+```{r}
+rm(list = ls())
+```
+
+Print a message for when this file is being sourced
+
+```{r}
+cat(
+  paste0(Sys.Date(), ":"),
+  "QDS data imported and merged with", nrow(qds_all_visits), "rows and", ncol(qds_all_visits), "columns.\n"
+)
+
+# 2021-07-09: 2021-07-13: QDS data imported and merged with 760 rows and 1046 columns.
+```
+
+```{r echo=FALSE}
+sessionInfo()
+```
+
 
 
 
