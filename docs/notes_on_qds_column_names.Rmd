@@ -1,0 +1,29 @@
+---
+title: "Notes on changing the QDS column names"
+date: "2021-07-17 <br> Updated: `r Sys.Date()`"
+output: github_document
+---
+
+In order to combine all 5 individual QDS data sets into one, we first needed to make many changes to the column names. We tried many different ways of doing so. The notes below document what we tried and how we arrived at our final solution. The purpose of this document is to make our research process as transparent as possible and to 
+
+Why not just remove _V1, _V3, etc. and that's it?
+Why change the demographics variable names?
+Why change the demographics column names one data set at a time? - This one I may not want to do....
+Why do you need the codebooks?
+How will you future proof this process?
+
+
+
+**Why can't we just combine them into one without making any changes to column names?**
+
+The biggest problem is that we can't just combine the data sets with their existing column names. There are intentional differences in the column names (e.g., "_V1" and "_V2"), and unintentional errors (e.g., HEIGHT_3) in the column names, from data frame to data frame that make combining them without any alteration to the existing .   
+
+2. These differences and errors can be "fixed"; however, doing so makes the column names so different from the codebook that the codebook is barely usable anyway.
+
+At first, my plan was to resist the urge to change them. My thought was that I wanted the column names in the combined QDS data to match the existing Word codebooks. Then I realized that none of the calculated variables will be in the codebook files anyway. Also, there isn't a codebook file for the combined survey data set. So, we can go ahead and rename variables in this file. We will either have to create a new codebook for the combined data or just live without one. 
+
+**Why scrape the codebooks?**
+
+We have to make the column names match across visits so that we can merge all of the individual QDS data frames into one.
+
+The columns in the data are not arranged in the order that they exist in the actual QDS survey for some reason. This makes the data harder to work with, and it will make the codebook we eventually create difficult to use. So, we are going to reorder them. To prevent us from typing out 810 column names manually, we are going to read-in the column names from the codebook and then create a blog of text that we copy and paste into a code chunk using `select()` below. Prepping the codebook to be able to do this took a long time and isn't very future-proof. However, we should only have to do this step once. As changes occur to QDS in the future, we can just update the code chunk with the `select()` function.

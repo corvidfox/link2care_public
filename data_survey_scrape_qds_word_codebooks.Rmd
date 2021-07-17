@@ -1,0 +1,13 @@
+---
+title: "Link2Care Survey Data - Scrape the QDS Word codebooks"
+date: "2021-07-17 <br> Updated: `r Sys.Date()`"
+---
+
+# ⭐️Overview
+
+This file is used to scrape the Word version of the QDS codebooks. We are doing this to facilitate the process of combining all 5 individual QDS files into one. 
+
+Just reference notes_on_qds_column_names...
+
+Then, move all the Word scraping code here. Also, add this to R Notes. I feel like it could be useful again at some point in the future. 
+
