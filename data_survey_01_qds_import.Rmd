@@ -1,5 +1,5 @@
 ---
-title: "Import Link2Care Survey Data - QDS Visit 1"
+title: "Import Link2Care Survey Data - QDS"
 date: "2020-12-23 <br> Updated: `r Sys.Date()`"
 ---
 
@@ -42,7 +42,6 @@ library(testthat)
 
 ```{r}
 source("R/standardize_col_names.R")
-source("R/word_cb_extract_fs.R")
 ```
 
 
@@ -93,11 +92,11 @@ walk(
 # These are expected to change over time as we add more people to the study.
 # However, drastic changes from month-to-month, or even quarter-to-quarter,
 # should initiate an investigation into what's going on.
-# 2021-07-12: v1 imported with 295 rows and 810 columns.
-# 2021-07-12: v2 imported with 271 rows and 210 columns.
-# 2021-07-12: v3 imported with 194 rows and 542 columns.
-# 2021-07-12: v4 imported with 145 rows and 598 columns.
-# 2021-07-12: v5 imported with 133 rows and 639 columns.
+# 2021-07-19: v1 imported with 295 rows and 810 columns.
+# 2021-07-19: v2 imported with 271 rows and 210 columns.
+# 2021-07-19: v3 imported with 194 rows and 542 columns.
+# 2021-07-19: v4 imported with 145 rows and 598 columns.
+# 2021-07-19: v5 imported with 133 rows and 639 columns.
 ```
 
 
@@ -111,89 +110,11 @@ We have to make the column names match across visits so that we can merge all of
 
 2. There are some instances where it makes sense to make manual changes to column names now, before the standardization process below. For example, the MMSE columns. It's better to manually change them now because after standardize_col_names you can no longer cut and paste from the Word codebooks. Also, it becomes difficult to be sure which variables in the data correspond to which variables in the codebook (e.g., "mms_4" and "mms_4v").There will also be additional manual changes made after the standardization process. 
 
-### Extract content from Word codebooks
+### Change log
 
-_See "Notes on cleaning individual L2C data sets for merging" for the rationale, style guidelines, and instructions for this section._
+On **2021-06-10**, VISIT_TYPE was added to QDS. This change affects V1-V5.
 
-```{r eval=FALSE}
-# This shouldn't need to be run again in the future. Just leaving it in the code to preserve an accurate history of what was done. 
-word_cb_content_list <- map(
-  .x = c(1:5),
-  .f = function(x) {
-    word_cb_full_path <- paste0("docs/codebooks/", "L2C_V", x, " Codebook.docx")
-    word_cb_content <- read_docx(word_cb_full_path) %>% 
-      docx_summary() %>% 
-      mutate(visit = x)
-  }
-)
-```
-
-```{r eval=FALSE}
-# This shouldn't need to be run again in the future. Just leaving it in the code to preserve an accurate history of what was done. 
-write_rds(word_cb_content_list, "data/word_cb_content_list.rds")
-```
-
-Keep the parts of the codebook we are interested in for this process (i.e., section names and column names)
-
-```{r eval=FALSE}
-# This shouldn't need to be run again in the future. Just leaving it in the code to preserve an accurate history of what was done. 
-word_cb_secs_cols_list <- map(
-  .x = word_cb_content_list,
-  .f = get_sec_and_col_names_from_word_cb
-)
-```
-
-Clean up the section names. For example, convert `Sect-0.*****Admin*****` to `Admin`
-
-```{r eval=FALSE}
-# This shouldn't need to be run again in the future. Just leaving it in the code to preserve an accurate history of what was done. 
-word_cb_secs_cols_list <- map(
-  .x = word_cb_secs_cols_list,
-  .f = clean_word_cb_sec_names
-)
-```
-
-Create a new column in the new_name = old_name format that we can copy and paste into `select()` later.
-
-```{r eval=FALSE}
-# This shouldn't need to be run again in the future. Just leaving it in the code to preserve an accurate history of what was done. 
-word_cb_secs_cols_list <- map(
-  .x = word_cb_secs_cols_list,
-  .f = create_copy_paste_col
-)
-```
-
-Record the sections that are completed at visit 1. We will use this for checking to make sure all of the correct questionnaire sections merge later.
-
-```{r}
-# This shouldn't need to be run again in the future. Just leaving it in the code to preserve an accurate history of what was done. 
-q_sections <- map(
-  .x = word_cb_secs_cols_list,
-  .f = ~ unique(.x$section_name)
-)
-```
-
-```{r eval=FALSE}
-# This shouldn't need to be run again in the future. Just leaving it in the code to preserve an accurate history of what was done. 
-write_rds(q_sections, "data/qds_questionnaire_sections.rds")
-```
-
-```{r eval=FALSE}
-# This shouldn't need to be run again in the future. Just leaving it in the code to preserve an accurate history of what was done. 
-rm(q_sections)
-```
-
-**NOTE:** There are more columns in the data than there are in the codebooks. This is due to calculated variables that were created when the raw QDS data was passed through an SPSS script. We may change that process at some point in the future. 
-
-Have R write out the column names in the order that they appear in QDS. Then, we will copy and paste into the `select()` function. We will do this instead of directly passing the column order to `select()` because we need to make some manual changes to the column names now. Again, we should only have to do this once, and all future updates will be done directly in the code chunk with `select()`. 
-
-### v1: Reorder columnn names and manual changes
-
-**Change log:**
-
-On 2021-06-10, VISIT_TYPE was added to QDS.
-
-On 2021-06-05, Joe Waring found a discrepancy between the way Tobacco 26 was being asked in QDS and REDCap. 
+On **2021-06-05**, Joe Waring found a discrepancy between the way Tobacco 26 was being asked in QDS and REDCap. 
 
 In QDS, T26_V1, T26_V3, T26_V4, and T26_V5 read:
 
@@ -225,12 +146,9 @@ On 2021-06-30 the QDS survey was changed to be more like the REDCap survey. The 
 
 Remember that because of a naming error with T3B_V1, T26_V1 was already manually changed to T27 in the codebook by MBC. Changing "T26_V1" (the name that appears in the outdated codebook) to "T26A_V1" (the name that actually appears in the data frame now).
 
-We manually make these changes in the code chunk below. 
+This change affects V1, V3, V4, and V5.
 
-```{r eval=FALSE}
-# This shouldn't need to be run again in the future. Just leaving it in the code to preserve an accurate history of what was done. 
-# paste(word_cb_secs_cols_list[[1]][["copy_and_paste"]], collapse = ", ")
-```
+### v1: Reorder columnn names and manual changes
 
 ```{r}
 v1 <- v1 %>% 
@@ -831,15 +749,6 @@ v1 <- v1 %>%
 
 ### v2: Reorder columnn names and manual changes
 
-**Change log:**
-
-On 2021-06-10, VISIT_TYPE was added to QDS.
-
-```{r eval=FALSE}
-# This shouldn't need to be run again in the future. Just leaving it in the code to preserve an accurate history of what was done. 
-# paste(word_cb_secs_cols_list[[2]][["copy_and_paste"]], collapse = ", ")
-```
-
 ```{r}
 v2 <- v2 %>% 
   select(
@@ -899,17 +808,6 @@ v2 <- v2 %>%
 
 
 ### v3: Reorder columnn names and manual changes
-
-**Change log:**
-
-On 2021-06-10, VISIT_TYPE was added to QDS.
-
-On 2021-06-30 the QDS survey was changed to be more like the REDCap survey. The QDS data now has T26A_V1, T26A_V1A, T26A_V1B, T26A_V1C, T26A_V1D, T26A_V1E, and T26A_V1F that correspond to t26_v1___1 - t26_v1___6 in REDCap.
-
-```{r eval=FALSE}
-# This shouldn't need to be run again in the future. Just leaving it in the code to preserve an accurate history of what was done. 
-# paste(word_cb_secs_cols_list[[3]][["copy_and_paste"]], collapse = ", ")
-```
 
 ```{r}
 v3 <- v3 %>% 
@@ -1260,17 +1158,6 @@ v3 <- v3 %>%
 ```
 
 ### v4: Reorder columnn names and manual changes
-
-**Change log:**
-
-On 2021-06-10, VISIT_TYPE was added to QDS.
-
-On 2021-06-30 the QDS survey was changed to be more like the REDCap survey. The QDS data now has T26A_V1, T26A_V1A, T26A_V1B, T26A_V1C, T26A_V1D, T26A_V1E, and T26A_V1F that correspond to t26_v1___1 - t26_v1___6 in REDCap.
-
-```{r eval=FALSE}
-# This shouldn't need to be run again in the future. Just leaving it in the code to preserve an accurate history of what was done. 
-# paste(word_cb_secs_cols_list[[4]][["copy_and_paste"]], collapse = ", ")
-```
 
 ```{r}
 v4 <- v4 %>% 
@@ -1632,17 +1519,6 @@ v4 <- v4 %>%
 ```
 
 ### v5: Reorder columnn names and manual changes
-
-**Change log:**
-
-On 2021-06-10, VISIT_TYPE was added to QDS.
-
-On 2021-06-30 the QDS survey was changed to be more like the REDCap survey. The QDS data now has T26A_V1, T26A_V1A, T26A_V1B, T26A_V1C, T26A_V1D, T26A_V1E, and T26A_V1F that correspond to t26_v1___1 - t26_v1___6 in REDCap.
-
-```{r eval=FALSE}
-# This shouldn't need to be run again in the future. Just leaving it in the code to preserve an accurate history of what was done. 
-# paste(word_cb_secs_cols_list[[5]][["copy_and_paste"]], collapse = ", ")
-```
 
 ```{r}
 v5 <- v5 %>% 
@@ -2080,18 +1956,20 @@ walk(
 )
 ```
 
+
 # Merge visits 1 through 5
 
 ```{r}
-qds_all_visits <- v1_test %>% 
-  bind_rows(v2_test) %>% 
-  bind_rows(v3_test) %>%
-  bind_rows(v4_test) %>%
-  bind_rows(v5_test) %>%
+qds_all_visits <- v1 %>% 
+  bind_rows(v2) %>% 
+  bind_rows(v3) %>%
+  bind_rows(v4) %>%
+  bind_rows(v5) %>%
   arrange(subject, visit)
 
 # qds_all_visits
 ```
+
 
 # Additional data cleaning
 
@@ -2124,33 +2002,6 @@ test_that("The expected columns exists in the qds_all_visits data.", {
 })
 ```
 
-
-# 💾Save the data frame
-
-```{r}
-path <- "/Volumes/Link2Care/Participant Data/R Data/qds_all_visits_import.rds"
-```
-
-```{r}
-write_rds(qds_all_visits, path)
-```
-
-Print a message for when this file is being sourced
-
-```{r}
-cat(
-  paste0(Sys.Date(), ":"),
-  "QDS data saved to", path
-)
-```
-
-
-# 🗑Clean up
-
-```{r}
-rm(list = ls())
-```
-
 Print a message for when this file is being sourced
 
 ```{r}
@@ -2159,404 +2010,28 @@ cat(
   "QDS data imported and merged with", nrow(qds_all_visits), "rows and", ncol(qds_all_visits), "columns.\n"
 )
 
-# 2021-07-09: 2021-07-13: QDS data imported and merged with 760 rows and 1046 columns.
-```
-
-```{r echo=FALSE}
-sessionInfo()
-```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Clean variable names
-
-_See "Notes on cleaning individual L2C data sets for merging" for the rationale, style guidelines, and instructions for this section._
-  
-## Extract content from Word codebook
-
-```{r}
-v1_cb_content <- read_docx("docs/codebooks/L2C_V1 Codebook.docx") %>% 
-  docx_summary()
-```
-
-### Keep the variables of interest only
-
-```{r}
-v1_cb_col_names <- v1_cb_content %>%
-  filter(style_name %in% c("section_name", "cb_col_name", "col_name")) %>% 
-  select(doc_index, style_name:text) %>% 
-  pivot_wider(
-    names_from = "style_name",
-    values_from = "text"
-  )
-```
-
-```{r}
-rm(v1_cb_content)
-```
-
-### Clean section names
-
-```{r}
-v1_cb_col_names <- v1_cb_col_names %>%
-  mutate(
-    # Remove "Sect-number."
-    section_name = str_remove(section_name, "Sect-\\d{1,}."),
-    # Remove asterisks
-    section_name = str_remove_all(section_name, "\\*"),
-    # Remove empty spaces
-    section_name = str_trim(section_name),
-    # Clean " (SQ_7 - SQ_11)" from exclusion criteria
-    section_name = str_remove(section_name, " \\(SQ_7 - SQ_11\\)")
-  ) %>% 
-  # Fill section down across rows
-  fill(section_name)
-```
-
-### Record the sections that are completed at visit 1
-
-We will use this for checking to make sure all of the correct questionnaire sections merge later.
-
-**NOTE:** If you rerun this section, you must run the files to clean v2-v5 again.
-
-```{r}
-q_sections <- list(v1 = unique(v1_cb_col_names$section_name))
-# q_sections[["v1"]]
-```
-
-```{r}
-write_rds(q_sections, "data/questionnaire_section.rds")
-```
-
-```{r}
-rm(q_sections)
-```
-
-### Reduce to one row per column
-
-Currently, cb_col_name and col_name are on separate rows. We will spread the different column names vertically across rows so that we can reduce the data frame down to one row per column.
-
-```{r}
-v1_cb_col_names <- v1_cb_col_names %>%
-  # Spread cb_col_name across rows
-  fill(cb_col_name) %>% 
-  # Spread col_name across rows within cb_col_name
-  group_by(cb_col_name) %>% 
-  fill(col_name, .direction = "up") %>% 
-  # # For data checking
-  # filter(section_name == "Self-Rated Health Questionnaire") %>%
-  # ungroup() %>%
-  # slice(-1) %>%
-  # summarise(
-  #   length(unique(cb_col_name)),
-  #   length(unique(col_name))
-  # )
-  group_by(cb_col_name) %>% 
-  filter(row_number() == 1) %>% 
-  ungroup() %>% 
-  # Remove first row
-  slice(-1)
-```
-
-```{r}
-dim(v1_cb_col_names) # 725   4
-```
-
-### Standardize new column names
-
-* Remove _V1 and V1 from column names
-* Replace spaces with underscores
-* Convert to lower case
-* Add underscore in-between the abbreviated tool name and question number
-
-```{r}
-v1_cb_col_names <- v1_cb_col_names %>%
-  mutate(
-    # Remove _V1 from column name
-    # Remove V1 at end of column name (e.g., DEM1V1)
-    # Don't include values for col_name that were changed in the Word
-    # document.
-    col_name = if_else(
-      is.na(col_name),
-      str_replace(cb_col_name, "_V1|V1", ""),
-      col_name
-    ),
-    # Replace spaces with underscores
-    col_name = str_replace_all(col_name, " ", "_"),
-    # Convert to lower case
-    col_name = str_to_lower(col_name),
-    # Add underscore in-between the abbreviated tool name and question number
-    col_name = str_replace(col_name, "([a-z])(\\d)", "\\1_\\2")
-  )
-```
-
-## New column: Visit type
-
-On 2021-06-10, VISIT_TYPE was added to QDS, but not the codebook. Therefore, we will create a new row for v1_cb_col_names that will include the VISIT_TYPE variables that would have been there if it were in the codebook. 
-
-```{r}
-v1_cb_col_names <- v1_cb_col_names %>%
-  add_row(
-    doc_index    = NA,
-    section_name = "Admin",
-    cb_col_name  = "VISIT_TYPE",
-    col_name     = "visit_type",
-    .after       = which(v1_cb_col_names$cb_col_name == "TODAY_V1")
-  )
-```
-
-## New columns: Tobacco 26 questions
-
-On 2021-06-05, Joe Waring found a discrepancy between the way Tobacco 26 was being asked in QDS and REDCap. 
-
-In QDS, T26_V1, T26_V3, T26_V4, and T26_V5 read:
-
-Which option would give you the best chance for quitting smoking?
-1	=	Medications
-2	=	Counseling
-3	=	Both medications and counseling
-4	=	Smartphone app
-5	=	Both smartphone app and medications
-6	=	Quitting "cold turkey" - without counseling or medications
-9	=	skipped
-
-And only one answer choice was possible.
-
-In REDCap, t26_v1 reads:
-
-If you were to try to quit smoking, which of the following wouldyou prefer to receive: (select all that apply)
-
-1 t26_v1___1 Medications
-2 t26_v1___2 Group Counseling
-3 t26_v1___3 Smartphone app
-4 t26_v1___4 In person individual counseling
-5 t26_v1___5 Helpline phone counseling
-6 t26_v1___6 None of the above
-
-Where multiple answers are possible and t26_v1___1 - t26_v1___6 are dummy variables.
-
-On 2021-06-30 the QDS survey was changed to be more like the REDCap survey. The QDS data now has T26A_V1, T26A_V1A, T26A_V1B, T26A_V1C, T26A_V1D, T26A_V1E, and T26A_V1F that correspond to t26_v1___1 - t26_v1___6 in REDCap. 
-
-These variables will not exist in the Word codebooks, so we will manually add them to v1_cb_col_names and manually make sure they follow naming conventions.
-
-Remember that because of a naming error with T3B_V1, T26_V1 was already manually changed to T27 in the codebook by MBC. Changing "T26_V1" (the name that appears in the outdated codebook) to "T26A_V1" (the name that actually appears in the data frame now).
-
-```{r}
-v1_cb_col_names <- v1_cb_col_names %>% 
-  mutate(cb_col_name = if_else(cb_col_name == "T26_V1", "T26A_V1", cb_col_name))
-```
-
-Next, create new rows for v1_cb_col_names that will add the T26 dummy variables that would have been there if the new variables were in the codebook. 
-
-```{r}
-v1_cb_col_names <- v1_cb_col_names %>%
-  add_row(
-    doc_index    = NA,
-    section_name = "Tobacco History Questionnaire",
-    cb_col_name  = c(
-      "T26A_V1A", "T26A_V1B", "T26A_V1C", "T26A_V1D", "T26A_V1E", "T26A_V1F"
-    ),
-    col_name     = c("t_27a", "t_27b", "t_27c", "t_27d", "t_27e", "t_27f"),
-    .after       = which(v1_cb_col_names$cb_col_name == "T26A_V1")
-  )
-```
-
-## Check for duplicate column names
-
-Check to make sure this process didn't accidentally create any duplicate column names
-
-```{r}
-test_that("No duplicate col_names were created in the visit 1 data.", {
-  check_dup_col_name <- v1_cb_col_names %>% 
-    group_by(col_name) %>% 
-    filter(max(row_number()) > 1) %>% 
-    pull(col_name)
-  
-  expect_length(check_dup_col_name, 0)
-})
-```
-
-## Save column names
-
-Save v1_cb_col_names as a key that maps the new names to the old names in case we need that information in the future. Possibly for the codebook.
-
-**NOTE:** If you rerun this section, you must run the files to clean v2-v5 again.
-
-```{r}
-v1_col_names_key <- v1_cb_col_names %>%  
-  # Drop doc_index column
-  select(-doc_index) %>% 
-  # Add df identifier
-  mutate(df = "v1") %>% 
-  select(df, everything())
-```
-
-```{r}
-col_name_keys <- list(v1 = v1_col_names_key)
-# col_name_keys[["v1"]]
-```
-
-```{r}
-write_rds(col_name_keys, "data/col_name_keys.rds")
-```
-
-```{r}
-rm(col_name_keys, v1_cb_col_names)
-```
-
-## Differences between codebook columns and data columns
-
-Check to see what differences, if any, exist between the columns in the codebook and the columns in the actual data frame.
-
-```{r}
-in_cb_not_df <- setdiff(v1_col_names_key$cb_col_name, names(v1))
-in_cb_not_df
-```
-
-There are **0** column names in the codebook that don't appear in the data.   
-
-```{r}
-# Future proof this by checking to see if the variables have changed over time.
-# If this test fails in the future, come back and make adjustments to how we 
-# handle columns as needed.
-test_that("The expected columns exist in the codebook, but not the v1 df.", {
-  expect_equal(
-    length(in_cb_not_df),
-    0L
-  )
-})
-```
-
-Now, check for columns that exist in the data frame, but not the codebook.
-
-```{r}
-in_df_not_cb <- setdiff(names(v1), v1_col_names_key$cb_col_name)
-# in_df_not_cb
-```
-
-Drop SUBJECT1. It's missing in every row.
-
-```{r}
-v1 <- select(v1, -SUBJECT1)
-```
-
-```{r}
-in_df_not_cb <- setdiff(names(v1), v1_col_names_key$cb_col_name)
-# in_df_not_cb
-```
-
-```{r}
-# Future proof this by checking to see if the variables have changed over time.
-# If this test fails in the future, come back and make adjustments to how we 
-# handle columns as needed.
-test_that("The expected columns exist in the v1 df, but not the v1 codebook.", {
-  expect_equal(
-    length(in_df_not_cb),
-    77L
-  )
-})
-```
-
-The remainder of these variables are calculated variables created by the SPSS export script. We will save them in a separate data frame and deal with them later. 
-
-```{r}
-v1_spss_calc_vars <- v1 %>% 
-  select(id = SUBJECT, visit = VISIT_V1, all_of(in_df_not_cb))
-```
-
-```{r}
-write_sav(v1_spss_calc_vars, "data/v1_spss_calc_vars.sav")
-```
-
-Remove calculated variables from the v1 data. This makes it easier to merge with the other QDS data frames later.
-
-```{r}
-v1 <- v1 %>% select(!all_of(in_df_not_cb))
-```
-
-2021-07-09: After adding visit_type and the T26 dummy variables, the expected number of columns in v1 changes from 725 to 732.
-
-```{r}
-# Future proof this by checking to see if the variables have changed over time.
-# If this test fails in the future, come back and make adjustments to how we 
-# handle columns as needed.
-test_that("The expected number of columns exist in the v1 df after cleaning.", {
-  expect_equal(
-    length(names(v1)),
-    732L
-  )
-})
-```
-
-Clean up
-
-```{r}
-rm(v1_spss_calc_vars, in_cb_not_df, in_df_not_cb)
-```
-
-## Replace variable names in the full data frame
-
-Put them in the same order used in the codebook.
-
-```{r}
-v1 <- v1 %>% 
-  select(all_of(v1_col_names_key$cb_col_name))
-
-names(v1) <- v1_col_names_key$col_name
+# 2021-07-19: QDS data imported and merged with 1038 rows and 1046 columns.
 ```
 
 
 # 💾Save the data frame
 
 ```{r}
-path <- "/Volumes/Link2Care/Participant Data/R Data/qds_v1_import.rds"
+rds_path <- "/Volumes/Link2Care/Participant Data/R Data/qds_all_visits_import.rds"
+write_rds(qds_all_visits, rds_path)
+
+# Michael also wants an SPSS version
+spss_path <- "/Volumes/Link2Care/Participant Data/SPSS Data/QDS Data/qds_all_visits_import.SAV"
+write_sav(qds_all_visits, spss_path)
 ```
 
-```{r}
-write_rds(v1, path)
-```
 
 Print a message for when this file is being sourced
 
 ```{r}
 cat(
   paste0(Sys.Date(), ":"),
-  "QDS Visit 1 saved to", path
+  "QDS data saved to", rds_path, " and ", spss_path
 )
 ```
 
@@ -2564,18 +2039,7 @@ cat(
 # 🗑Clean up
 
 ```{r}
-rm(v1_col_names_key, path)
-```
-
-Print a message for when this file is being sourced
-
-```{r}
-cat(
-  paste0(Sys.Date(), ":"),
-  "QDS Visit 1 cleaned with", nrow(v1), "rows and", ncol(v1), "columns.\n"
-)
-
-# 2021-07-09: QDS Visit 1 cleaned with 295 rows and 732 columns.
+rm(list = ls())
 ```
 
 ```{r echo=FALSE}
