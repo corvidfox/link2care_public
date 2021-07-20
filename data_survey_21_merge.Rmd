@@ -43,11 +43,7 @@ path <- "/Volumes/Link2Care/Participant Data/R data/"
 
 ```{r}
 data_frames <- c(
-  qds_v1 = "qds_v1_import.rds", 
-  qds_v2 = "qds_v2_import.rds",
-  qds_v3 = "qds_v3_import.rds",
-  qds_v4 = "qds_v4_import.rds",
-  qds_v5 = "qds_v5_import.rds",
+  qds    = "qds_all_visits_import.rds",
   rc     = "redcap_import.rds",
   ml     = "master_log_screened_in.rds",
   tlfb   = "tlfb.rds",
@@ -65,15 +61,29 @@ for (i in seq_along(data_frames)) {
   # Print a message for when this file is being sourced
   cat(
     paste0(Sys.Date(), ":"),
-    data_frames[[i]], "imported as", df_nm, "with", nrow(df), "rows and", ncol(df), "columns .\n"
+    data_frames[[i]], "imported as", df_nm, "with", nrow(df), "rows and", ncol(df), "columns.\n"
   )
 }
+
+rm(data_frames, df_nm, full_path, i, path)
+
+# 2021-07-19: qds_all_visits_import.rds imported as qds with 1038 rows and 1046 columns.
+# 2021-07-19: redcap_import.rds imported as rc with 21 rows and 911 columns.
+# 2021-07-19: master_log_screened_in.rds imported as ml with 279 rows and 33 columns.
+# 2021-07-19: tlfb.rds imported as tlfb with 1156 rows and 21 columns.
+# 2021-07-19: arrest.rds imported as arrest with 234 rows and 8 columns.
+# 2021-07-19: bridge_wide.rds imported as bridge with 289 rows and 20 columns.
 ```
 
 
 # 🔄Merge data 
 
-## QDS files
+QDS and REDCap
+
+```{r}
+rc
+```
+
 
 
 
