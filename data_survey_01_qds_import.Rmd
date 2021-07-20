@@ -390,14 +390,14 @@ v1 <- v1 %>%
     srh_2f = SR3F_V1,
     srh_3 = S3_V1,
     srh_4 = S4_V1,
-    srh_5a = S4_V1A,
-    srh_5b = S4_V1B,
-    srh_5c = S4_V1C,
-    srh_5d = S4_V1D,
-    srh_5e = S4_V1E,
-    srh_5f = S4_V1F,
-    srh_5g = S4_V1G,
-    srh_5h = S4_V1H,
+    srh_4a = S4_V1A,
+    srh_4b = S4_V1B,
+    srh_4c = S4_V1C,
+    srh_4d = S4_V1D,
+    srh_4e = S4_V1E,
+    srh_4f = S4_V1F,
+    srh_4g = S4_V1G,
+    srh_4h = S4_V1H,
     srh_5 = S5_V1,
     srh_6 = S6_V1,
     srh_7 = S7_V1,
@@ -1519,6 +1519,8 @@ v4 <- v4 %>%
 ```
 
 ### v5: Reorder columnn names and manual changes
+
+**NOTE:** Spoke with James and Joe on 2021-07-19. V5 will have a VISIT_TYPE column, but not until they actually give a participant a follow-up using the V5 QDS.
 
 ```{r}
 v5 <- v5 %>% 
