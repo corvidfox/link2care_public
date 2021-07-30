@@ -30,14 +30,14 @@ Currently, I'm importing all of this data from the UTHealth server. The data sho
 # 📦Load packages
 
 ```{r message=FALSE}
-library(dplyr)
-library(purrr)
-library(haven)
-library(officer)
-library(readr)
-library(tidyr)
-library(stringr)
-library(testthat)
+library(dplyr, warn.conflicts = FALSE)
+library(purrr, warn.conflicts = FALSE)
+library(haven, warn.conflicts = FALSE)
+library(officer, warn.conflicts = FALSE)
+library(readr, warn.conflicts = FALSE)
+library(tidyr, warn.conflicts = FALSE)
+library(stringr, warn.conflicts = FALSE)
+library(testthat, warn.conflicts = FALSE)
 ```
 
 ```{r}
@@ -59,7 +59,25 @@ Import all 5 QDS data frames
 
 ```{r}
 qds_spss_path <- "/Volumes/Link2Care/Participant Data/SPSS Data/QDS Data/"
+qds_spss_paths <- paste0(qds_spss_path, "Visit_", 1:5, "_Data.SAV")
+```
 
+Check the most recent file modification dates on the UTHealth servers and print for user when this file is being sourced.
+
+```{r}
+walk(
+  .x = c(1:5),
+  .f = function(x) {
+    sav_nm <- paste0("Visit_", x, "_Data.SAV")
+    path <- paste0(qds_spss_path, sav_nm)
+    cat(
+      sav_nm, "last modified on UTHealth server:", as.character(file.info(path)$mtime), "\n"
+    )
+  }
+)
+```
+
+```{r}
 walk(
   .x = c(1:5),
   .f = function(x) {
@@ -2040,8 +2058,10 @@ cat(
 
 # 🗑Clean up
 
+Don't use `rm(list = ls())` because is causes R to drop the helper functions in data_survey_21_update_all_data.Rmd
+
 ```{r}
-rm(list = ls())
+rm(list = ls()[ls() != "source_rmd"])
 ```
 
 ```{r echo=FALSE}

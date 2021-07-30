@@ -15,9 +15,9 @@ The arrest data is securely transmitted by Dr. Gonzalez as an Excel file, which 
 # 📦Load packages
 
 ```{r message=FALSE}
-library(dplyr)
-library(readxl)
-library(readr)
+library(dplyr, warn.conflicts = FALSE)
+library(readxl, warn.conflicts = FALSE)
+library(readr, warn.conflicts = FALSE)
 ```
 
 
@@ -31,12 +31,25 @@ open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/'
 
 # 📥Import data 
 
-* Had to remove password from Excel sheet before import. Help -> Passwords -> Delete password.   
-* Had to do a little bit of manual removal of text from dates (i.e., "CURRENTLY IN CUSTODY") in the Excel file.   
+* Had to remove password from Excel sheet before import. File -> Passwords... -> Delete password.   
+
+```{r}
+path <- "/Volumes/Link2Care/Participant Data/Arrest Data Requests/current_arrest_data.xlsx"
+```
+
+Check the most recent file modification dates on the UTHealth servers and print for user when this file is being sourced.
+
+```{r}
+cat(
+  stringr::str_extract(path, "([^/]+$)"),
+  "last modified on UTHealth server:",
+  as.character(file.info(path)$mtime), "\n"
+)
+```
 
 ```{r}
 arrest <- read_excel(
-  "/Volumes/Link2Care/Participant Data/Arrest Data Requests/Current_Arrest Data_De-identified_2001-2234.xlsx",
+  path,
   sheet = "Sheet1",
   col_names = c(
     "subject", "arrested", "arrested_date_baseline", paste("arrested_date", 1:5, sep = "_")
@@ -54,7 +67,7 @@ cat(
   "Arrest data", nrow(arrest), "rows and", ncol(arrest), "columns.\n"
 )
 
-# 2021-06-30: Arrest data 234 rows and 8 columns.
+# 2021-07-28: Arrest data 238 rows and 8 columns.
 ```
 
 
@@ -73,17 +86,10 @@ Print a message for when this file is being sourced
 ```{r}
 cat(
   paste0(Sys.Date(), ":"),
-  "Arrest data saved to", path
+  "Arrest data saved to", path, "\n"
 )
 
 # 2021-06-30: Arrest data saved to /Volumes/Link2Care/Participant Data/R Data/arrest.rds
-```
-
-
-# 🗑Clean up
-
-```{r}
-rm(path)
 ```
 
 
@@ -96,6 +102,15 @@ cat(
 )
 
 # 2021-06-30: Arrest data cleaned with 234 rows and 8 columns.
+```
+
+
+# 🗑Clean up
+
+Don't use `rm(list = ls())` because is causes R to drop the helper functions in data_survey_21_update_all_data.Rmd
+
+```{r}
+rm(list = ls()[ls() != "source_rmd"])
 ```
 
 ```{r echo=FALSE}

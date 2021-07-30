@@ -15,10 +15,10 @@ The TLFB data is exported from somewhere as 3 individual Excel files (i.e., alco
 # 📦Load packages
 
 ```{r message=FALSE}
-library(dplyr)
-library(haven)
-library(readr)
-library(testthat)
+library(dplyr, warn.conflicts = FALSE)
+library(haven, warn.conflicts = FALSE)
+library(readr, warn.conflicts = FALSE)
+library(testthat, warn.conflicts = FALSE)
 ```
 
 # 🌎Connect to UTH server 
@@ -32,7 +32,21 @@ open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/'
 # 📥Import data 
 
 ```{r}
-tlfb <- read_sav("/Volumes/Link2Care/Participant Data/SPSS Data/TLFB Data/TLFB_Database.sav")
+path <- "/Volumes/Link2Care/Participant Data/SPSS Data/TLFB Data/TLFB_Database.sav"
+```
+
+Check the most recent file modification dates on the UTHealth servers and print for user when this file is being sourced.
+
+```{r}
+cat(
+  stringr::str_extract(path, "([^/]+$)"),
+  "last modified on UTHealth server:",
+  as.character(file.info(path)$mtime), "\n"
+)
+```
+
+```{r}
+tlfb <- read_sav(path)
 
 # Print a message for when this file is being sourced
 cat(
@@ -40,7 +54,7 @@ cat(
   "TLFB", nrow(tlfb), "rows and", ncol(tlfb), "columns.\n"
 )
 
-# 2021-06-30: TLFB 1156 rows and 21 columns.
+# 2021-07-28: TLFB 1200 rows and 21 columns.
 ```
 
 
@@ -72,16 +86,18 @@ names(tlfb) <- new_col_names
 
 Coercing to numeric will replace the periods with `NA` and coerce the number values to actual numbers.
 
-```{r warning=FALSE}
-tlfb <- tlfb %>% 
+```{r}
+tlfb <- tlfb %>%
   mutate(
     across(
       everything(),
-      as.numeric
+      function(x) {
+        x[x == "."] <- NA
+        x <- as.numeric(x)
+      }
     )
   )
 ```
-
 
 
 # 💾Save the data frame
@@ -99,15 +115,8 @@ Print a message for when this file is being sourced
 ```{r}
 cat(
   paste0(Sys.Date(), ":"),
-  "TLFB data saved to", path
+  "TLFB data saved to", path, "\n"
 )
-```
-
-
-# 🗑Clean up
-
-```{r}
-rm(current_col_names, new_col_names, path)
 ```
 
 
@@ -120,6 +129,15 @@ cat(
 )
 
 # 2021-06-30: REDCap data cleaned with 21 rows and 911 columns.
+```
+
+
+# 🗑Clean up
+
+Don't use `rm(list = ls())` because is causes R to drop the helper functions in data_survey_21_update_all_data.Rmd
+
+```{r}
+rm(list = ls()[ls() != "source_rmd"])
 ```
 
 ```{r echo=FALSE}

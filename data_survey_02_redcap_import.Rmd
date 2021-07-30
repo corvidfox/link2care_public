@@ -30,10 +30,10 @@ Currently, I'm importing all of this data from the UTHealth server. The data sho
 # 📦Load packages
 
 ```{r message=FALSE}
-library(dplyr)
-library(haven)
-library(readr)
-library(readxl)
+library(dplyr, warn.conflicts = FALSE)
+library(haven, warn.conflicts = FALSE)
+library(readr, warn.conflicts = FALSE)
+library(readxl, warn.conflicts = FALSE)
 ```
 
 
@@ -48,7 +48,21 @@ open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/'
 # 📥Import data 
 
 ```{r}
-redcap <- read_sav("/Volumes/Link2Care/Participant Data/REDCap/All_Visits_Redcap.sav")
+path <- "/Volumes/Link2Care/Participant Data/REDCap/All_Visits_Redcap.sav"
+```
+
+Check the most recent file modification dates on the UTHealth servers and print for user when this file is being sourced.
+
+```{r}
+cat(
+  stringr::str_extract(path, "([^/]+$)"),
+  "last modified on UTHealth server:",
+  as.character(file.info(path)$mtime), "\n"
+)
+```
+
+```{r}
+redcap <- read_sav(path)
 
 # Print a message for when this file is being sourced
 cat(
@@ -138,7 +152,7 @@ Create a final new set of column names. The new name will be equal to qds_name u
 
 Rename and reorder column names using `select()` like we did with the QDS data.
 
-```{r}
+```{r eval=FALSE}
 
 # Move this to another file after you get everything working.
 
@@ -1105,8 +1119,10 @@ cat(
 
 # 🗑Clean up
 
+Don't use `rm(list = ls())` because is causes R to drop the helper functions in data_survey_21_update_all_data.Rmd
+
 ```{r}
-rm(list = ls())
+rm(list = ls()[ls() != "source_rmd"])
 ```
 
 ```{r echo=FALSE}

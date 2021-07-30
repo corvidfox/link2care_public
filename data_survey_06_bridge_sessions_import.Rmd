@@ -15,11 +15,11 @@ The Bridge sessions data is securely stored as an Excel file on the the UTHealth
 # 📦Load packages
 
 ```{r message=FALSE}
-library(dplyr)
-library(readxl)
-library(stringr)
-library(tidyr)
-library(readr)
+library(dplyr, warn.conflicts = FALSE)
+library(readxl, warn.conflicts = FALSE)
+library(stringr, warn.conflicts = FALSE)
+library(tidyr, warn.conflicts = FALSE)
+library(readr, warn.conflicts = FALSE)
 ```
 
 
@@ -36,8 +36,22 @@ open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/'
 * Bridge session Excel file is password protected and the password can't be removed. Therefore, you have to open the password protected file, select all the data, copy, and then paste into a new Excel file that is not password protected.   
 
 ```{r}
+path <- "/Volumes/Link2Care/Participant Data/Bridge Session Data/bridge_session_minutes.xlsx"
+```
+
+Check the most recent file modification dates on the UTHealth servers and print for user when this file is being sourced.
+
+```{r}
+cat(
+  stringr::str_extract(path, "([^/]+$)"),
+  "last modified on UTHealth server:",
+  as.character(file.info(path)$mtime), "\n"
+)
+```
+
+```{r}
 bridge <- read_excel(
-  "/Volumes/Link2Care/Participant Data/Bridge Session Data/NoPasswordCurrent_Bridge Session Minutes_as of_6-8-21.xlsx",
+  path,
   sheet = "Sheet1",
   col_names = c(
     "subject", "bridge_baseline_date", "bridge_v2_rand_date", 
@@ -47,6 +61,7 @@ bridge <- read_excel(
   col_types = c(
     "numeric", rep("date", 3), "text", rep("numeric", 4), "text"
   ),
+  na = c("", ".", "None"),
   skip = 10
 )
 
@@ -56,7 +71,7 @@ cat(
   "Bridge session data", nrow(bridge), "rows and", ncol(bridge), "columns.\n"
 )
 
-# 2021-06-30: Bridge session data 2745 rows and 10 columns.
+# 2021-07-28: Bridge session data 2912 rows and 10 columns.
 ```
 
 
@@ -65,9 +80,12 @@ cat(
 Remove text from date columns and convert to dates.
 
 ```{r}
-bridge <- bridge %>% 
+bridge <- bridge %>%
   mutate(
-    bridge_date_session = str_remove_all(bridge_date_session, "[A-z]|[a-z]"),
+    bridge_date_session = if_else(
+      str_detect(bridge_date_session, "[A-Z]|[a-z]"), 
+      NA_character_, bridge_date_session
+    ),
     bridge_date_session = as.numeric(bridge_date_session),
     bridge_date_session = as.Date(bridge_date_session, origin = "1899-12-30")
   )
@@ -182,10 +200,8 @@ Print a message for when this file is being sourced
 ```{r}
 cat(
   paste0(Sys.Date(), ":"),
-  "Bridge session long data saved to", path
+  "Bridge session long data saved to", path, "\n"
 )
-
-# 2021-06-30: Bridge session long data saved to /Volumes/Link2Care/Participant Data/R Data/bridge.rds
 ```
 
 ```{r}
@@ -201,17 +217,8 @@ Print a message for when this file is being sourced
 ```{r}
 cat(
   paste0(Sys.Date(), ":"),
-  "Bridge session wide data saved to", path
+  "Bridge session wide data saved to", path, "\n"
 )
-
-# 2021-06-30: Bridge session wide data saved to /Volumes/Link2Care/Participant Data/R Data/bridge_wide.rds
-```
-
-
-# 🗑Clean up
-
-```{r}
-rm(path)
 ```
 
 
@@ -223,7 +230,7 @@ cat(
   "Bridge session long data cleaned with", nrow(bridge), "rows and", ncol(bridge), "columns.\n"
 )
 
-# 2021-06-30: Bridge session long data cleaned with 2214 rows and 20 columns.
+# 2021-07-28: Bridge session long data cleaned with 2346 rows and 20 columns.
 ```
 
 ```{r}
@@ -232,7 +239,16 @@ cat(
   "Bridge session wide data cleaned with", nrow(bridge_wide), "rows and", ncol(bridge_wide), "columns.\n"
 )
 
-# 2021-06-30: Bridge session wide data cleaned with 289 rows and 20 columns.
+# 2021-07-28: Bridge session wide data cleaned with 300 rows and 20 columns.
+```
+
+
+# 🗑Clean up
+
+Don't use `rm(list = ls())` because is causes R to drop the helper functions in data_survey_21_update_all_data.Rmd
+
+```{r}
+rm(list = ls()[ls() != "source_rmd"])
 ```
 
 ```{r echo=FALSE}

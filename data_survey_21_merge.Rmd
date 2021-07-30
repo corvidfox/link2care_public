@@ -10,8 +10,13 @@ This file is used to merged together multiple data sets containing survey respon
 # 📦Load packages
 
 ```{r message=FALSE}
-library(dplyr)
-library(readr)
+library(dplyr, warn.conflicts = FALSE)
+library(readr, warn.conflicts = FALSE)
+library(purrr, warn.conflicts = FALSE)
+library(testthat, warn.conflicts = FALSE)
+library(stringr, warn.conflicts = FALSE)
+library(tidyr, warn.conflicts = FALSE)
+library(haven, warn.conflicts = FALSE)
 ```
 
 # 🌎Connect to UTH server 
@@ -26,7 +31,7 @@ open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/'
 
 We previously imported and did some initial cleaning of the following data sets:
 
-* QDS (data_survey_01_qds_v1_import.Rmd - data_survey_05_qds_v5_import.Rmd)   
+* QDS (data_survey_01_qds_import.Rmd)   
 * REDCap (data_survey_06_redcap_import.Rmd)    
 * Master log (data_survey_07_master_log_import.Rmd)   
 * Timeline followback (data_survey_08_tlfb_import.Rmd)   
@@ -67,398 +72,439 @@ for (i in seq_along(data_frames)) {
 
 rm(data_frames, df_nm, full_path, i, path)
 
-# 2021-07-19: qds_all_visits_import.rds imported as qds with 1038 rows and 1046 columns.
-# 2021-07-19: redcap_import.rds imported as rc with 21 rows and 911 columns.
-# 2021-07-19: master_log_screened_in.rds imported as ml with 279 rows and 33 columns.
-# 2021-07-19: tlfb.rds imported as tlfb with 1156 rows and 21 columns.
-# 2021-07-19: arrest.rds imported as arrest with 234 rows and 8 columns.
-# 2021-07-19: bridge_wide.rds imported as bridge with 289 rows and 20 columns.
+# 2021-07-30: qds_all_visits_import.rds imported as qds with 1038 rows and 1046 columns.
+# 2021-07-30: redcap_import.rds imported as rc with 21 rows and 911 columns.
+# 2021-07-30: master_log_screened_in.rds imported as ml with 300 rows and 37 columns.
+# 2021-07-30: tlfb.rds imported as tlfb with 1200 rows and 21 columns.
+# 2021-07-30: arrest.rds imported as arrest with 238 rows and 8 columns.
+# 2021-07-30: bridge_wide.rds imported as bridge with 300 rows and 20 columns.
 ```
 
 
-# 🔄Merge data 
+# Remove attributes for all variables
 
-QDS and REDCap
+Causes problems with `tidyr::fill()` and "Error: Can't combine `..1$hrq_1` <double> and `..2$hrq_1` <haven_labelled>."
 
-```{r}
-rc
-```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Clean variable names
-
-_See "Notes on cleaning individual L2C data sets for merging" for the rationale, style guidelines, and instructions for this section._
-  
-## Extract content from Word codebook
+I will almost certainly want to do something different once I start making the codebook, but for now, just remove all the attributes from all of the columns so that we can see if we can get them to bind. 
 
 ```{r}
-v5_cb_content <- read_docx("docs/codebooks/L2C_v5 Codebook.docx") %>% 
-  docx_summary()
-```
-
-## Keep the variables of interest only
-
-```{r}
-v5_cb_col_names <- v5_cb_content %>%
-  filter(style_name %in% c("section_name", "cb_col_name", "col_name")) %>% 
-  select(doc_index, style_name:text) %>% 
-  pivot_wider(
-    names_from = "style_name",
-    values_from = "text"
-  )
-```
-
-## Clean section names
-
-```{r}
-v5_cb_col_names <- v5_cb_col_names %>%
-  mutate(
-    # Remove "Sect-number."
-    section_name = str_remove(section_name, "Sect-\\d{1,}."),
-    # Remove asterisks
-    section_name = str_remove_all(section_name, "\\*"),
-    # Remove empty spaces
-    section_name = str_trim(section_name)
-  ) %>% 
-  # Fill section down across rows
-  fill(section_name)
-```
-
-## Record the sections that are completed at visit 5
-
-We will use this for checking to make sure all of the correct questionnaire sections merge later.
-
-**NOTE:** q_sections was created in data_survey_01_qds_v1_import.Rmd
-
-```{r}
-q_sections <- read_rds("data/questionnaire_section.rds")
-```
-
-```{r}
-q_sections[["v5"]] <- unique(v5_cb_col_names$section_name)
-# q_sections[["v5"]]
-```
-
-```{r}
-write_rds(q_sections, "data/questionnaire_section.rds")
-```
-
-```{r}
-rm(q_sections)
-```
-
-## Reduce to one row per column
-
-Currently, cb_col_name and col_name are on separate rows. We will spread the different column names vertically across rows so that we can reduce the data frame down to one row per column.
-
-```{r}
-v5_cb_col_names <- v5_cb_col_names %>%
-  # Spread cb_col_name across rows
-  fill(cb_col_name) %>% 
-  # Spread col_name across rows within cb_col_name
-  group_by(cb_col_name) %>% 
-  fill(col_name, .direction = "up") %>% 
-  # # For data checking
-  # filter(section_name == "Self-Rated Health Questionnaire") %>%
-  # ungroup() %>%
-  # slice(-1) %>%
-  # summarise(
-  #   length(unique(cb_col_name)),
-  #   length(unique(col_name))
-  # )
-  group_by(cb_col_name) %>% 
-  filter(row_number() == 1) %>% 
-  ungroup() %>% 
-  # Remove first row
-  slice(-1)
-```
-
-```{r}
-dim(v5_cb_col_names) # 550   4
-```
-
-## Standardize new column names
-
-* Remove _v5 and v5 from column names
-* Replace spaces with underscores
-* Convert to lower case
-* Add underscore in-between the abbreviated tool name and question number
-
-```{r}
-v5_cb_col_names <- v5_cb_col_names %>%
-  mutate(
-    # Remove _v5 from column name
-    # Remove v5 at end of column name (e.g., DEM1v5)
-    # Don't include values for col_name that were changed in the Word
-    # document.
-    col_name = if_else(
-      is.na(col_name),
-      str_replace(cb_col_name, "_V5|V5", ""),
-      as.character(col_name)
-    ),
-    # Replace spaces with underscores
-    col_name = str_replace_all(col_name, " ", "_"),
-    # Convert to lower case
-    col_name = str_to_lower(col_name),
-    # Add underscore in-between the abbreviated tool name and question number
-    col_name = str_replace(col_name, "([a-z])(\\d)", "\\1_\\2")
-  )
-```
-
-## Create a column name key
-
-That we can use to rename columns in the v5 data using column names already used at previous visits. 
-
-In the process of cleaning the previous visits data, we have already created some new column names. Here we will load those previously created column names and apply them to the visit 5 data where applicable. The goal is to have matching column names for matching variables across all the survey data to facilitate joining them together into a single data frame.
-
-Load the previously used column names.
-
-**NOTE:** col_name_keys.rds was created in data_survey_01_qds_v1_import.Rmd
-
-```{r}
-col_name_keys <- read_rds("data/col_name_keys.rds")
-```
-
-```{r}
-established_col_names <- col_name_keys[["v1"]] %>%
-  bind_rows(col_name_keys[["v2"]]) %>% 
-  bind_rows(col_name_keys[["v3"]]) %>% 
-  bind_rows(col_name_keys[["v4"]])
-```
-
-Prepare the visit 5 column names to be compared to the previously established column names.
-
-```{r}
-v5_cols_compare <- v5_cb_col_names %>% 
-  # Don't need doc_index
-  select(-doc_index) %>%  
-  # If we just join on col_name below, we can't see how col_name in the 
-  # current visit data and col_name in the past visit data differ.
-  # If we try to join on the codebook col_names, we don't get many joins
-  # because of the visit numbers (e.g., TODAY_V1 and TODAY_V5).
-  # Dropping the visit numbers from the codebook column names and joining
-  # on that.
-  # It isn't perfect, but it gets us really close.
-  mutate(cb_col_name_join = str_remove(cb_col_name, "_V\\d|V\\d")) %>%
-  select(section_name, cb_col_name_join, cb_col_name, col_name_v5 = col_name)
-```
-
-Prepare the previously established column names to be compared to the visit 5 column names.
-
-```{r}
-established_cols_compare <- established_col_names %>% 
-  # Don't need doc_index or section_name
-  select(cb_col_name, col_name) %>% 
-  # Values of col_name can repeat across visits.
-  # For our current purposes, we only need the unique values of col_name.
-  filter(!cb_col_name == "DEMO16G") %>% # More useful version of dem_14g
-  distinct(col_name, .keep_all = TRUE) %>% 
-  # If we just join on col_name below, we can't see how col_name in the 
-  # current visit data and col_name in the past visit data differ.
-  # If we try to join on the codebook col_names, we don't get many joins
-  # because of the visit numbers (e.g., TODAY_V1 and TODAY_V5).
-  # Dropping the visit numbers from the codebook column names and joining
-  # on that.
-  # It isn't perfect, but it gets us really close.
-  mutate(cb_col_name_join = str_remove(cb_col_name, "_V\\d|V\\d")) %>%
-  select(cb_col_name_join, col_name_saved = col_name)
-```
-
-```{r}
-# Helper function
-not_match <- function(x, y) {
-  out <- (x == y) | (is.na(x) & is.na(y))
-  out[is.na(out)] <- FALSE
-  !out
-}
-```
-
-Manually review the differences in column names and correct typos in the visit 5 codebook as needed. However, don't create new col_name values in the visit 5 codebook if we can just grab them from the "columns" data frame. Doing so makes typos less likely if we make changes to the column names in the future, we only have to make those changes in one place. For example, if we decided to change "dem_employ_status" to "dem_employ", we would only have to make that change in the visit 1 codebook -- not the visit 5 codebook.
-
-```{r}
-v5_col_names_key <- v5_cols_compare %>%
-  left_join(established_cols_compare, by = "cb_col_name_join") %>%
-  # For manual data checking
-  # mutate(diff = not_match(col_name_v5, col_name_saved)) %>%
-  # filter(diff) %>%
-  # select(cb_col_name, col_name_v5:col_name_saved)
-  mutate(
-    col_name = col_name_saved,
-    col_name = if_else(is.na(col_name), col_name_v5, col_name)
-  ) %>%
-  # For manual data checking
-  # select(cb_col_name, col_name_v5:col_name_saved, col_name)
-  select(section_name, cb_col_name, col_name)
-```
-
-* Use the saved, previously used column names except except where noted below.
-
-* Use the visit 5 column names for the following variables:
-  - Weight-waist - fixed typos in the visit 5 codebook  
-  - The MMSE is all recoded directly in the visit 5 codebook
-  - DEM14GV4 and DEM14HV4 are recoded directly in the visit 5 codebook
-  - HSI2_V13 - fixed typo in the visit 5 codebook
-  - MS4_V5 - there was a typo in the visit 1 codebook   
-  - PV1_V5-PV3_V5 - discrepancy is just caused by the way cb_col_name_join was created.   
-  - ENDTIME5 - fixed typo in the visit 5 codebook  
-  
-## Check for duplicate column names
-
-Check to make sure this process didn't accidentally create any duplicate column names
-
-```{r}
-v5_col_names_key %>% 
-  group_by(col_name) %>% 
-  filter(max(row_number()) > 1)
-```
-
-When we remove "_V5" from the visit 5 codebook column names to do the join above, T31_V5B and T31B_V5 both become T31B. This causes both columns to join with both t32b and t33 from the previously used column names data frame. 
-
-In reality, T31_V5B should be t32b (change made in visit 1 codebook, T31_V1B -> t32b) and T31B_V5 should be t33 (change made in visit 1 codebook, T31B_V1 -> t33). We will manually make those changes below.
-
-```{r}
-v5_col_names_key <- v5_col_names_key %>% 
-  # Drop the row with cb_col_name == "T31_V5B" & col_name == "t_33"
-  # Keep the row with cb_col_name == "T31_V5B" & col_name == "t32b"
-  filter(!(cb_col_name == "T31_V5B" & col_name == "t_33")) %>% 
-  # Drop the row with cb_col_name == "T31B_V5" & col_name == "t32b"
-  # Keep the row with cb_col_name == "T31B_V5" & col_name == "t_33"
-  filter(!(cb_col_name == "T31B_V5" & col_name == "t_32b"))
-```
-
-```{r}
-test_that("No duplicate col_names were created in the visit 5 data.", {
-  check_dup_col_name <- v5_col_names_key %>% 
-    group_by(col_name) %>% 
-    filter(max(row_number()) > 1) %>% 
-    pull(col_name)
-  
-  expect_length(check_dup_col_name, 0)
-})
-```
-
-## Save column names
-
-Save v5_col_names_key as a key that maps the new names to the old names in case we need that information in the future. Possibly for the codebook.
-
-```{r}
-v5_col_names_key <- v5_col_names_key %>% 
-  # Add df identifier
-  mutate(df = "v5") %>% 
-  select(df, everything())
-```
-
-```{r}
-col_name_keys[["v5"]] <- v5_col_names_key
-# col_name_keys[["v5"]]
-```
-
-```{r}
-write_rds(col_name_keys, "data/col_name_keys.rds")
-```
-
-```{r}
-rm(
-  col_name_keys, established_cols_compare, established_col_names, v5_cb_col_names, 
-  v5_cb_content, v5_cols_compare, not_match
+qds_stripped <- map_df(
+  .x = qds, 
+  .f = function(x) {
+    attributes(x) <- NULL
+    x
+  }
 )
 ```
 
-## Differences between codebook columns and data columns
-
-Check to see what differences, if any, exist between the columns in the codebook and the columns in the actual data frame.
-
 ```{r}
-in_cb_not_df <- setdiff(v5_col_names_key$cb_col_name, names(v5))
-in_cb_not_df
+attributes(qds_stripped$date_visit)$class <- "Date"
 ```
 
-There are **0** column name in the codebook that doesn't appear in the data.
+```{r}
+rc_stripped <- map_df(
+  .x = rc,
+  .f = function(x) {
+    attributes(x) <- NULL
+    x
+  }
+)
+```
 
 ```{r}
-# Future proof this by checking to see if the variables have changed over time.
-# If this test fails in the future, come back and make adjustments to how we 
-# handle columns as needed.
-test_that("The expected columns exist in the codebook, but not the v5 df.", {
-  expect_equal(
-    length(in_cb_not_df),
-    0L
+attributes(rc_stripped$date_visit)$class <- "Date"
+```
+
+
+# Clean group value
+
+Group assignment from across visits can be conflicting. Additionally, group assignments between data collection instruments (i.e., QDS, REDCap, and Master Log) can be conflicting.
+
+First, gather all of the group information from the QDS data.
+
+```{r}
+group_qds_long <- qds_stripped %>%
+  select(id, group, visit) %>% 
+  arrange(id, visit) %>% 
+  
+  # Fill values of group down within id
+  group_by(id) %>% 
+  tidyr::fill(group, .direction = "downup") %>% 
+  
+  # Now check for multiple group values within id
+  mutate(mult_group = unique(group) %>% length() > 1) %>% 
+  ungroup()
+```
+
+Manually review id's with multiple group values
+
+```{r}
+group_qds_long %>% 
+  filter(mult_group == TRUE)
+```
+
+**NOTE on multiple groups per id:**
+Manually fix group value and let James know that they need to be fixed in QDS. After they are fixed, they will no longer show up here. Still, use these notes to keep a record.
+
+2021-01-11, From James: 
+* P2057: V3 grouping entered incorrectly on QDS. Entered 'UCM' (1) instead of 'L2C' (3) 
+
+```{r}
+# Do it this way instead of with dplyr, so you don't have to mess with class
+group_qds_long[group_qds_long$id == 2057, "group"] <- 3
+```
+
+Do one more check for multiple group values
+
+Wrapping this data check in a stop function for when this file is sourced.
+
+```{r}
+# For data checks
+check_qds_group_values <- group_qds_long %>% 
+  group_by(id) %>% 
+  # Now check for multiple group values within id
+  filter(unique(group) %>% length() > 1)
+
+if (nrow(check_qds_group_values) > 0) {
+  stop("At least one participant in the QDS data is assigned to more than one group. Please investigate further in data_survey_21_merge.Rmd.")
+}
+```
+
+Now, the value of group is the same in every row for each id. So, just use the first row for each id.
+
+```{r}
+group_qds <- group_qds_long %>% 
+  group_by(id) %>% 
+  filter(row_number() == 1) %>% 
+  select(id, group) %>% 
+  ungroup()
+```
+
+### REDCap: Check for differences in the REDCap data
+
+Are the group values consistent in REDCap?
+
+Wrapping this data check in a stop function for when this file is sourced.
+
+```{r}
+# For data checks
+check_redcap_group_values <- rc_stripped %>% 
+  group_by(id) %>% 
+  filter(unique(group) %>% length() > 1)
+
+if (nrow(check_redcap_group_values) > 0) {
+  stop("At least one participant in the REDCap data is assigned to more than one group. Please investigate further in data_survey_21_merge.Rmd.")
+}
+```
+
+Yes, so now we don't need to worry about visit number. We can just keep one row per id, and check to make sure that group in REDCap matches group in the QDS data.
+
+```{r}
+rc_id_group <- rc_stripped %>% 
+  select(id, group) %>% 
+  distinct(id, group)
+```
+
+Manually check for differences between group assignment in QDS and REDCap.
+
+```{r}
+rc_id_group %>% 
+  left_join(
+    group_qds %>% 
+      select(id, group) %>% 
+      # To prevent type mismatch error:
+      mutate(id = as.character(id)),
+    by = "id",
+    suffix = c("_rc", "_qds")
+  ) %>% 
+  rowwise() %>% 
+  filter(length(unique(c_across(group_rc:group_qds))) > 1)
+```
+
+Manually fill in data values in the QDS data.
+
+```{r}
+group_qds$group[group_qds$id == 2252] <- 2
+group_qds$group[group_qds$id == 2253] <- 3
+```
+
+Wrapping this data check in a stop function for when this file is sourced.
+
+```{r}
+# For data checks
+check_qds_redcap_group_diffs <- rc_id_group %>% 
+  left_join(
+    group_qds %>% 
+      select(id, group) %>% 
+      # To prevent type mismatch error:
+      mutate(id = as.character(id)),
+    by = "id",
+    suffix = c("_rc", "_qds")
+  ) %>% 
+  rowwise() %>% 
+  filter(length(unique(c_across(group_rc:group_qds))) > 1)
+
+if (nrow(check_qds_redcap_group_diffs) > 0) {
+  stop("At least one participant is assigned to different groups in the QDS and REDCap data. Please investigate further in data_survey_21_merge.Rmd.")
+}
+```
+
+### Master log: Supplement with Excel master log data
+
+Manually check for differences between group assignment in QDS and master log.
+
+Error: Can't join on `x$id` x `y$id` because of incompatible types. ℹ `x$id` is of type <character>>. ℹ `y$id` is of type <double>>.
+
+```{r}
+group_qds <- group_qds %>% 
+  mutate(id = as.character(id))
+```
+
+```{r}
+check_qds_ml_group_diffs <- ml %>%
+  left_join(
+    group_qds %>% 
+      select(id, group),
+    by = "id",
+    suffix = c("_ml", "_qds")
+  ) %>% 
+  select(id, group_ml, group_qds) %>% 
+  rowwise() %>% 
+  filter(length(unique(c_across(group_ml:group_qds))) > 1)
+```
+
+There are a bunch of id's with group membership data in master log, but not in QDS. Mostly, because these people haven't completed a v3 in QDS yet. We will go ahead and fill in the missing group data from the master log.
+
+Below, we will formally check to see if there are any conflicting group values aside from group simply being missing in the QDS data. We will also wrap this data check in a stop function for when this file is sourced.
+
+```{r}
+# For data checks
+check_qds_ml_group_diffs_not_na <- check_qds_ml_group_diffs %>% 
+  filter(!is.na(group_qds))
+
+if (nrow(check_qds_ml_group_diffs_not_na) > 0) {
+  stop("At least one participant is assigned to different groups in the QDS and master log data. This not simply due to a missing group value in master log. Please investigate further in data_survey_21_merge.Rmd.")
+}
+```
+
+Now there are no "conflicts" between group in the QDS data and group in the master log. The differences were all simply due to the fact that there is no group membership information at all in QDS for these participants. Therefore, we can just go ahead and row bind. In the future, if there are conflicts between group_diffs\$group_diffs and group_diffs\$group_qds, we will need to manage them.
+
+```{r}
+group_membership_key <- group_qds %>% 
+  full_join(
+    check_qds_ml_group_diffs %>% 
+      select(id, group_ml),
+    by = "id"
+  ) %>% 
+  mutate(group = if_else(is.na(group), group_ml, group)) %>% 
+  select(-group_ml)
+```
+
+Make sure there are no duplicated ids in `group_membership_key` 
+
+```{r}
+if (length(unique(group_membership_key$id)) != nrow(group_membership_key)) {
+  stop(
+    "There are duplicate ids in `group_membership_key`. Investigate in data_survey_21_merge.Rmd"
+  )
+}
+```
+
+```{r}
+# Clean up the data checking objects
+rm(
+  check_qds_group_values, check_qds_ml_group_diffs, check_qds_ml_group_diffs_not_na,
+  check_qds_redcap_group_diffs, check_redcap_group_values, group_qds, group_qds_long
+)
+```
+
+At this point, `group_membership_key` contains the final group value we will use for each participant. After merging all the other data sets below, we will add the corrected group membership information. 
+
+# 🔄Merge data 
+
+## QDS and REDCap
+
+Error: Can't combine `..1$id` <double> and `..2$id` <character>.
+
+Error: Can't combine `..1$af_drinks` <character> and `..2$af_drinks` <double>.
+
+```{r}
+qds_stripped <- qds_stripped %>% 
+  mutate(
+    id = as.character(id),
+    af_drinks = as.numeric(af_drinks)
+  )
+```
+
+```{r}
+l2c_survey <- qds_stripped %>% 
+  bind_rows(rc_stripped) %>% 
+  arrange(id, visit) 
+```
+
+## Master log
+
+Some of the information in master log is redundant.
+
+Error: Can't join on `x$id` x `y$id` because of incompatible types. ℹ `x$id` is of type <character>>. ℹ `y$id` is of type <double>>.
+
+Add "ml" to the beginning of every column name in the master log. This is to prevent duplicate names (e.g. `gender.x` and `gender.y` when we join below)
+
+```{r}
+ml_sub <- ml %>% 
+  select(id, status, group, name_first:v5_r_completed) %>% 
+  mutate(id = as.character(id)) %>% 
+  rename_with(~ paste0("ml_", .x))
+```
+
+Make sure there is one row per id in master log before joining.
+
+```{r}
+test_that("Master log has one row per id", {
+  rows_in_ml <- nrow(ml_sub)
+  ids_in_ml <- length(unique(ml_sub$ml_id))
+  expect_equal(rows_in_ml, ids_in_ml)
+})
+```
+
+There are also more people in the Master log than there are in the QDS/REDCap data. This is because the Master Log is updated more frequently than the QDS/REDCap data.
+
+Put in a check for this. If it fails, you probably need to update the Master Log import.
+
+```{r}
+test_that("There are also more people in the Master log than there are in the QDS/REDCap data.", {
+  expect_true(length(unique(ml_sub$ml_id)) >= length(unique(l2c_survey$id)))
+})
+```
+
+```{r}
+l2c_survey <- ml_sub %>% 
+  left_join(l2c_survey, by = c("ml_id" = "id")) %>% 
+  rename(id = ml_id)
+```
+
+## TLFB
+
+Error: Can't join on `x$id` x `y$id` because of incompatible types. ℹ `x$id` is of type <character>>. ℹ `y$id` is of type <double>>.
+
+```{r}
+tlfb <- tlfb %>% 
+  mutate(subject = as.character(subject)) %>% 
+  rename(id = subject)
+```
+
+```{r}
+l2c_survey <- l2c_survey %>% 
+  left_join(tlfb, by = c("id", "visit"))
+```
+
+## Arrest data 
+
+It looks like there is only one row per id. Check to make sure this is always the case. The join below will expect this condition. 
+
+```{r}
+test_that("Arrest data has one row per id in data_survey_21_merge.Rmd", {
+  expect_true(
+    arrest %>% 
+      summarise(one_row_per_id = nrow(.) == length(unique(subject))) %>% 
+      pull() 
   )
 })
 ```
 
-Now, check for columns that exist in the data frame, but not the codebook.
-
 ```{r}
-in_df_not_cb <- setdiff(names(v5), v5_col_names_key$cb_col_name)
-in_df_not_cb
+arrest <- arrest %>% 
+  mutate(subject = as.character(subject)) %>% 
+  rename(id = subject)
 ```
 
 ```{r}
-# Future proof this by checking to see if the variables have changed over time.
-# If this test fails in the future, come back and make adjustments to how we 
-# handle columns as needed.
-test_that("The expected columns exist in the v5 df, but not the v5 codebook.", {
-  expect_equal(
-    length(in_df_not_cb),
-    0L
+l2c_survey <- l2c_survey %>%
+  left_join(arrest, by = "id")
+```
+
+## Bridge sessions data
+
+It looks like there is only one row per id. Check to make sure this is always the case. The join below will expect this condition. 
+
+```{r}
+test_that("Bridge session data has one row per id in data_survey_21_merge.Rmd", {
+  expect_true(
+    bridge %>% 
+      summarise(one_row_per_id = nrow(.) == length(unique(subject))) %>% 
+      pull() 
   )
 })
 ```
 
-Clean up
-
 ```{r}
-rm(in_cb_not_df, in_df_not_cb)
-```
-
-## Replace variable names in the full data frame
-
-Put them in the same order used in the codebook.
-
-```{r}
-v5 <- v5 %>% 
-  select(all_of(v5_col_names_key$cb_col_name))
-
-names(v5) <- v5_col_names_key$col_name
-```
-
-
-# Save the data frame
-
-```{r}
-path <- "/Volumes/Link2Care/Participant Data/SPSS Data/QDS Data/v5.sav"
+bridge <- bridge %>% 
+  mutate(subject = as.character(subject)) %>% 
+  rename(id = subject)
 ```
 
 ```{r}
-write_sav(v5, path)
+l2c_survey <- l2c_survey %>%
+  left_join(bridge, by = "id")
+```
+
+
+# Set group status
+
+Use `group_membership_key` to set the final group status for each participant.
+
+There should not be more ids in `group_membership_key` than `l2c_survey`. Check to make sure.
+
+```{r}
+test_that("There are not more ids in `group_membership_key` than `l2c_survey` in data_survey_01_import.Rmd", {
+  expect_true(
+    nrow(group_membership_key) <= length(unique(l2c_survey$id)) 
+  )
+})
+```
+
+```{r}
+l2c_survey <- l2c_survey %>% 
+  select(-group) %>% 
+  left_join(group_membership_key, by = "id") %>% 
+  select(id, visit, date_visit, group, everything()) %>% 
+  mutate(consent_date = as.Date(consent_date))
+```
+
+Make sure we get a warning if the number of columns in `l2c_survey` changes.
+
+```{r}
+if (ncol(l2c_survey) != 1200) {
+  stop(
+    "The number of columns in l2c_survey is different than expected.",
+    " The expected number was 1,200.",
+    " The actual number was ", ncol(l2c_survey), ".",
+    " Investigate in data_survey_21_merge.Rmd"
+  )
+}
+```
+
+# 🖨Print a message for when this file is being sourced
+
+```{r}
+cat(
+  paste0(Sys.Date(), ":"),
+  "Combined Participant data cleaned with", nrow(l2c_survey), 
+  "rows and", ncol(l2c_survey), "columns.\n"
+)
+
+# 2021-07-28: Bridge session long data cleaned with 2346 rows and 20 columns.
+```
+
+
+# 💾Save the data frame
+
+```{r}
+path <- "/Volumes/Link2Care/Participant Data/SPSS Data/combined_participant_data.sav"
+```
+
+```{r}
+write_sav(l2c_survey, path)
 ```
 
 Print a message for when this file is being sourced
@@ -466,27 +512,34 @@ Print a message for when this file is being sourced
 ```{r}
 cat(
   paste0(Sys.Date(), ":"),
-  "QDS Visit 5 saved to", path
+  "Combined Participant data saved to", path, "\n"
+)
+```
+
+```{r}
+path <- "/Volumes/Link2Care/Participant Data/R Data/combined_participant_data.rds"
+```
+
+```{r}
+write_rds(l2c_survey, path)
+```
+
+Print a message for when this file is being sourced
+
+```{r}
+cat(
+  paste0(Sys.Date(), ":"),
+  "Combined Participant data saved to", path, "\n"
 )
 ```
 
 
 # 🗑Clean up
 
-```{r}
-rm(v5_col_names_key, path)
-```
-
-
-# 🖨Print a message for when this file is being sourced
+Don't use `rm(list = ls())` because is causes R to drop the helper functions in data_survey_21_update_all_data.Rmd
 
 ```{r}
-cat(
-  paste0(Sys.Date(), ":"),
-  "QDS Visit 5 cleaned with", nrow(v5), "rows and", ncol(v5), "columns.\n"
-)
-
-# 2021-04-25: QDS Visit 5 cleaned with 129 rows and 550 columns.
+rm(list = ls()[ls() != "source_rmd"])
 ```
 
 ```{r echo=FALSE}

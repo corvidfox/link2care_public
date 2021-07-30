@@ -34,8 +34,9 @@ knitr::opts_chunk$set(echo = TRUE)
 # 📦Load packages
 
 ```{r message=FALSE}
-library(dplyr)
-library(readxl)
+library(dplyr, warn.conflicts = FALSE)
+library(readxl, warn.conflicts = FALSE)
+library(readr, warn.conflicts = FALSE)
 ```
 
 
@@ -49,42 +50,58 @@ open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/'
 
 # 📥Import data 
 
+```{r}
+path <- "/Volumes/link2Care/Live Documents/L2C_Master_Log.xlsm"
+```
+
+Check the most recent file modification dates on the UTHealth servers and print for user when this file is being sourced.
+
+```{r}
+cat(
+  stringr::str_extract(path, "([^/]+$)"),
+  "last modified on UTHealth server:",
+  as.character(file.info(path)$mtime), "\n"
+)
+```
+
 ## Screened-in
 
 ```{r}
 master_log_screened_in <- read_excel(
-  "/Volumes/link2Care/Live Documents/L2C_Master_Log.xlsm",
+  path,
   # For testing
   # "/Users/bradcannell/Desktop/L2C_Master_Log.xlsm",
   sheet = "Screened In",
   col_names = c(
-    "id", "status", "date_baseline", "date_v2", "date_v3", "date_v4", "date_v5", 
-    "group", "name_first", "name_middle_init", "name_last", "gender", "race", 
-    "hispanic", "date_birth", "age", "clincard_id", "n_clincards", "phone_id", 
-    "phone_number_l2c", "phone_n_distributed", "care_manager", "v1", "v2", "v3", 
-    "v4", "v5", "v3_r_distributed", "v3_r_completed", "v4_r_distributed", 
-    "v4_r_completed", "v5_r_distributed", "v5_r_completed"
+    "id", "status", "date_baseline", "date_v2_scheduled", "date_v2", 
+    "date_v3_scheduled", "date_v3",  "date_v4_scheduled", "date_v4", 
+    "date_v5_scheduled", "date_v5", "group", "name_first", "name_middle_init", 
+    "name_last", "gender", "race", "hispanic", "date_birth", "age", "clincard_id", 
+    "n_clincards", "phone_id", "phone_number_l2c", "phone_n_distributed", 
+    "care_manager", "v1", "v2", "v3", "v4", "v5", "v3_r_distributed", 
+    "v3_r_completed", "v4_r_distributed", "v4_r_completed", "v5_r_distributed", 
+    "v5_r_completed"
   ),
   col_types = c(
     # Some of the dates must be imported as text because the have embedded 
     # notes (e.g., "no show")
-    "numeric", "text", "date", rep("text", 11), "date", "numeric", "text", 
+    rep("text",2) , rep("date", 9), rep("text", 7), "date", "numeric", "text", 
     "numeric", rep("text", 2), "numeric", "text", rep("numeric", 5), "skip", 
     rep("numeric", 6)
   ),
-  na = c("", ".", "N/A"),
+  na = c("", ".", "N/A", "No show", "No Show"),
   skip = 1
 )
 
 # Print a message for when this file is being sourced
 cat(
   paste0(Sys.Date(), ":"),
-  "Master log imported with", nrow(master_log_screened_in), "rows and",
+  "Master log screened in imported with", nrow(master_log_screened_in), "rows and",
   ncol(master_log_screened_in),
   "columns.\n"
 )
 
-# 2021-04-23: Master log imported with 279 rows and 33 columns.
+# 2021-07-28: Master log imported with 300 rows and 37 columns.
 ```
 
 ## Screened-out
@@ -175,7 +192,7 @@ Print a message for when this file is being sourced
 ```{r}
 cat(
   paste0(Sys.Date(), ":"),
-  "Master Log Screened In saved to", path
+  "Master Log Screened In saved to", path, "\n"
 )
 ```
 
@@ -192,15 +209,8 @@ Print a message for when this file is being sourced
 ```{r}
 cat(
   paste0(Sys.Date(), ":"),
-  "Master Log Screened Out saved to", path
+  "Master Log Screened Out saved to", path, "\n"
 )
-```
-
-
-# 🗑Clean up
-
-```{r}
-rm(path)
 ```
 
 
@@ -217,6 +227,14 @@ cat(
 # 2021-04-28: Master log cleaned with 279 rows and 33 columns.
 ```
 
+
+# 🗑Clean up
+
+Don't use `rm(list = ls())` because is causes R to drop the helper functions in data_survey_21_update_all_data.Rmd
+
+```{r}
+rm(list = ls()[ls() != "source_rmd"])
+```
 
 ```{r echo=FALSE}
 sessionInfo()
