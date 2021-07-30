@@ -1,0 +1,158 @@
+---
+title: "Timeline Followback"
+date: "2021-06-30 <br> Updated: `r Sys.Date()`"
+---
+
+# ⭐️Overview
+
+This file is used to import the Link2Care follow-up visit survey data and do some initial data cleaning. 
+
+**NOTE on data sources:**
+
+The TLFB data is exported from somewhere as 3 individual Excel files (i.e., alcohol, drug use, location) for each participant. Those individual files are stored on the the UTHealth servers in Participant Data > TLFB Data. At some point, SPSS is used to merge (and possibly clean?) these individual data sets. The merged TLFB data is stored on the UTHealth servers in Participant Data > SPSS Data > TLFB Data. That is the data we are importing below.
+
+
+# 📦Load packages
+
+```{r message=FALSE}
+library(dplyr, warn.conflicts = FALSE)
+library(haven, warn.conflicts = FALSE)
+library(readr, warn.conflicts = FALSE)
+library(testthat, warn.conflicts = FALSE)
+```
+
+# 🌎Connect to UTH server 
+
+```{bash eval=FALSE}
+# Don't drill all the way down to live documents because not all of the data is in live documents.
+open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/'
+```
+
+
+# 📥Import data 
+
+```{r}
+path <- "/Volumes/Link2Care/Participant Data/SPSS Data/TLFB Data/TLFB_Database.sav"
+```
+
+Check the most recent file modification dates on the UTHealth servers and print for user when this file is being sourced.
+
+```{r}
+cat(
+  stringr::str_extract(path, "([^/]+$)"),
+  "last modified on UTHealth server:",
+  as.character(file.info(path)$mtime), "\n"
+)
+```
+
+```{r}
+tlfb <- read_sav(path)
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "TLFB", nrow(tlfb), "rows and", ncol(tlfb), "columns.\n"
+)
+
+# 2021-07-28: TLFB 1200 rows and 21 columns.
+```
+
+
+# Clean variable names
+
+_See "Notes on cleaning individual L2C data sets for merging" for the rationale, style guidelines, and instructions for this section._
+
+* Remove all capital letters   
+* Make sure names that appear in QDS have the same name   
+* Make sure underscores are used consistently   
+
+
+```{r}
+current_col_names <- names(tlfb)
+new_col_names <- tolower(current_col_names)
+new_col_names[new_col_names == "participantid"] <- "subject"
+new_col_names[new_col_names == "totaldrinks"] <- "total_drinks"
+new_col_names[new_col_names == "flag_outofwindow"] <- "flag_out_of_window"
+```
+
+```{r}
+names(tlfb) <- new_col_names
+```
+
+
+# 🚧Data management
+
+## Coerce periods to missing 
+
+Coercing to numeric will replace the periods with `NA` and coerce the number values to actual numbers.
+
+```{r}
+tlfb <- tlfb %>%
+  mutate(
+    across(
+      everything(),
+      function(x) {
+        x[x == "."] <- NA
+        x <- as.numeric(x)
+      }
+    )
+  )
+```
+
+
+# 💾Save the data frame
+
+```{r}
+path <- "/Volumes/Link2Care/Participant Data/R Data/tlfb.rds"
+```
+
+```{r}
+write_rds(tlfb, path)
+```
+
+Print a message for when this file is being sourced
+
+```{r}
+cat(
+  paste0(Sys.Date(), ":"),
+  "TLFB data saved to", path, "\n"
+)
+```
+
+
+# 🖨Print a message for when this file is being sourced
+
+```{r}
+cat(
+  paste0(Sys.Date(), ":"),
+  "TLFB data cleaned with", nrow(tlfb), "rows and", ncol(tlfb), "columns.\n"
+)
+
+# 2021-06-30: REDCap data cleaned with 21 rows and 911 columns.
+```
+
+
+# 🗑Clean up
+
+Don't use `rm(list = ls())` because is causes R to drop the helper functions in data_survey_21_update_all_data.Rmd
+
+```{r}
+rm(list = ls()[ls() != "source_rmd"])
+```
+
+```{r echo=FALSE}
+sessionInfo()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+

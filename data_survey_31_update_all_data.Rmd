@@ -1,0 +1,119 @@
+---
+title: "Link2Care Survey Data - Update Individual Survey Data Frames"
+date: "2021-07-28 <br> Updated: `r Sys.Date()`"
+---
+
+# ⭐️Overview
+
+This file we update all of the individual data frames that will make up the merged survey data frame. 
+
+
+# 📦Load packages
+
+```{r message=FALSE}
+# library(dplyr)
+```
+
+```{r}
+source("R/source_rmd.R")
+```
+
+
+# 🌎Connect to UTH server 
+
+```{bash eval=FALSE}
+# Make sure you are connected to the VPN
+open 'smb://islgpcifs.uthouston.edu/sph_research/'
+```
+
+
+# 📥Import data 
+
+We previously imported and did some initial cleaning of the following data sets:
+
+* QDS (data_survey_01_qds_import.Rmd)   
+* REDCap (data_survey_02_redcap_import.Rmd)    
+* Master log (data_survey_03_master_log_import.Rmd)   
+* Timeline followback (data_survey_04_tlfb_import.Rmd)   
+* Arrest data (data_survey_05_arrests_import.Rmd)   
+* Bridge sessions data (data_survey_06_bridge_sessions_import.Rmd) 
+
+## QDS
+
+```{r}
+source_rmd("data_survey_01_qds_import.Rmd")
+
+# 2021-07-30: v1 imported with 303 rows and 810 columns.
+# 2021-07-30: v2 imported with 276 rows and 210 columns.
+# 2021-07-30: v3 imported with 197 rows and 542 columns.
+# 2021-07-30: v4 imported with 147 rows and 598 columns.
+# 2021-07-30: v5 imported with 133 rows and 639 columns.
+# 2021-07-30: QDS data imported and merged with 1056 rows and 1046 columns.
+```
+
+## REDCap
+
+```{r}
+source_rmd("data_survey_02_redcap_import.Rmd")
+
+# 2021-07-30: REDCap data cleaned with 21 rows and 911 columns.
+```
+
+## Master log 
+
+```{r}
+source_rmd("data_survey_03_master_log_import.Rmd")
+
+# 2021-07-30: Master log cleaned with 304 rows and 37 columns.
+```
+
+## Timeline followback 
+
+```{r}
+source_rmd("data_survey_04_tlfb_import.Rmd")
+
+# 2021-07-30: TLFB data cleaned with 1212 rows and 21 columns.
+```
+
+## Arrest data
+
+The arrest data is securely transmitted by Dr. Gonzalez as an Excel file, which is stored on the the UTHealth servers in Participant Data > Arrest Data Requests.
+
+Before you can import the Excel file, you must open it and remove the password from the Excel sheet. File -> Passwords... -> Delete password.   
+
+```{r}
+source_rmd("data_survey_05_arrests_import.Rmd")
+
+# 2021-07-30: Arrest data cleaned with 238 rows and 8 columns.
+```
+
+## Bridge sessions data
+
+```{r}
+source_rmd("data_survey_06_bridge_sessions_import.Rmd")
+
+# 2021-07-30: Bridge session wide data cleaned with 300 rows and 20 columns.
+```
+
+
+# 🔄Merge data 
+
+```{r}
+source_rmd("data_survey_21_merge.Rmd")
+
+# 2021-07-30: Combined Participant data cleaned with 1078 rows and 1200 columns.
+```
+
+
+# 🗑Clean up
+
+Don't use `rm(list = ls())` because is causes R to drop the helper functions in data_survey_21_update_all_data.Rmd
+
+```{r}
+rm(list = ls())
+```
+
+```{r echo=FALSE}
+sessionInfo()
+```
+

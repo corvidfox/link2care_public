@@ -7,7 +7,7 @@ The code in this repository is used for general data/project management. The cod
 # Links to notes pages
 
 [Notes on files in the data directory](data/notes_data_folder.md)   
-[Notes on cleaning individual data sets for merging -- including variable naming convensions ](data/notes_cleaning_individual_data_sets_for_merge.md)
+[Notes on cleaning individual data sets for merging -- including variable naming convensions ](docs/notes_cleaning_individual_data_sets_for_merge.md)
 
 # Links to manuscript repositories
 

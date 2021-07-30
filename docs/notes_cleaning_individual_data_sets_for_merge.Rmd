@@ -37,7 +37,7 @@ Additionally, we will:
 * In order to improve consistency in the variable names, we will adopt the following convention:
   - <abbreviated_tool_name>_<question_number>[optionally:dummy_variable_lettered]
     + dummy variables will be numbered a-z
-    + For example, sq12, t14a
+    + For example, sq_12, t_14a
   - We will drop visit number from the variable name an use an explicit visit variable.
   - Exceptions: Demographic variables that almost anyone should be reasonably able to understand without the codebook will be given intuitive, descriptive names (e.g., age, race, gender, marital_status, etc.).   
   - I'm also going to change "SUBJECT" to "id".

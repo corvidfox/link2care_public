@@ -1,0 +1,95 @@
+---
+title: "Link2Care Survey Data - Scrape the QDS Word codebooks"
+date: "2021-07-17 <br> Updated: `r Sys.Date()`"
+---
+
+# ⭐️Overview
+
+This file is used to scrape the Word version of the QDS codebooks. We are doing this to facilitate the process of combining all 5 individual QDS files into one. 
+
+This shouldn't need to be run again in the future. Just leaving it in the code to preserve an accurate history of what was done. 
+
+### Extract content from Word codebooks
+
+```{r eval=FALSE}
+
+word_cb_content_list <- map(
+  .x = c(1:5),
+  .f = function(x) {
+    word_cb_full_path <- paste0("docs/codebooks/", "L2C_V", x, " Codebook.docx")
+    word_cb_content <- read_docx(word_cb_full_path) %>% 
+      docx_summary() %>% 
+      mutate(visit = x)
+  }
+)
+```
+
+```{r eval=FALSE}
+write_rds(word_cb_content_list, "data/word_cb_content_list.rds")
+```
+
+```{r eval=FALSE}
+word_cb_content_list <- read_rds("data/word_cb_content_list.rds")
+```
+
+Keep the parts of the codebook we are interested in for this process (i.e., section names and column names)
+
+```{r eval=FALSE}
+word_cb_secs_cols_list <- map(
+  .x = word_cb_content_list,
+  .f = get_sec_and_col_names_from_word_cb
+)
+```
+
+Clean up the section names. For example, convert `Sect-0.*****Admin*****` to `Admin`
+
+```{r eval=FALSE}
+word_cb_secs_cols_list <- map(
+  .x = word_cb_secs_cols_list,
+  .f = clean_word_cb_sec_names
+)
+```
+
+Create a new column in the new_name = old_name format that we can copy and paste into `select()` later.
+
+```{r eval=FALSE}
+word_cb_secs_cols_list <- map(
+  .x = word_cb_secs_cols_list,
+  .f = create_copy_paste_col
+)
+```
+
+Record the sections that are completed at visit 1. We will use this for checking to make sure all of the correct questionnaire sections merge later.
+
+```{r}
+q_sections <- map(
+  .x = word_cb_secs_cols_list,
+  .f = ~ unique(.x$section_name)
+)
+```
+
+```{r eval=FALSE}
+write_rds(q_sections, "data/qds_questionnaire_sections.rds")
+```
+
+```{r eval=FALSE}
+rm(q_sections)
+```
+
+**NOTE:** There are more columns in the data than there are in the codebooks. This is due to calculated variables that were created when the raw QDS data was passed through an SPSS script. We may change that process at some point in the future. 
+
+Have R write out the column names in the order that they appear in QDS. Then, we will copy and paste into the `select()` function. We will do this instead of directly passing the column order to `select()` because we need to make some manual changes to the column names now. Again, we should only have to do this once, and all future updates will be done directly in the code chunk with `select()`. 
+
+```{r eval=FALSE}
+paste(word_cb_secs_cols_list[[1]][["cb_col_name"]], collapse = ", ")
+```
+
+```{r}
+rm(list = ls())
+```
+
+```{r}
+sessionInfo()
+```
+
+

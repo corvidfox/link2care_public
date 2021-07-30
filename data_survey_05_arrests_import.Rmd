@@ -1,0 +1,118 @@
+---
+title: "Import and Manage Arrest Data"
+date: "2021-06-30 <br> Updated: `r Sys.Date()`"
+---
+
+# ⭐️Overview
+
+This file is used to import the Link2Care arrest data and do some initial data cleaning. 
+
+**NOTE on data sources:**
+
+The arrest data is securely transmitted by Dr. Gonzalez as an Excel file, which is stored on the the UTHealth servers in Participant Data > Arrest Data Requests.
+
+
+# 📦Load packages
+
+```{r message=FALSE}
+library(dplyr, warn.conflicts = FALSE)
+library(readxl, warn.conflicts = FALSE)
+library(readr, warn.conflicts = FALSE)
+```
+
+
+# 🌎Connect to UTH server 
+
+```{bash eval=FALSE}
+# Don't drill all the way down to live documents because not all of the data is in live documents.
+open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/'
+```
+
+
+# 📥Import data 
+
+* Had to remove password from Excel sheet before import. File -> Passwords... -> Delete password.   
+
+```{r}
+path <- "/Volumes/Link2Care/Participant Data/Arrest Data Requests/current_arrest_data.xlsx"
+```
+
+Check the most recent file modification dates on the UTHealth servers and print for user when this file is being sourced.
+
+```{r}
+cat(
+  stringr::str_extract(path, "([^/]+$)"),
+  "last modified on UTHealth server:",
+  as.character(file.info(path)$mtime), "\n"
+)
+```
+
+```{r}
+arrest <- read_excel(
+  path,
+  sheet = "Sheet1",
+  col_names = c(
+    "subject", "arrested", "arrested_date_baseline", paste("arrested_date", 1:5, sep = "_")
+  ),
+  col_types = c(
+    "numeric", "text", rep("date", 6)
+  ),
+  na = c("", "None"),
+  skip = 1
+)
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "Arrest data", nrow(arrest), "rows and", ncol(arrest), "columns.\n"
+)
+
+# 2021-07-28: Arrest data 238 rows and 8 columns.
+```
+
+
+# 💾Save the data frame
+
+```{r}
+path <- "/Volumes/Link2Care/Participant Data/R Data/arrest.rds"
+```
+
+```{r}
+write_rds(arrest, path)
+```
+
+Print a message for when this file is being sourced
+
+```{r}
+cat(
+  paste0(Sys.Date(), ":"),
+  "Arrest data saved to", path, "\n"
+)
+
+# 2021-06-30: Arrest data saved to /Volumes/Link2Care/Participant Data/R Data/arrest.rds
+```
+
+
+# 🖨Print a message for when this file is being sourced
+
+```{r}
+cat(
+  paste0(Sys.Date(), ":"),
+  "Arrest data cleaned with", nrow(arrest), "rows and", ncol(arrest), "columns.\n"
+)
+
+# 2021-06-30: Arrest data cleaned with 234 rows and 8 columns.
+```
+
+
+# 🗑Clean up
+
+Don't use `rm(list = ls())` because is causes R to drop the helper functions in data_survey_21_update_all_data.Rmd
+
+```{r}
+rm(list = ls()[ls() != "source_rmd"])
+```
+
+```{r echo=FALSE}
+sessionInfo()
+```
