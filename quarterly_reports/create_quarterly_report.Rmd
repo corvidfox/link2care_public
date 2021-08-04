@@ -12,30 +12,25 @@ Run this file to create the Link2Care Quarterly Reports.
 
 Click "Run All Chunks Below" to create the  quarterly report as a Word document.
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
-
 # 📦Load packages
 
 ```{r message=FALSE}
-library(dplyr)
-library(readxl)
-library(freqtables)
-library(meantables)
-library(stringr)
-library(tidyr)
-library(forcats)
-library(purrr)
-library(ggplot2)
-library(lubridate)
-library(officer)
-library(flextable)
+library(dplyr, warn.conflicts = FALSE)
+library(readxl, warn.conflicts = FALSE)
+library(freqtables, warn.conflicts = FALSE)
+library(meantables, warn.conflicts = FALSE)
+library(stringr, warn.conflicts = FALSE)
+library(tidyr, warn.conflicts = FALSE)
+library(forcats, warn.conflicts = FALSE)
+library(purrr, warn.conflicts = FALSE)
+library(ggplot2, warn.conflicts = FALSE)
+library(lubridate, warn.conflicts = FALSE)
+library(officer, warn.conflicts = FALSE)
+library(flextable, warn.conflicts = FALSE)
 ```
 
 
-#𝑓 Load helper functions
+# Load helper functions
 
 ```{r}
 source("../R/get_mean_sd.R")
@@ -63,21 +58,23 @@ master_log_screened_in <- read_excel(
   # "/Users/bradcannell/Desktop/L2C_Master_Log.xlsm",
   sheet = "Screened In",
   col_names = c(
-    "id", "status", "date_baseline", "date_v2", "date_v3", "date_v4", "date_v5", 
-    "group", "name_first", "name_middle_init", "name_last", "gender", "race", 
-    "hispanic", "date_birth", "age", "clincard_id", "n_clincards", "phone_id", 
-    "phone_number_l2c", "phone_n_distributed", "care_manager", "v1", "v2", "v3", 
-    "v4", "v5", "v3_r_distributed", "v3_r_completed", "v4_r_distributed", 
-    "v4_r_completed", "v5_r_distributed", "v5_r_completed"
+    "id", "status", "date_baseline", "date_v2_scheduled", "date_v2", 
+    "date_v3_scheduled", "date_v3",  "date_v4_scheduled", "date_v4", 
+    "date_v5_scheduled", "date_v5", "group", "name_first", "name_middle_init", 
+    "name_last", "gender", "race", "hispanic", "date_birth", "age", "clincard_id", 
+    "n_clincards", "phone_id", "phone_number_l2c", "phone_n_distributed", 
+    "care_manager", "v1", "v2", "v3", "v4", "v5", "v3_r_distributed", 
+    "v3_r_completed", "v4_r_distributed", "v4_r_completed", "v5_r_distributed", 
+    "v5_r_completed"
   ),
   col_types = c(
     # Some of the dates must be imported as text because the have embedded 
     # notes (e.g., "no show")
-    "numeric", "text", "date", rep("text", 11), "date", "numeric", "text", 
+    rep("text",2) , rep("date", 9), rep("text", 7), "date", "numeric", "text", 
     "numeric", rep("text", 2), "numeric", "text", rep("numeric", 5), "skip", 
     rep("numeric", 6)
   ),
-  na = c("", ".", "N/A"),
+  na = c("", ".", "N/A", "No show", "No Show"),
   skip = 1
 )
 
@@ -89,7 +86,7 @@ cat(
   "columns.\n"
 )
 
-# 2021-05-11: Master log imported with 283 rows and 33 columns.
+# 2021-08-02: Master log imported with 305 rows and 37 columns.
 ```
 
 ## Master log Screened-out
@@ -105,10 +102,11 @@ master_log_screened_out <- read_excel(
     "date_birth", "age", "reason_1", "reason_2", "reason_3", "notes"
   ),
   col_types = c(
-    "numeric", "text", "date", rep("text", 3), "date", "numeric", 
+    "text", "text", "date", rep("text", 3), "date", "numeric", 
     rep("text", 3), "skip", "text", "skip"
   ),
-  skip = 1
+  skip = 1,
+  na = c("", "N/A")
 )
 
 # Print a message for when this file is being sourced
@@ -119,7 +117,7 @@ cat(
   "columns.\n"
 )
 
-# 2021-05-11: Master log screened out imported with 46 rows and 12 columns.
+# 2021-08-02: Master log screened out imported with 50 rows and 12 columns.
 ```
 
 ## Phone terminations
@@ -201,13 +199,13 @@ ema <- read_excel(
 
 ```{r}
 arrest <- read_excel(
-  "/Users/bradcannell/Desktop/Current_Arrest Data_De-identified_2001-2234.xlsx",
+  "/Volumes/Link2Care/Participant Data/Arrest Data Requests/current_arrest_data.xlsx",
   sheet = "Sheet1",
   col_names = c(
     "id", "arrested", "date_baseline", paste("date", 1:5, sep = "_")
   ),
   col_types = c(
-    "numeric", "text", rep("date", 6)
+    "text", "text", rep("date", 6)
   ),
   na = c("", "None"),
   skip = 1
@@ -222,14 +220,14 @@ arrest <- read_excel(
 
 ```{r}
 bridge <- read_excel(
-  "/Users/bradcannell/Desktop/bridge_2021_05_04.xlsx",
+  "/Volumes/Link2Care/Participant Data/Bridge Session Data/bridge_session_minutes.xlsx",
   sheet = "Sheet1",
   col_names = c(
     "id", "baseline_date", "v2_rand_date", "v5_sched_final_visit_date", 
     "date_session", "type", "duration", "flag_ns_v2", "flag_dropped", "notes"
   ),
   col_types = c(
-    "numeric", rep("date", 3), "text", rep("numeric", 4), "text"
+    "text", rep("date", 3), "text", rep("numeric", 4), "text"
   ),
   skip = 10
 )
@@ -357,18 +355,12 @@ Also, only keep participants who have gone through all 12 cycles (id < 2233). Ri
 unique(ema$group)
 ```
 
-What is the highest id with all 12 cycles
-
-```{r}
-# ema %>% 
-#   
-```
-
+What is the highest id with all 12 cycles? Manually check the 15_Day_EMA spreadsheet.
 
 ```{r}
 ema <- ema %>% 
   filter(group %in% c("UCM+SP", "L2C")) %>% 
-  filter(id < 2253)
+  filter(id <= 2264)
 ```
 
 Setting NA to zero in 15 day EMA log
@@ -1073,8 +1065,7 @@ Table 5. Reasons for phone terminations by informed consent form iteration
 By ICF. ICF 1 and 2 should not change over time.
 
 ```{r}
-# table_5 <- 
-phone_terminations_long %>%
+table_5 <- phone_terminations_long %>%
   filter(!is.na(reason_f)) %>% 
   # Arrange reasons in the same order they appear in the table
   mutate(reason_ordered = fct_relevel(
@@ -1089,6 +1080,22 @@ phone_terminations_long %>%
     names_from = "row_cat",
     values_from = c("formatted_stats")
   )
+```
+
+Create flextable
+
+```{r}
+table_5_ft <- flextable(table_5) %>% 
+  my_ft_theme()
+```
+
+Output Word document for easy copy paste into template (DELETE)
+* Bold  total manually.
+
+```{r}
+read_docx() %>%
+  body_add_flextable(table_5_ft) %>% 
+  print("table_5_ft.docx")
 ```
 
 Add a total row to the bottom of the table. Again, filling this in by hand for now.
@@ -1140,7 +1147,7 @@ Output Word document for easy copy paste into template (DELETE)
 ```{r}
 read_docx() %>%
   body_add_flextable(table_6_ft) %>% 
-  print("table_6_2021_05_10.docx")
+  print("table_6_ft.docx")
 ```
 
 ## Table 7
@@ -1204,22 +1211,30 @@ NOTES: Delete all these separate Word documents with tables after you make the b
 ```{r}
 read_docx() %>%
   body_add_flextable(table_7_ft) %>% 
-  print("table_7_2021_05_10.docx")
+  print("table_7_ft.docx")
 ```
 
 ## Table 8
 
-Table 8. COVID-19 phone interviews (N=61) since protocol change on 3/17/2020. 
+Table 8. COVID-19 phone interviews (N={see below}) since protocol change on 3/17/2020. 
 
 2021-05-11: Filled in manually.
+
+Total interviews by mode (phone vs. redcap)
+
+```{r}
+remote %>% 
+  count(mode) %>% 
+  add_row(mode = "Total", n = sum(.$n))
+```
 
 Total
 
 ```{r}
 remote %>% 
   summarise(
-    n = n(), # 76
-    n_unique = length(unique(id)) # 55
+    n = n(), # 81
+    n_unique = length(unique(id)) # 58
   )
 ```
 
@@ -1334,7 +1349,7 @@ NOTES: Delete all these separate Word documents with tables after you make the b
 ```{r}
 read_docx() %>%
   body_add_flextable(table_9_ft) %>%
-  print("table_9_2021_05_10.docx")
+  print("table_9_ft.docx")
 ```
 
 For Table 9, footnote 3 says, “Only includes PTs who completed the study on or before August 31, 2020.” I’m not sure what to do with that. Does that stat “37 of 96” need to be updated or do you want this to continue to reflect PTs who completed the study on or before 2020-08-31? 
@@ -1449,7 +1464,7 @@ NOTES: Delete all these separate Word documents with tables after you make the b
 ```{r}
 read_docx() %>%
   body_add_flextable(table_12_ft) %>% 
-  print("table_12_2021_05_10.docx")
+  print("table_12_ft.docx")
 ```
 
 ## Table 13
