@@ -86,7 +86,7 @@ cat(
   "columns.\n"
 )
 
-# 2021-08-02: Master log imported with 305 rows and 37 columns.
+# 2021-08-07: Master log imported with 306 rows and 37 columns.
 ```
 
 ## Master log Screened-out
@@ -117,7 +117,7 @@ cat(
   "columns.\n"
 )
 
-# 2021-08-02: Master log screened out imported with 50 rows and 12 columns.
+# 2021-08-07: Master log screened out imported with 51 rows and 12 columns.
 ```
 
 ## Phone terminations
@@ -847,7 +847,7 @@ unique(screened_out$reason_1)
 ```
 
 ```{r}
-table_2 <- screened_out %>% 
+table_2 <- screened_out %>%
   pivot_longer(
     reason_1:reason_3,
     names_to = "reason_number",
@@ -858,7 +858,7 @@ table_2 <- screened_out %>%
   freq_table(reason) %>% 
   arrange(desc(n)) %>% 
   # Get n from n_total column
-  add_row(cat = "Total", n = 57L, percent = 100.0) %>% 
+  add_row(cat = "Total", n = max(.$n_total), percent = 100.0) %>% 
   freq_format("n (percent)", digits = 1) %>%
   select(cat, formatted_stats)
 ```
