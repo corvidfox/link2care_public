@@ -355,12 +355,19 @@ Also, only keep participants who have gone through all 12 cycles (id < 2233). Ri
 unique(ema$group)
 ```
 
-What is the highest id with all 12 cycles? Manually check the 15_Day_EMA spreadsheet.
+What is the highest id with all 12 cycles? The denominator for the calculations in the analysis section below should only include participants who have been in the study long enough to complete all 12 cycles. 
+
+```{r}
+highest_id_w_12 <- ema %>% 
+  filter(!is.na(emas_12)) %>% 
+  pull(id) %>% 
+  max()
+```
 
 ```{r}
 ema <- ema %>% 
   filter(group %in% c("UCM+SP", "L2C")) %>% 
-  filter(id <= 2264)
+  filter(id <= highest_id_w_12)
 ```
 
 Setting NA to zero in 15 day EMA log
