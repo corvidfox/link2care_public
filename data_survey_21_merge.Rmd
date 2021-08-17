@@ -32,11 +32,12 @@ open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/'
 We previously imported and did some initial cleaning of the following data sets:
 
 * QDS (data_survey_01_qds_import.Rmd)   
-* REDCap (data_survey_06_redcap_import.Rmd)    
-* Master log (data_survey_07_master_log_import.Rmd)   
-* Timeline followback (data_survey_08_tlfb_import.Rmd)   
-* Arrest data (data_survey_09_arrests_import.Rmd)   
-* Bridge sessions data (data_survey_10_bridge_sessions_import.Rmd)   
+* REDCap (data_survey_02_redcap_import.Rmd)    
+* Master log (data_survey_03_master_log_import.Rmd)   
+* Timeline followback (data_survey_04_tlfb_import.Rmd)   
+* Arrest data (data_survey_05_arrests_import.Rmd)   
+* Bridge sessions data (data_survey_06_bridge_sessions_import.Rmd)   
+* DDT data (data_survey_07_ddt_import.Rmd)   
 
 Most of the data cleaning that was done was to standardize column names. [Click here](https://github.com/brad-cannell/link2care_public/blob/master/data/notes_cleaning_individual_data_sets_for_merge.md) for notes on column naming conventions. 
 
@@ -53,7 +54,8 @@ data_frames <- c(
   ml     = "master_log_screened_in.rds",
   tlfb   = "tlfb.rds",
   arrest = "arrest.rds",
-  bridge = "bridge_wide.rds"
+  bridge = "bridge_wide.rds",
+  ddt    = "ddt.rds"
 )
 ```
 
@@ -72,12 +74,13 @@ for (i in seq_along(data_frames)) {
 
 rm(data_frames, df_nm, full_path, i, path)
 
-# 2021-07-30: qds_all_visits_import.rds imported as qds with 1038 rows and 1046 columns.
-# 2021-07-30: redcap_import.rds imported as rc with 21 rows and 911 columns.
-# 2021-07-30: master_log_screened_in.rds imported as ml with 300 rows and 37 columns.
-# 2021-07-30: tlfb.rds imported as tlfb with 1200 rows and 21 columns.
-# 2021-07-30: arrest.rds imported as arrest with 238 rows and 8 columns.
-# 2021-07-30: bridge_wide.rds imported as bridge with 300 rows and 20 columns.
+# 2021-08-17: qds_all_visits_import.rds imported as qds with 1056 rows and 1046 columns.
+# 2021-08-17: redcap_import.rds imported as rc with 21 rows and 911 columns.
+# 2021-08-17: master_log_screened_in.rds imported as ml with 306 rows and 37 columns.
+# 2021-08-17: tlfb.rds imported as tlfb with 1212 rows and 21 columns.
+# 2021-08-17: arrest.rds imported as arrest with 238 rows and 8 columns.
+# 2021-08-17: bridge_wide.rds imported as bridge with 300 rows and 20 columns.
+# 2021-08-17: ddt.rds imported as ddt with 303 rows and 9 columns.
 ```
 
 
@@ -448,6 +451,18 @@ l2c_survey <- l2c_survey %>%
   left_join(bridge, by = "id")
 ```
 
+## DDT data
+
+```{r}
+ddt <- ddt %>% 
+  rename(id = subject)
+```
+
+```{r}
+l2c_survey <- l2c_survey %>%
+  left_join(ddt, by = c("id", "visit"))
+```
+
 
 # Set group status
 
@@ -474,7 +489,7 @@ l2c_survey <- l2c_survey %>%
 Make sure we get a warning if the number of columns in `l2c_survey` changes.
 
 ```{r}
-if (ncol(l2c_survey) != 1200) {
+if (ncol(l2c_survey) != 1202) {
   stop(
     "The number of columns in l2c_survey is different than expected.",
     " The expected number was 1,200.",
@@ -493,7 +508,7 @@ cat(
   "rows and", ncol(l2c_survey), "columns.\n"
 )
 
-# 2021-07-28: Bridge session long data cleaned with 2346 rows and 20 columns.
+# 2021-08-17: Combined Participant data cleaned with 1080 rows and 1202 columns.
 ```
 
 

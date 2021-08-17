@@ -60,7 +60,7 @@ source_rmd("data_survey_02_redcap_import.Rmd")
 ```{r}
 source_rmd("data_survey_03_master_log_import.Rmd")
 
-# 2021-07-30: Master log cleaned with 304 rows and 37 columns.
+# 2021-08-17: Master log cleaned with 309 rows and 37 columns.
 ```
 
 ## Timeline followback 
@@ -91,13 +91,21 @@ source_rmd("data_survey_06_bridge_sessions_import.Rmd")
 # 2021-07-30: Bridge session wide data cleaned with 300 rows and 20 columns.
 ```
 
+## DDT data
+
+```{r}
+source_rmd("data_survey_07_ddt_import.Rmd")
+
+# 2021-08-17: DDT data cleaned with 1212 rows and 4 columns.
+```
+
 
 # 🔄Merge data 
 
 ```{r}
 source_rmd("data_survey_21_merge.Rmd")
 
-# 2021-07-30: Combined Participant data cleaned with 1078 rows and 1200 columns.
+# 2021-08-17: Combined Participant data cleaned with 1083 rows and 1202 columns.
 ```
 
 

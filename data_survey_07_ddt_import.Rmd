@@ -1,0 +1,166 @@
+---
+title: "Import and Manage DDT Data"
+date: "2021-08-17 <br> Updated: `r Sys.Date()`"
+---
+
+# ⭐️Overview
+
+This file is used to import the Link2Care DDT data and do some initial data cleaning. 
+
+**NOTE on data sources:**
+
+From James, 2021-08-09
+
+It’s the delayed discount task that asks the participants 6-7 questions about money preferences after the complete the QDS. 
+
+Question example:
+Would you prefer 500 now or 1000 in 2 days.
+
+The raw ddt data is in the udrive. It’s Located-Link2Care-participant data-DDT individual files.
+
+We also have a combined excel sheet that has the K & ED50 Values that Michael is interested in.  Location-Link2Care-participant data-SPSS Data DDT-L2C_DDT_Database. Excel & SPSS format. 
+
+
+# 📦Load packages
+
+```{r message=FALSE}
+library(dplyr, warn.conflicts = FALSE)
+library(haven, warn.conflicts = FALSE)
+library(readr, warn.conflicts = FALSE)
+```
+
+
+# 🌎Connect to UTH server 
+
+```{bash eval=FALSE}
+# Don't drill all the way down to live documents because not all of the data is in live documents.
+open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/'
+```
+
+
+# 📥Import data 
+
+```{r}
+path <- "/Volumes/Link2Care/Participant Data/SPSS Data/DDT/L2C_DDT_Database_1.sav"
+```
+
+Check the most recent file modification dates on the UTHealth servers and print for user when this file is being sourced.
+
+```{r}
+cat(
+  stringr::str_extract(path, "([^/]+$)"),
+  "last modified on UTHealth server:",
+  as.character(file.info(path)$mtime), "\n"
+)
+```
+
+```{r}
+ddt <- read_sav(path)
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "DDT data", nrow(ddt), "rows and", ncol(ddt), "columns.\n"
+)
+
+# 2021-08-17: DDT data 303 rows and 9 columns.
+```
+
+
+# Data cleaning
+
+## Clean column names 
+
+```{r}
+names(ddt) <- tolower(names(ddt))
+```
+
+## Change variable types
+
+* Subject to character   
+* Everything else to numeric    
+
+```{r}
+ddt <- ddt %>% 
+  mutate(
+    subject = as.character(subject),
+    across(everything(), ~ ifelse(.x == ".", NA, .x)),
+    across(-subject, as.numeric)
+  )
+```
+
+## Convert from wide to long
+
+```{r}
+ddt <- ddt %>% 
+  pivot_longer(
+    cols = -subject,
+    names_to = c(".value", "visit"),
+    names_sep = "_v"
+  ) %>% 
+  rename(
+    ddt_k = k,
+    ddt_ed50 = ed50
+  ) %>% 
+  mutate(visit = as.numeric(visit))
+```
+
+## Data check: Make sure there is one row per subject/visit combination
+
+```{r}
+rows <- nrow(ddt)
+id_visit_rows <- nrow(unique(ddt[c("subject", "visit")]))
+if (rows != id_visit_rows) {
+  stop(
+    "The DDT data has ", id_visit_rows, " unique combinations of subject and vist;", 
+    " however, ", rows, " were expected. Investigate further in data_survey_07_ddt_import.Rmd"
+  )
+}
+```
+
+
+# 🖨Print a message for when this file is being sourced
+
+```{r}
+cat(
+  paste0(Sys.Date(), ":"),
+  "DDT data cleaned with", nrow(ddt), "rows and", ncol(ddt), "columns.\n"
+)
+
+# 2021-08-17: DDT data cleaned with 1212 rows and 4 columns.
+```
+
+
+# 💾Save the data frame
+
+```{r}
+path <- "/Volumes/Link2Care/Participant Data/R Data/ddt.rds"
+```
+
+```{r}
+write_rds(ddt, path)
+```
+
+Print a message for when this file is being sourced
+
+```{r}
+cat(
+  paste0(Sys.Date(), ":"),
+  "DDT data saved to", path, "\n"
+)
+
+# 2021-08-17: DDT data saved to /Volumes/Link2Care/Participant Data/R Data/ddt.rds 
+```
+
+
+# 🗑Clean up
+
+Don't use `rm(list = ls())` because is causes R to drop the helper functions in data_survey_21_update_all_data.Rmd
+
+```{r}
+rm(list = ls()[ls() != "source_rmd"])
+```
+
+```{r echo=FALSE}
+sessionInfo()
+```
