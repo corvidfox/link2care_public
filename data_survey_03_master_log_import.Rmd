@@ -68,7 +68,7 @@ cat(
 
 ```{r}
 master_log_screened_in <- read_excel(
-  path,
+  master_log_path,
   # For testing
   # "/Users/bradcannell/Desktop/L2C_Master_Log.xlsm",
   sheet = "Screened In",
@@ -80,14 +80,13 @@ master_log_screened_in <- read_excel(
     "n_clincards", "phone_id", "phone_number_l2c", "phone_n_distributed", 
     "care_manager", "v1", "v2", "v3", "v4", "v5", "v3_r_distributed", 
     "v3_r_completed", "v4_r_distributed", "v4_r_completed", "v5_r_distributed", 
-    "v5_r_completed"
+    "v5_r_completed", "v2_phone", "v3_phone", "v4_phone", "v5_phone"
   ),
   col_types = c(
     # Some of the dates must be imported as text because the have embedded 
     # notes (e.g., "no show")
     rep("text",2) , rep("date", 9), rep("text", 7), "date", "numeric", "text", 
-    "numeric", rep("text", 2), "numeric", "text", rep("numeric", 5), "skip", 
-    rep("numeric", 6)
+    "numeric", rep("text", 2), "numeric", "text", rep("numeric", 15)
   ),
   na = c("", ".", "N/A", "No show", "No Show"),
   skip = 1
@@ -101,7 +100,7 @@ cat(
   "columns.\n"
 )
 
-# 2021-07-28: Master log imported with 300 rows and 37 columns.
+# 2021-11-04: Master log screened in imported with 325 rows and 41 columns.
 ```
 
 ## Screened-out
