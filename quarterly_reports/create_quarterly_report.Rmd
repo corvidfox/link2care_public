@@ -1138,18 +1138,36 @@ Table 6. Number and percent of participants per L2C group.
 
 2021-05-11: Filled in manually.
 
+Create a tibble that contains randomized participants only.
+
 ```{r}
-table_6 <- master_log_screened_in %>%
+# Data check. As of 2021-12-04, the group column in the master log should only
+# contain "L2C", "UCM+SP", "UCM", and NA.
+if (!identical(unique(master_log_screened_in$group), c("L2C", "UCM+SP", "UCM", NA))) {
+  stop("We expect the group column in the master log to contain only L2C, ", 
+       "UCM+SP, UCM, and NA. Instead, it contains ", 
+       paste0(unique(master_log_screened_in$group), collapse = ", "),
+       ". This condition is tested in the Table 6 section of code.")
+}
+```
+
+```{r}
+master_log_randomized <- filter(master_log_screened_in, !is.na(group))
+n_randomized <- nrow(master_log_randomized)
+```
+
+```{r}
+# Use participants randomized to a L2C group only.
+table_6 <- master_log_randomized %>%
   # Order groups in the same order they appear in the table
   mutate(
     group_ordered = factor(
       group,
-      c("UCM+SP", "UCM", "L2C", "NS V2", "Dropped", "Pending V2"),
-      c("UCM+SP", "UCM", "L2C", "NS V2", "Dropped", "Pending V2")
+      c("UCM+SP", "UCM", "L2C"),
+      c("UCM+SP", "UCM", "L2C")
     )
   ) %>%
   freq_table(group_ordered) %>% 
-  add_row(cat = "Total", n = max(.$n_total), percent = sum(.$percent)) %>% 
   freq_format("n (percent)", digits = 1) %>%
   select(cat, formatted_stats) %>% 
   rename(`L2C Group` = cat, `n (percent)` = formatted_stats)
@@ -1887,6 +1905,10 @@ doc <- doc %>%
     "fig_phone_terminations", 
     external_img("fig_1.jpeg", width = 7, height = 4)
   )
+
+## Add n randomized to title of Table 6
+doc <- doc %>% 
+  body_replace_text_at_bkm("n_randomized", as.character(n_randomized))
 
 ## Add Figure 2. Recruitment by month.
 doc <- doc %>% 
