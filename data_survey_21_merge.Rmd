@@ -13,7 +13,7 @@ This file is used to merged together multiple data sets containing survey respon
 library(dplyr, warn.conflicts = FALSE)
 library(readr, warn.conflicts = FALSE)
 library(purrr, warn.conflicts = FALSE)
-library(testthat, warn.conflicts = FALSE)
+library(testthat, warn.conflicts = FALSE) # Delete after you remove all testthat chunks
 library(stringr, warn.conflicts = FALSE)
 library(tidyr, warn.conflicts = FALSE)
 library(haven, warn.conflicts = FALSE)
@@ -90,32 +90,34 @@ Causes problems with `tidyr::fill()` and "Error: Can't combine `..1$hrq_1` <doub
 
 I will almost certainly want to do something different once I start making the codebook, but for now, just remove all the attributes from all of the columns so that we can see if we can get them to bind. 
 
+2022-03-07: Not running this section of code. Attempting to merge all the data frames without losing the labels. https://stackoverflow.com/questions/61489740/if-else-with-haven-labelled-column-fails-because-of-wrong-class
+
 ```{r}
-qds_stripped <- map_df(
-  .x = qds, 
-  .f = function(x) {
-    attributes(x) <- NULL
-    x
-  }
-)
+# qds_stripped <- map_df(
+#   .x = qds, 
+#   .f = function(x) {
+#     attributes(x) <- NULL
+#     x
+#   }
+# )
 ```
 
 ```{r}
-attributes(qds_stripped$date_visit)$class <- "Date"
+# attributes(qds_stripped$date_visit)$class <- "Date"
 ```
 
 ```{r}
-rc_stripped <- map_df(
-  .x = rc,
-  .f = function(x) {
-    attributes(x) <- NULL
-    x
-  }
-)
+# rc_stripped <- map_df(
+#   .x = rc,
+#   .f = function(x) {
+#     attributes(x) <- NULL
+#     x
+#   }
+# )
 ```
 
 ```{r}
-attributes(rc_stripped$date_visit)$class <- "Date"
+# attributes(rc_stripped$date_visit)$class <- "Date"
 ```
 
 
@@ -126,7 +128,23 @@ Group assignment from across visits can be conflicting. Additionally, group assi
 First, gather all of the group information from the QDS data.
 
 ```{r}
-group_qds_long <- qds_stripped %>%
+# group_qds_long <- qds_stripped %>%
+#   select(id, group, visit) %>% 
+#   arrange(id, visit) %>% 
+#   
+#   # Fill values of group down within id
+#   group_by(id) %>% 
+#   tidyr::fill(group, .direction = "downup") %>% 
+#   
+#   # Now check for multiple group values within id
+#   mutate(mult_group = unique(group) %>% length() > 1) %>% 
+#   ungroup()
+```
+
+```{r}
+# 2022-03-07: Not running this section of code. Attempting to merge all the data frames without losing the labels. https://stackoverflow.com/questions/61489740/if-else-with-haven-labelled-column-fails-because-of-wrong-class
+
+group_qds_long <- qds %>%
   select(id, group, visit) %>% 
   arrange(id, visit) %>% 
   
@@ -138,6 +156,7 @@ group_qds_long <- qds_stripped %>%
   mutate(mult_group = unique(group) %>% length() > 1) %>% 
   ungroup()
 ```
+
 
 Manually review id's with multiple group values
 
@@ -190,8 +209,21 @@ Are the group values consistent in REDCap?
 Wrapping this data check in a stop function for when this file is sourced.
 
 ```{r}
+# # For data checks
+# check_redcap_group_values <- rc_stripped %>% 
+#   group_by(id) %>% 
+#   filter(unique(group) %>% length() > 1)
+# 
+# if (nrow(check_redcap_group_values) > 0) {
+#   stop("At least one participant in the REDCap data is assigned to more than one group. Please investigate further in data_survey_21_merge.Rmd.")
+# }
+```
+
+```{r}
+# 2022-03-07: Not running this section of code. Attempting to merge all the data frames without losing the labels. https://stackoverflow.com/questions/61489740/if-else-with-haven-labelled-column-fails-because-of-wrong-class
+
 # For data checks
-check_redcap_group_values <- rc_stripped %>% 
+check_redcap_group_values <- rc %>% 
   group_by(id) %>% 
   filter(unique(group) %>% length() > 1)
 
@@ -200,13 +232,23 @@ if (nrow(check_redcap_group_values) > 0) {
 }
 ```
 
+
 Yes, so now we don't need to worry about visit number. We can just keep one row per id, and check to make sure that group in REDCap matches group in the QDS data.
 
 ```{r}
-rc_id_group <- rc_stripped %>% 
+# rc_id_group <- rc_stripped %>% 
+#   select(id, group) %>% 
+#   distinct(id, group)
+```
+
+```{r}
+# 2022-03-07: Not running this section of code. Attempting to merge all the data frames without losing the labels. https://stackoverflow.com/questions/61489740/if-else-with-haven-labelled-column-fails-because-of-wrong-class
+
+rc_id_group <- rc %>% 
   select(id, group) %>% 
   distinct(id, group)
 ```
+
 
 Manually check for differences between group assignment in QDS and REDCap.
 
@@ -293,12 +335,28 @@ if (nrow(check_qds_ml_group_diffs_not_na) > 0) {
 Now there are no "conflicts" between group in the QDS data and group in the master log. The differences were all simply due to the fact that there is no group membership information at all in QDS for these participants. Therefore, we can just go ahead and row bind. In the future, if there are conflicts between group_diffs\$group_diffs and group_diffs\$group_qds, we will need to manage them.
 
 ```{r}
-group_membership_key <- group_qds %>% 
+# group_membership_key <- group_qds %>% 
+#   full_join(
+#     check_qds_ml_group_diffs %>% 
+#       select(id, group_ml),
+#     by = "id"
+#   ) %>% 
+#   mutate(group = if_else(is.na(group), group_ml, group)) %>% 
+#   select(-group_ml)
+```
+
+```{r}
+# 2022-03-07: Not running this section of code. Attempting to merge all the data frames without losing the labels. https://stackoverflow.com/questions/61489740/if-else-with-haven-labelled-column-fails-because-of-wrong-class
+
+group_membership_key <- group_qds %>%
   full_join(
     check_qds_ml_group_diffs %>% 
       select(id, group_ml),
     by = "id"
   ) %>% 
+  # Change class of group_ml to prevent error:
+  # `false` must have class `numeric`, not class `haven_labelled/vctrs_vctr/double`
+  mutate(group_ml = haven::labelled(group_ml)) %>% 
   mutate(group = if_else(is.na(group), group_ml, group)) %>% 
   select(-group_ml)
 ```
@@ -332,7 +390,17 @@ Error: Can't combine `..1$id` <double> and `..2$id` <character>.
 Error: Can't combine `..1$af_drinks` <character> and `..2$af_drinks` <double>.
 
 ```{r}
-qds_stripped <- qds_stripped %>% 
+# qds_stripped <- qds_stripped %>% 
+#   mutate(
+#     id = as.character(id),
+#     af_drinks = as.numeric(af_drinks)
+#   )
+```
+
+```{r}
+# 2022-03-07: Not running this section of code. Attempting to merge all the data frames without losing the labels. https://stackoverflow.com/questions/61489740/if-else-with-haven-labelled-column-fails-because-of-wrong-class
+
+qds <- qds %>% 
   mutate(
     id = as.character(id),
     af_drinks = as.numeric(af_drinks)
@@ -340,8 +408,16 @@ qds_stripped <- qds_stripped %>%
 ```
 
 ```{r}
-l2c_survey <- qds_stripped %>% 
-  bind_rows(rc_stripped) %>% 
+# l2c_survey <- qds_stripped %>% 
+#   bind_rows(rc_stripped) %>% 
+#   arrange(id, visit) 
+```
+
+```{r}
+# 2022-03-07: Not running this section of code. Attempting to merge all the data frames without losing the labels. https://stackoverflow.com/questions/61489740/if-else-with-haven-labelled-column-fails-because-of-wrong-class
+
+l2c_survey <- qds %>% 
+  bind_rows(rc) %>% 
   arrange(id, visit) 
 ```
 
@@ -360,14 +436,14 @@ ml_sub <- ml %>%
   rename_with(~ paste0("ml_", .x))
 ```
 
-Make sure there is one row per id in master log before joining.
+Run check when sourcing this file. Make sure there is one row per id in master log before joining.
 
 ```{r}
-test_that("Master log has one row per id", {
-  rows_in_ml <- nrow(ml_sub)
-  ids_in_ml <- length(unique(ml_sub$ml_id))
-  expect_equal(rows_in_ml, ids_in_ml)
-})
+if (nrow(ml_sub) != length(unique(ml_sub$ml_id))) {
+  stop(
+    "Master log has more than one row per id. Investigate in data_survey_21_merge.Rmd"
+  )
+}
 ```
 
 There are also more people in the Master log than there are in the QDS/REDCap data. This is because the Master Log is updated more frequently than the QDS/REDCap data.
@@ -375,9 +451,11 @@ There are also more people in the Master log than there are in the QDS/REDCap da
 Put in a check for this. If it fails, you probably need to update the Master Log import.
 
 ```{r}
-test_that("There are also more people in the Master log than there are in the QDS/REDCap data.", {
-  expect_true(length(unique(ml_sub$ml_id)) >= length(unique(l2c_survey$id)))
-})
+if (length(unique(l2c_survey$id)) >= length(unique(ml_sub$ml_id))) {
+  stop(
+    "There are more people in the Master log than there are in the QDS/REDCap data. If it fails, you probably need to update the Master Log import. Investigate in data_survey_21_merge.Rmd"
+  )
+}
 ```
 
 ```{r}
@@ -406,13 +484,17 @@ l2c_survey <- l2c_survey %>%
 It looks like there is only one row per id. Check to make sure this is always the case. The join below will expect this condition. 
 
 ```{r}
-test_that("Arrest data has one row per id in data_survey_21_merge.Rmd", {
-  expect_true(
-    arrest %>% 
-      summarise(one_row_per_id = nrow(.) == length(unique(subject))) %>% 
-      pull() 
+arrest_one_row_per_id <- arrest %>% 
+  summarise(one_row_per_id = nrow(.) == length(unique(subject))) %>% 
+  pull() 
+
+if (!arrest_one_row_per_id) {
+  stop(
+    "The arrest data has more than one row per id. Investigate in data_survey_21_merge.Rmd"
   )
-})
+}
+
+rm(arrest_one_row_per_id)
 ```
 
 ```{r}
@@ -431,13 +513,17 @@ l2c_survey <- l2c_survey %>%
 It looks like there is only one row per id. Check to make sure this is always the case. The join below will expect this condition. 
 
 ```{r}
-test_that("Bridge session data has one row per id in data_survey_21_merge.Rmd", {
-  expect_true(
-    bridge %>% 
-      summarise(one_row_per_id = nrow(.) == length(unique(subject))) %>% 
-      pull() 
+bridge_one_row_per_id <- bridge %>% 
+  summarise(one_row_per_id = nrow(.) == length(unique(subject))) %>% 
+  pull() 
+
+if (!bridge_one_row_per_id) {
+  stop(
+    "The Bridge session data has more than one row per id. Investigate in data_survey_21_merge.Rmd"
   )
-})
+}
+
+rm(bridge_one_row_per_id)
 ```
 
 ```{r}
@@ -476,6 +562,14 @@ test_that("There are not more ids in `group_membership_key` than `l2c_survey` in
     nrow(group_membership_key) <= length(unique(l2c_survey$id)) 
   )
 })
+```
+
+```{r}
+if (nrow(group_membership_key) > length(unique(l2c_survey$id))) {
+  stop(
+    "The Bridge session data has more than one row per id. Investigate in data_survey_21_merge.Rmd"
+  )
+}
 ```
 
 ```{r}
