@@ -5,7 +5,18 @@ date: "2021-04-28 <br> Updated: `r Sys.Date()`"
 
 # ⭐️Overview
 
-This file is used to merged together multiple data sets containing survey responses.
+We previously imported and did some initial cleaning of the following data sets:
+
+* QDS (data_survey_01_qds_import.Rmd)   
+* REDCap (data_survey_02_redcap_import.Rmd)    
+* Master log (data_survey_03_master_log_import.Rmd)   
+* Timeline followback (data_survey_04_tlfb_import.Rmd)   
+* Arrest data (data_survey_05_arrests_import.Rmd)   
+* Bridge sessions data (data_survey_06_bridge_sessions_import.Rmd)   
+* DDT data (data_survey_07_ddt_import.Rmd)   
+
+This file is used to merged together all of those individual data sets into a single survey data analysis data set.
+
 
 # 📦Load packages
 
@@ -18,6 +29,7 @@ library(stringr, warn.conflicts = FALSE)
 library(tidyr, warn.conflicts = FALSE)
 library(haven, warn.conflicts = FALSE)
 ```
+
 
 # 🌎Connect to UTH server 
 
@@ -65,14 +77,16 @@ for (i in seq_along(data_frames)) {
   df_nm     <- names(data_frames)[[i]]
   df        <- read_rds(full_path)
   assign(df_nm, df, envir = .GlobalEnv)
+  
   # Print a message for when this file is being sourced
   cat(
     paste0(Sys.Date(), ":"),
-    data_frames[[i]], "imported as", df_nm, "with", nrow(df), "rows and", ncol(df), "columns.\n"
+    data_frames[[i]], "imported as", df_nm, "with", nrow(df), "rows and", 
+    ncol(df), "columns.\n"
   )
 }
 
-rm(data_frames, df_nm, full_path, i, path)
+rm(df_nm, full_path, i, path)
 
 # 2021-08-17: qds_all_visits_import.rds imported as qds with 1056 rows and 1046 columns.
 # 2021-08-17: redcap_import.rds imported as rc with 21 rows and 911 columns.
@@ -84,66 +98,55 @@ rm(data_frames, df_nm, full_path, i, path)
 ```
 
 
-# Remove attributes for all variables
+# 🚧Data management
 
-Causes problems with `tidyr::fill()` and "Error: Can't combine `..1$hrq_1` <double> and `..2$hrq_1` <haven_labelled>."
+## Make id character
 
-I will almost certainly want to do something different once I start making the codebook, but for now, just remove all the attributes from all of the columns so that we can see if we can get them to bind. 
+When we attempt to merge the individual data sets below, we will get a lot of errors that look like:
 
-2022-03-07: Not running this section of code. Attempting to merge all the data frames without losing the labels. https://stackoverflow.com/questions/61489740/if-else-with-haven-labelled-column-fails-because-of-wrong-class
+Error: Can't join on `x$id` x `y$id` because of incompatible types. ℹ `x$id` is of type <character>>. ℹ `y$id` is of type <double>>.
+
+Instead of dealing with these errors one at a time, we will just coerce the `id` variable to character type here in all data frames.
+
+In some data frames, the `id` variable is named `subject`. We will rename all instances of `subject` to `id`.
 
 ```{r}
-# qds_stripped <- map_df(
-#   .x = qds, 
-#   .f = function(x) {
-#     attributes(x) <- NULL
-#     x
-#   }
-# )
+# Keep only the R data frame names from the data_frames object. We no longer need the file paths.
+data_frames <- names(data_frames)
 ```
 
 ```{r}
-# attributes(qds_stripped$date_visit)$class <- "Date"
+# Loop over each data frame
+for (i in seq_along(data_frames)) {
+  
+  # Grab the data frame from the global environment
+  df <- get(data_frames[[i]], envir = .GlobalEnv)
+  
+  # If there is a column named "subject", change the name to "id"
+  if ("subject" %in% names(df)) {
+    df <- rename(df, "id" = "subject")
+  }
+  
+  # Coerce id to character type
+  df <- mutate(df, id = as.character(id))
+  
+  # Save updated data frames back to the global environment
+  assign(data_frames[[i]], df, envir = .GlobalEnv)
+}
+
+# Clean up
+rm(data_frames, i)
 ```
 
-```{r}
-# rc_stripped <- map_df(
-#   .x = rc,
-#   .f = function(x) {
-#     attributes(x) <- NULL
-#     x
-#   }
-# )
-```
+## Clean group value
 
-```{r}
-# attributes(rc_stripped$date_visit)$class <- "Date"
-```
+Group assignment values from across visits can be conflicting. Additionally, group assignments between data collection instruments (i.e., QDS, REDCap, and Master Log) can be conflicting.
 
-
-# Clean group value
-
-Group assignment from across visits can be conflicting. Additionally, group assignments between data collection instruments (i.e., QDS, REDCap, and Master Log) can be conflicting.
+### QDS group values
 
 First, gather all of the group information from the QDS data.
 
 ```{r}
-# group_qds_long <- qds_stripped %>%
-#   select(id, group, visit) %>% 
-#   arrange(id, visit) %>% 
-#   
-#   # Fill values of group down within id
-#   group_by(id) %>% 
-#   tidyr::fill(group, .direction = "downup") %>% 
-#   
-#   # Now check for multiple group values within id
-#   mutate(mult_group = unique(group) %>% length() > 1) %>% 
-#   ungroup()
-```
-
-```{r}
-# 2022-03-07: Not running this section of code. Attempting to merge all the data frames without losing the labels. https://stackoverflow.com/questions/61489740/if-else-with-haven-labelled-column-fails-because-of-wrong-class
-
 group_qds_long <- qds %>%
   select(id, group, visit) %>% 
   arrange(id, visit) %>% 
@@ -156,7 +159,6 @@ group_qds_long <- qds %>%
   mutate(mult_group = unique(group) %>% length() > 1) %>% 
   ungroup()
 ```
-
 
 Manually review id's with multiple group values
 
@@ -178,7 +180,7 @@ group_qds_long[group_qds_long$id == 2057, "group"] <- 3
 
 Do one more check for multiple group values
 
-Wrapping this data check in a stop function for when this file is sourced.
+Adding a stop function for when this file is sourced.
 
 ```{r}
 # For data checks
@@ -202,26 +204,13 @@ group_qds <- group_qds_long %>%
   ungroup()
 ```
 
-### REDCap: Check for differences in the REDCap data
+### REDCap group values
 
 Are the group values consistent in REDCap?
 
-Wrapping this data check in a stop function for when this file is sourced.
+Adding a stop function for when this file is sourced.
 
 ```{r}
-# # For data checks
-# check_redcap_group_values <- rc_stripped %>% 
-#   group_by(id) %>% 
-#   filter(unique(group) %>% length() > 1)
-# 
-# if (nrow(check_redcap_group_values) > 0) {
-#   stop("At least one participant in the REDCap data is assigned to more than one group. Please investigate further in data_survey_21_merge.Rmd.")
-# }
-```
-
-```{r}
-# 2022-03-07: Not running this section of code. Attempting to merge all the data frames without losing the labels. https://stackoverflow.com/questions/61489740/if-else-with-haven-labelled-column-fails-because-of-wrong-class
-
 # For data checks
 check_redcap_group_values <- rc %>% 
   group_by(id) %>% 
@@ -232,36 +221,25 @@ if (nrow(check_redcap_group_values) > 0) {
 }
 ```
 
-
 Yes, so now we don't need to worry about visit number. We can just keep one row per id, and check to make sure that group in REDCap matches group in the QDS data.
 
 ```{r}
-# rc_id_group <- rc_stripped %>% 
-#   select(id, group) %>% 
-#   distinct(id, group)
-```
-
-```{r}
-# 2022-03-07: Not running this section of code. Attempting to merge all the data frames without losing the labels. https://stackoverflow.com/questions/61489740/if-else-with-haven-labelled-column-fails-because-of-wrong-class
-
 rc_id_group <- rc %>% 
   select(id, group) %>% 
   distinct(id, group)
 ```
 
-
 Manually check for differences between group assignment in QDS and REDCap.
 
 ```{r}
-rc_id_group %>% 
-  left_join(
-    group_qds %>% 
-      select(id, group) %>% 
-      # To prevent type mismatch error:
-      mutate(id = as.character(id)),
-    by = "id",
-    suffix = c("_rc", "_qds")
-  ) %>% 
+# Join RedCap id and group with QDS id and group by id
+left_join(
+  rc_id_group,
+  group_qds,
+  by = "id",
+  suffix = c("_rc", "_qds")
+) %>% 
+  # Check for differences in group for each id
   rowwise() %>% 
   filter(length(unique(c_across(group_rc:group_qds))) > 1)
 ```
@@ -273,19 +251,17 @@ group_qds$group[group_qds$id == 2252] <- 2
 group_qds$group[group_qds$id == 2253] <- 3
 ```
 
-Wrapping this data check in a stop function for when this file is sourced.
+Adding a stop function for when this file is sourced.
 
 ```{r}
 # For data checks
-check_qds_redcap_group_diffs <- rc_id_group %>% 
-  left_join(
-    group_qds %>% 
-      select(id, group) %>% 
-      # To prevent type mismatch error:
-      mutate(id = as.character(id)),
-    by = "id",
-    suffix = c("_rc", "_qds")
-  ) %>% 
+check_qds_redcap_group_diffs <- left_join(
+  rc_id_group,
+  group_qds,
+  by = "id",
+  suffix = c("_rc", "_qds")
+) %>% 
+  # Check for differences in group for each id
   rowwise() %>% 
   filter(length(unique(c_across(group_rc:group_qds))) > 1)
 
@@ -294,26 +270,19 @@ if (nrow(check_qds_redcap_group_diffs) > 0) {
 }
 ```
 
-### Master log: Supplement with Excel master log data
+### Master log group values
+
+Supplement with Excel master log data.
 
 Manually check for differences between group assignment in QDS and master log.
 
-Error: Can't join on `x$id` x `y$id` because of incompatible types. ℹ `x$id` is of type <character>>. ℹ `y$id` is of type <double>>.
-
 ```{r}
-group_qds <- group_qds %>% 
-  mutate(id = as.character(id))
-```
-
-```{r}
-check_qds_ml_group_diffs <- ml %>%
-  left_join(
-    group_qds %>% 
-      select(id, group),
-    by = "id",
-    suffix = c("_ml", "_qds")
-  ) %>% 
-  select(id, group_ml, group_qds) %>% 
+check_qds_ml_group_diffs <- left_join(
+  ml %>% select(id, group),
+  group_qds,
+  by = "id",
+  suffix = c("_ml", "_qds")
+) %>% 
   rowwise() %>% 
   filter(length(unique(c_across(group_ml:group_qds))) > 1)
 ```
@@ -335,19 +304,6 @@ if (nrow(check_qds_ml_group_diffs_not_na) > 0) {
 Now there are no "conflicts" between group in the QDS data and group in the master log. The differences were all simply due to the fact that there is no group membership information at all in QDS for these participants. Therefore, we can just go ahead and row bind. In the future, if there are conflicts between group_diffs\$group_diffs and group_diffs\$group_qds, we will need to manage them.
 
 ```{r}
-# group_membership_key <- group_qds %>% 
-#   full_join(
-#     check_qds_ml_group_diffs %>% 
-#       select(id, group_ml),
-#     by = "id"
-#   ) %>% 
-#   mutate(group = if_else(is.na(group), group_ml, group)) %>% 
-#   select(-group_ml)
-```
-
-```{r}
-# 2022-03-07: Not running this section of code. Attempting to merge all the data frames without losing the labels. https://stackoverflow.com/questions/61489740/if-else-with-haven-labelled-column-fails-because-of-wrong-class
-
 group_membership_key <- group_qds %>%
   full_join(
     check_qds_ml_group_diffs %>% 
@@ -385,37 +341,16 @@ At this point, `group_membership_key` contains the final group value we will use
 
 ## QDS and REDCap
 
-Error: Can't combine `..1$id` <double> and `..2$id` <character>.
-
-Error: Can't combine `..1$af_drinks` <character> and `..2$af_drinks` <double>.
+Coerce af_drinks to numeric to prevent the following error: Error: Can't combine `..1$af_drinks` <character> and `..2$af_drinks` <double>.
 
 ```{r}
-# qds_stripped <- qds_stripped %>% 
-#   mutate(
-#     id = as.character(id),
-#     af_drinks = as.numeric(af_drinks)
-#   )
-```
-
-```{r}
-# 2022-03-07: Not running this section of code. Attempting to merge all the data frames without losing the labels. https://stackoverflow.com/questions/61489740/if-else-with-haven-labelled-column-fails-because-of-wrong-class
-
 qds <- qds %>% 
   mutate(
-    id = as.character(id),
     af_drinks = as.numeric(af_drinks)
   )
 ```
 
 ```{r}
-# l2c_survey <- qds_stripped %>% 
-#   bind_rows(rc_stripped) %>% 
-#   arrange(id, visit) 
-```
-
-```{r}
-# 2022-03-07: Not running this section of code. Attempting to merge all the data frames without losing the labels. https://stackoverflow.com/questions/61489740/if-else-with-haven-labelled-column-fails-because-of-wrong-class
-
 l2c_survey <- qds %>% 
   bind_rows(rc) %>% 
   arrange(id, visit) 
@@ -423,16 +358,13 @@ l2c_survey <- qds %>%
 
 ## Master log
 
-Some of the information in master log is redundant.
+Some of the information in master log is redundant, so we will subset selected columns that are not redundant before merging.
 
-Error: Can't join on `x$id` x `y$id` because of incompatible types. ℹ `x$id` is of type <character>>. ℹ `y$id` is of type <double>>.
-
-Add "ml" to the beginning of every column name in the master log. This is to prevent duplicate names (e.g. `gender.x` and `gender.y` when we join below)
+We will also add "ml" to the beginning of every column name in the master log. This is to prevent duplicate names (e.g. `gender.x` and `gender.y` when we join below)
 
 ```{r}
 ml_sub <- ml %>% 
   select(id, status, group, name_first:v5_r_completed) %>% 
-  mutate(id = as.character(id)) %>% 
   rename_with(~ paste0("ml_", .x))
 ```
 
@@ -466,14 +398,6 @@ l2c_survey <- ml_sub %>%
 
 ## TLFB
 
-Error: Can't join on `x$id` x `y$id` because of incompatible types. ℹ `x$id` is of type <character>>. ℹ `y$id` is of type <double>>.
-
-```{r}
-tlfb <- tlfb %>% 
-  mutate(subject = as.character(subject)) %>% 
-  rename(id = subject)
-```
-
 ```{r}
 l2c_survey <- l2c_survey %>% 
   left_join(tlfb, by = c("id", "visit"))
@@ -485,7 +409,7 @@ It looks like there is only one row per id. Check to make sure this is always th
 
 ```{r}
 arrest_one_row_per_id <- arrest %>% 
-  summarise(one_row_per_id = nrow(.) == length(unique(subject))) %>% 
+  summarise(one_row_per_id = nrow(.) == length(unique(id))) %>% 
   pull() 
 
 if (!arrest_one_row_per_id) {
@@ -495,12 +419,6 @@ if (!arrest_one_row_per_id) {
 }
 
 rm(arrest_one_row_per_id)
-```
-
-```{r}
-arrest <- arrest %>% 
-  mutate(subject = as.character(subject)) %>% 
-  rename(id = subject)
 ```
 
 ```{r}
@@ -514,7 +432,7 @@ It looks like there is only one row per id. Check to make sure this is always th
 
 ```{r}
 bridge_one_row_per_id <- bridge %>% 
-  summarise(one_row_per_id = nrow(.) == length(unique(subject))) %>% 
+  summarise(one_row_per_id = nrow(.) == length(unique(id))) %>% 
   pull() 
 
 if (!bridge_one_row_per_id) {
@@ -527,22 +445,11 @@ rm(bridge_one_row_per_id)
 ```
 
 ```{r}
-bridge <- bridge %>% 
-  mutate(subject = as.character(subject)) %>% 
-  rename(id = subject)
-```
-
-```{r}
 l2c_survey <- l2c_survey %>%
   left_join(bridge, by = "id")
 ```
 
 ## DDT data
-
-```{r}
-ddt <- ddt %>% 
-  rename(id = subject)
-```
 
 ```{r}
 l2c_survey <- l2c_survey %>%
@@ -594,7 +501,7 @@ cat(
   "rows and", ncol(l2c_survey), "columns.\n"
 )
 
-# 2021-08-17: Combined Participant data cleaned with 1080 rows and 1202 columns.
+# 2022-03-15: Combined Participant data cleaned with 1083 rows and 1202 columns.
 ```
 
 
