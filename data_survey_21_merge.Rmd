@@ -557,17 +557,9 @@ Use `group_membership_key` to set the final group status for each participant.
 There should not be more ids in `group_membership_key` than `l2c_survey`. Check to make sure.
 
 ```{r}
-test_that("There are not more ids in `group_membership_key` than `l2c_survey` in data_survey_01_import.Rmd", {
-  expect_true(
-    nrow(group_membership_key) <= length(unique(l2c_survey$id)) 
-  )
-})
-```
-
-```{r}
 if (nrow(group_membership_key) > length(unique(l2c_survey$id))) {
   stop(
-    "The Bridge session data has more than one row per id. Investigate in data_survey_21_merge.Rmd"
+    "There are more ids in `group_membership_key` than `l2c_survey`. Investigate in data_survey_21_merge.Rmd"
   )
 }
 ```
