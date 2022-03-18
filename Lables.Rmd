@@ -1,0 +1,291 @@
+---
+title: "title"
+---
+
+
+```{r}
+label <- function(col, label) {
+  df <- get("combined_participant_data", envir = .GlobalEnv)
+  attributes(df[[col]])$label <- label
+  assign("combined_participant_data", df, envir = .GlobalEnv)
+}
+```
+
+
+```{r}
+label("id", "Subject ID")
+label("date_visit", "Today's date")
+label("group", "What is the participant's treatment group?")
+label("ml_status","Master log status")
+label("ml_group", "Master log group")
+label("ml_name_first", "First name")
+label("ml_name_last","Last name")
+label("ml_name_middle_init","Middle name")
+label("ml_gender","Master log gender")
+label("ml_race","Master log race")
+label("ml_hispanic","Master log hispanic")
+label("ml_date_birth","Master log date of birth")
+label("ml_age","Master log age")
+label("ml_clincard_id","ClinCard ID")
+label("ml_n_clincards","N clinicard distributed")
+label("ml_phone_id","Phone ID")
+label("ml_phone_number_l2c","L2C phone number")
+label("ml_phone_n_distributed", "N phone distributed")
+label("ml_care_manager","Care manager")
+label("ml_v1","Visit 1 attended")
+label("ml_v2","Visit 2 attended")
+label("ml_v3","Visit 3 attended")
+label("ml_v4","Visit 4 attended")
+label("ml_v5","Visit 5 attended")
+label("ml_v3_r_distributed","Redcap visit 3 distributed")
+label("ml_v3_r_completed","Redcap visit 3 completed")
+label("ml_v4_r_distributed","Redcap visit 4 distributed")
+label("ml_v4_r_completed","Redcap visit 4 completed")
+label("ml_v5_r_distributed","Redcap visit 5 distributed")
+label("ml_v5_r_completed","Redcap visit 5 completed")
+label("ii","Interviewer Initials")
+
+#screnning questions
+label("sq_age","What is your age?")
+label("sq_7a","How long ago were you released from the jail?")
+label("sq_7c","Other form of evidence of recent incarceration in Dallas Country Jail?")
+label("sq_9l","Homeless shelters name:")
+label("sq_18","Which of the following forms of media do you use?")
+label("sq_22","Which of the following forms of identification do you possess?")
+
+#mini-mental exam
+label("mms_1","Score for MMS_1")
+label("mms_2","Score for MMS_2")
+label("mms_3","Word recall")
+label("mms_recall_1","Word recall score")
+label("mms_4","Ask the individual to count backwards from 100 by 7's")
+label("mms_count","Number count")
+label("mms_5","Please spell the word WORLD backwards")
+label("mms_num","Number count 2")
+label("mms_6","Earlier I told you three words. Can you name all three words?")
+label("mms_recall_2","Word recall score 2 ")
+label("mms_7","I am going to point to an object and ask you to name the objects")
+label("mms_object","NAMING OBJECTS")
+label("mms_9","Give the individual a piece of paper and ask the them to: 1) Hold the paper in their right hand 2) Fold the paper in half. 3) Put the paper on the floor.")
+label("mms paper","FOLDING PAPER")
+label("MMS_S","Mini Mental State Exam Score")
+
+#realm card
+label("realm","Realm")
+label("realm_total","Realm total")
+
+
+label("ctime","Current time")
+label("dem_race_mult_n","You have stated that you have more than one race. Please look at the categories below and mark the ones that best describe your race (Check all that apply)")
+label("dem_ins","Do you have health insurance? Please check all that apply.")
+label("dem_social_security","Do you currently receive Social Security benefits?")
+label("dem_snap_amount","What is the amount of food stamps (SNAP) do you get each month?")
+label("dem_income_source","What are your sources of income? (Please check all that apply).")
+
+#The Brief Homelessness Questionnaire
+label("bh_1","What is the total amount of time you have been homeless in your lifetime? (for example 3 and a half years would be 3 years and 6 months)")
+label("bh_1y","Years: What is the total amount of time you have been homeless in your lifetime? (for example 3 and a half years would be 3 years and 6 months)")
+label("bh_1m","Months: What is the total amount of time you have been homeless in your lifetime? (for example 3 and a half years would be 3 years and 6 months)")
+label("bh_1d","Days: What is the total amount of time you have been homeless in your lifetime? (for example 3 and a half years would be 3 years and 6 months)")
+label("bh_3","How old were you the first time you became homeless?")
+label("bh_4","How long ago did the current period of homelessness begin? (for example 3 years would be 3 years and 0 months)")
+label("bh_4y","Years: How long ago did the current period of homelessness begin? (for example 3 years would be 3 years and 0 months)")
+label("bh_4m","Months: How long ago did the current period of homelessness begin? (for example 3 years would be 3 years and 0 months)")
+label("bh_4d","Days: How long ago did the current period of homelessness begin? (for example 3 years would be 3 years and 0 months)")
+label("bh_7","How long have you been receiving services at the Bridge? (for example, 6 and a half months would be 2 weeks, 6 months, 0 years)")
+label("bh_7y","Years: How long have you been receiving services at the Bridge? (for example, 6 and a half months would be 2 weeks, 6 months, 0 years)")
+label("bh_7m","Months: How long have you been receiving services at the Bridge? (for example, 6 and a half months would be 2 weeks, 6 months, 0 years)")
+label("bh_7w","Weeks: How long have you been receiving services at the Bridge? (for example, 6 and a half months would be 2 weeks, 6 months, 0 years)")
+
+label("bh_11","On average, how many hours do you spend at shelters each day (counting sleep time)?")
+label("bh_12","What are the reasons for your current homelessness (check all that apply)?	")
+label("bh_13","Have you ever been arrested and booked for: (Check all that apply)")
+label("bh_14","Were you arrested or booked for breaking the law in the PAST MONTH?")
+label("bh_15","During your lifetime, how many separate times have you been to jail or prison?")
+label("bh_17","During your lifetime, how much time have you spent in jail or prison?")
+
+####unsure about remaining brief homelessness questions
+#label("bh_18y","")
+#label("bh_18m","")
+#label("bh_18w","")
+#label("bh_18d","")
+#################################
+
+#Self-Rated Health Questionnaire
+label("srh_7","Please select the Cardiovascular Diseases (heart/circulatory disease) that you have been diagnosed with. (Check all that apply)")
+label("srh_8","Please select the Pulmonary Diseases (lung diseases) that you have been diagnosed with. (Check all that apply)")
+label("srh_9","Please select the Cancers you have been diagnosed with? (Check all that apply)")
+label("srh_14","Which of the following have you been diagnosed with? (Check all that apply)")
+label("srh_18","I am currently taking medication for: (check all conditions for which you ARE taking medication)")
+label("srh_24","I have a prescription for the following disorders: (check all that apply)")
+label("srh_26","What were the reasons that you did not take your depression medication yesterday? (check all that apply)")
+label("srh_28","What were the reasons that you did not take your Schizophrenia or Schizoaffective disorder medication yesterday? (check all that apply)")
+label("srh_30","What were the reasons that you did not take your Bipolar Disorder medication yesterday? (check all that apply)")
+label("srh_32","What were the reasons that you did not take your Anxiety Disorder medication yesterday? (check all that apply)")
+label("srh_34","What were the reasons that you did not take your PTSD medication yesterday? (check all that apply)")
+label("srh_38","Which Substance Use Disorder have you been diagnosed with? (check all that apply)")
+label("srh_40","Please select all the substances that you used in the past 30 days.")
+label("srh_52","What type of health related issue? (Check all types of smartphone apps that you have used)")
+
+#Tobacco History Questionnaire
+label("t_3","How long ago did you quit smoking? (for example 3 and a half years would be 3 years and 6 months)")
+label("t_3y","Years: How long ago did you quit smoking? (for example 3 and a half years would be 3 years and 6 months)")
+label("t_3m","Months: How long ago did you quit smoking? (for example 3 and a half years would be 3 years and 6 months)")
+label("t_4","How many years were you a smoker")
+label("t_9","How many years have you smoked?")
+label("t_12","At what age did you begin smoking cigarettes or cigarillos?")
+label("t_15","Which of the following have you used to help you quit smoking in the past (check all that apply)?")
+label("t_24","Which of these would be the hardest thing about stopping smoking? (select all that apply)")
+label("t_32","Which of the following products have you tried, even just one time (click all items that you have used in the past)?")
+label("t_33","You reported that you have used e-cigarettes, vapes, or other vaping devices in the past. Which of these types of devices have you used?")
+label("t_35","Which of the following products have you used in the past 30 days? (Click all items that you have used in the past 30 days).")
+label("t_38","During an average weekday, how many smokers are you around?")
+label("t_39","During an average weekend, how many smokers are you around")
+label("t_40","How many close friends do you have? It is okay to count family members if you consider them your best friends.")
+label("t_41","How many of these close friends smoke?")
+label("t_42","How many of your 5 best friends smoke? It is okay to count family members if you consider them your best friends.")
+
+####
+label("brs_2","On average, how many hours of sleep do you get in a 24-hour period? Think about the time you actually spend sleeping or napping, not just the amount of sleep you think you should get.")
+label("af_drinks","Number of drinks based on gender")
+label("sb_2","How old were you the first time you had any kind of sex, including vaginal, anal, or oral?")
+label("sb_3","In the past 12 months, with how many people have you had any kind of sex?")
+label("sb_7","Has a health care professional EVER told you that you had: (Please select all that apply)")
+label("r_10","Over the past 30 days, how many days did you receive employment/job readiness training at local shelters?")
+label("r_16","What types of services would be most helpful to you right now? (select all that apply)")
+label("bpm_5","Which of the following would keep you from connecting to your case manager over the phone? (select all that apply)")
+label("endtime","End Time")
+label("etime","Elapsed interview/data entry tim")
+
+######unsure 
+#label("mms_score","")
+#label("mms_total","")
+###############################
+
+label("phq_dep_dicot_total","PHQ dichotomous total")#?
+label("phqgad","PHQ generalized anxiety disorder")#?
+label("hsi_bl","Heaviness of smoking index baseline")#?
+label("pa","")
+label("va","")
+label("a","")
+label("ha","")
+label("aq","")
+label("ces_5r","")
+label("ces_8r","")
+label("ces_total","CES-D total")#?
+
+#CES-D Dichotomus variables
+label("ces_1_dichot","CES-D dichotomus:During the past week, I was bothered by things that don't usually bother me")
+label("ces_2_dichot","CES-D dichotomus:During the past week, I had trouble keeping my mind on what I was doing.")
+label("ces_3_dichot","CES-D dichotomus:During the past week, I felt depressed.")
+label("ces_4_dichot","CES-D dichotomus:During the past week, I felt that everything I did was an effort.")
+label("ces_5r_dichot","CES-D dichotomus:During the past week, I felt hopeful about the future.")
+label("ces_6_dichot","CES-D dichotomus:During the past week, I felt fearful.")
+label("ces_7_dichot","CES-D dichotomus:During the past week, my sleep was restless.")
+label("ces_8_dichot","CES-D dichotomus:During the past week, I was happy.")
+label("ces_9_dichot","CES-D dichotomus:During the past week, I felt lonely.")
+label("ces_10_dichot","CES-D dichotomus:During the past week, I could not get going.")
+label("ces_dicot_total","CES-D dichotomus total")
+
+#interpersonal support evaluation list
+label("is_1r","")
+label("is_2r","")
+label("is_7r","")
+label("is_8r","")
+label("is_11r","")
+label("is_12r","")
+label("iseapp","")
+label("isebel","")
+label("isetan","")
+
+#Luben social network scale
+label("lsn_family","")
+label("lsn_friends","")
+label("lsn_total","")
+#
+label("dd_total","")
+label("ptsd_total","")
+label("alcqf","")
+
+
+label("weight_kg","Weight kilograms")
+label("height_meter","Height meters")
+label("height_meter_sq","Height meter squared")
+label("bmi","Body mass index")
+
+label("friends_smoke","")
+label("time_to_complete","")
+
+#do these match the codebooks
+label("t_5val","")
+label("t_6val","")
+
+#Vaccine
+label("vac_2","You stated that you received a COVID-19 vaccine. What was the date that you received the first (or only) dose (if you do not remember the exact date, please provide your best estimate).")
+label("vac_3","You stated that you received a COVID-19 vaccine. What was the date that you received the second dose (if you do not remember the exact date, please provide your best estimate).")
+
+#MacArthur Major Discrimination
+label("mmd_1a","How many times in your life have you been discriminated against by being discouraged by a teacher or advisor from seeking higher education because of such things as your race, ethnicity, gender, age, religion, physical appearance, sexual orientation, or other characteristics?")
+label("mmd_1b","How many times in your life have you been discriminated against by being denied a scholarship because of such things as your race, ethnicity, gender, age, religion, physical appearance, sexual orientation, or other characteristics?")
+label("mmd_1c","How many times in your life have you been discriminated against by not being hired for a job because of such things as your race, ethnicity, gender, age, religion, physical appearance, sexual orientation, or other characteristics?")
+label("mmd_1d","How many times in your life have you been discriminated against by not receiving a job promotion because of such things as your race, ethnicity, gender, age, religion, physical appearance, sexual orientation, or other characteristics?")
+label("mmd_1e","How many times in your life have you been discriminated against by being fired because of such things as your race, ethnicity, gender, age, religion, physical appearance, sexual orientation, or other characteristics?")
+label("mmd_1f","How many times in your life have you been discriminated against by being prevented from renting or buying a home in the neighborhood you wanted because of such things as your race, ethnicity, gender, age, religion, physical appearance, sexual orientation, or other characteristics?")
+label("mmd_1g","How many times in your life have you been discriminated against by being prevented from remaining in neighborhood because neighbors made life so uncomfortable because of such things as your race, ethnicity, gender, age, religion, physical appearance, sexual orientation, or other characteristics?")
+label("mmd_1h","How many times in your life have you been discriminated against by being hassled by the police because of such things as your race, ethnicity, gender, age, religion, physical appearance, sexual orientation, or other characteristics?")
+label("mmd_1i","How many times in your life have you been discriminated against by being denied a bank loan because of such things as your race, ethnicity, gender, age, religion, physical appearance, sexual orientation, or other characteristics?")
+label("mmd_1j","How many times in your life have you been discriminated against by being denied or provided inferior medical care because of such things as your race, ethnicity, gender, age, religion, physical appearance, sexual orientation, or other characteristics?")
+label("mmd_1k","How many times in your life have you been discriminated against by being denied or provided inferior service by a plumber, car mechanic, or other service provider because of such things as your race, ethnicity, gender, age, religion, physical appearance, sexual orientation, or other characteristics?")
+
+####unsure?
+label("vac_2y","Covid-19 vaccine year")
+label("vac_2m","Covid-19 vaccine month")
+label("vac_2d","Covid-19 vaccine day")
+label("vac_3y","")
+label("vac_3m","")
+label("vac_3d","")
+
+#?
+label("tcu_ds_total","")
+label("tcu_ds_score","")
+
+
+label("pbq_v_2_total","PBQ V2 Total")#?
+
+label("tcu_desire_v_2_total","")
+label("tcu_tn_v_2_total","")
+label("tcu_ts_v_2_total","")
+label("cj_21r","")
+label("cj_22r","")
+label("cj_23r","")
+label("cj_25r","")
+label("tcu_se_v_2_total","")
+label("tcu_hs_v_2_total","")
+label("cj_34r","")
+label("cj_35r","")
+label("cj_36r","")
+label("","")
+label("","")
+label("","")
+label("","")
+label("","")
+label("","")
+label("","")
+label("","")
+label("","")
+label("","")
+label("","")
+label("","")
+label("","")
+label("","")
+label("","")
+label("","")
+label("","")
+label("","")
+label("","")
+label("","")
+label("","")
+```
+
+
+
