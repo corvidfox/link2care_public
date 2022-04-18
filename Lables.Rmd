@@ -1,5 +1,5 @@
 ---
-title: "title"
+title: "Combined Participant Data Variable Labels"
 ---
 
 
@@ -104,13 +104,11 @@ label("bh_13","Have you ever been arrested and booked for: (Check all that apply
 label("bh_14","Were you arrested or booked for breaking the law in the PAST MONTH?")
 label("bh_15","During your lifetime, how many separate times have you been to jail or prison?")
 label("bh_17","During your lifetime, how much time have you spent in jail or prison?")
+label("bh_18y","Years: During your most recent incarceration, how long were you in jail?")
+label("bh_18m","Months: During your most recent incarceration, how long were you in jail?")
+label("bh_18w","Weeks: During your most recent incarceration, how long were you in jail?")
+label("bh_18d","Weeks: During your most recent incarceration, how long were you in jail?")
 
-####unsure about remaining brief homelessness questions
-#label("bh_18y","")
-#label("bh_18m","")
-#label("bh_18w","")
-#label("bh_18d","")
-#################################
 
 #Self-Rated Health Questionnaire
 label("srh_7","Please select the Cardiovascular Diseases (heart/circulatory disease) that you have been diagnosed with. (Check all that apply)")
@@ -146,7 +144,7 @@ label("t_40","How many close friends do you have? It is okay to count family mem
 label("t_41","How many of these close friends smoke?")
 label("t_42","How many of your 5 best friends smoke? It is okay to count family members if you consider them your best friends.")
 
-####
+#####
 label("brs_2","On average, how many hours of sleep do you get in a 24-hour period? Think about the time you actually spend sleeping or napping, not just the amount of sleep you think you should get.")
 label("af_drinks","Number of drinks based on gender")
 label("sb_2","How old were you the first time you had any kind of sex, including vaginal, anal, or oral?")
@@ -207,10 +205,6 @@ label("lsn_total","Sum LSN_V1_total 0-30 (a score of 12 and lower delineates “
 label("dd_total","Sum Detroit Day Discriminatio")
 label("ptsd_total","Sum PTSD total")
 
-#
-#label("alcqf","")
-
-
 label("weight_kg","Weight kilograms")
 label("height_meter","Height meters")
 label("height_meter_sq","Height meter squared")
@@ -219,9 +213,9 @@ label("bmi","Body mass index")
 label("friends_smoke","Ratio of close friends who smoke for baseline")
 label("time_to_complete","Finish time minus start time")
 
-#do these match the codebooks
-#label("t_5val","")
-#label("t_6val","")
+
+label("t_5val","How often do you smoke cigarettes or cigarillos?")
+label("t_6val","In the last 24 hours, how many cigarettes or cigarillos have you smoked?")
 
 #Vaccine
 label("vac_2","You stated that you received a COVID-19 vaccine. What was the date that you received the first (or only) dose (if you do not remember the exact date, please provide your best estimate).")
@@ -248,7 +242,7 @@ label("vac_3y","Covid-19 vaccine year")
 label("vac_3m","Covid-19 vaccine year")
 label("vac_3d","Covid-19 vaccine year")
 
-#?
+
 label("tcu_ds_total","Sum TCU Desire for help subscale (888 indicates they have not used drugs in past 12 months")
 label("tcu_ds_score","Score TCU Desire for help subscale")
 
@@ -299,7 +293,7 @@ label("dts_appraisal","DTS appraisal subscale mean total")
 label("dts_regulation","DTS regulation subscale mean total")
 label("dts_total","Distress Tolerance Scale total score")
 
-#Treatment Quality and Satistfaction Survey
+#Treatment Quality and Satisfaction Survey
 label("tq_15_3","What do you like about the Link2Care smart phone application?")
 label("tq_16_3","What do you not like about the Link2Care smart phone application?")
 label("tq_17_3","How would you improve the Link2Care smart phone application?")
@@ -309,7 +303,7 @@ label("tq_18_3","What other thoughts and opinions do you have about the Link2Car
 label("hsi","Heaviness of Smoking Index score")
 
 label("tcu_tn_v_4_total","Sum, TCU Treatment needs subscale Visit 4")
-#label("tcu_ts_total","Sum, TCU hostility subscale")
+label("tcu_ts_total","Sum, TCU hostility subscale")
 
 #REDcap
 label("check_in_timestamp","Redcap check in time")
