@@ -22,7 +22,7 @@ open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/'
 3. Update file paths, if necessary. 
 
 ```{r}
-master_log_path <- "/Volumes/Link2Care/Live Documents/L2C_Master_Log.xlsm"
+master_log_path <- "/Volumes/Link2Care/Live Documents/Master Log (version2).xlsm"
 phone_term_path <- "/Volumes/Link2Care/Live Documents/Link2Care Phone Terminations.xlsx"
 remote_path <- "/Volumes/Link2Care/Live Documents/L2C Remote Interview & Redcap Tracking.xlsx"
 ema_initial_pay_approach_path <- "/Volumes/Link2Care/Live Documents/ema_data comparison.xlsx"
