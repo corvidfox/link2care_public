@@ -117,7 +117,7 @@ master_log <- read_excel(
   master_log_path, 
   sheet = "Screened In",
   col_names = c("id", "group"),
-  col_types = c("text", rep("skip", 6), "text", rep("skip", 25)),
+  col_types = c("text", rep("skip", 22), "text", rep("skip", 31)),
   skip = 1
 ) %>% 
   # Coerce group to numeric so that it can be combined with the QDS data.
