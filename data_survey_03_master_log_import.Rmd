@@ -8,28 +8,24 @@ date: "2021-04-23 <br> Updated: `r Sys.Date()`"
 This file is used to import the Link2Care follow-up visit survey data and do some initial data cleaning. 
 
 **NOTE on using multiple import code files:**
+
 Previously, I was trying to clean all the separate data frames (i.e, QDS v1-v5, REDCap, and Master Log) in a single Rmd file. 
 
 In theory, this is more efficient than importing and cleaning each visit file separately. For example, we can clean "race" instead of cleaning "race_v1", "race_v2", etc.
 
 However, there are at least two issues with that approach:   
+
 1. There are intentional differences in the variable names (e.g., "V1" and "V2"), and unintentional errors (e.g., HEIGHT_3) in the variable names, from data frame to data frame that make combining them very difficult.   
+
 2. These differences and errors can be "fixed"; however, doing so makes the variable names so different from the codebook that the codebook is barely usable.
 
 For now, I'm going to try importing and cleaning each data file using a separate code file. There may be opportunities to make this more efficient in the future.
 
 **NOTE on data sources:**
-* The QDS data is exported from QDS in SPSS data format. The data has to be exported by visit (i.e., v1, v2, ... v5). The SPSS data is then added to the UTHealth servers.
 
-* Some of the v3-v5 visits are also done using REDCap. That data is exported from REDCap and added to the UTHealth servers.
+* The QDS data is exported from QDS in SPSS data format. The data has to be exported by visit (i.e., v1, v2, ... v5). The SPSS data is then added to OneDrive.
 
-**NOTE on Kiteworks:**
-Currently, I'm importing all of this data from the UTHealth server. The data should also be available on Kiteworks if you are unable to connect to the server for some reason.
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
+* Some of the v3-v5 visits are also done using REDCap. That data is exported from REDCap and added to the OneDrive.
 
 # 📦Load packages
 
@@ -40,18 +36,10 @@ library(readr, warn.conflicts = FALSE)
 ```
 
 
-# 🌎Connect to UTH server 
-
-```{bash eval=FALSE}
-# Don't drill all the way down to live documents because not all of the data is in live documents.
-open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/'
-```
-
-
 # 📥Import data 
 
 ```{r}
-path <- "/Volumes/link2Care/Live Documents/L2C_Master_Log.xlsm"
+path <- "../Live Documents/Master Log (version2).xlsx"
 ```
 
 Check the most recent file modification dates on the UTHealth servers and print for user when this file is being sourced.
@@ -59,7 +47,7 @@ Check the most recent file modification dates on the UTHealth servers and print 
 ```{r}
 cat(
   stringr::str_extract(path, "([^/]+$)"),
-  "last modified on UTHealth server:",
+  "last modified on OneDrive:",
   as.character(file.info(path)$mtime), "\n"
 )
 ```
@@ -68,29 +56,33 @@ cat(
 
 ```{r}
 master_log_screened_in <- read_excel(
-  master_log_path,
-  # For testing
-  # "/Users/bradcannell/Desktop/L2C_Master_Log.xlsm",
+  path,
   sheet = "Screened In",
   col_names = c(
-    "id", "status", "date_baseline", "date_v2_scheduled", "date_v2", 
-    "date_v3_scheduled", "date_v3",  "date_v4_scheduled", "date_v4", 
-    "date_v5_scheduled", "date_v5", "group", "name_first", "name_middle_init", 
-    "name_last", "gender", "race", "hispanic", "date_birth", "age", "clincard_id", 
-    "n_clincards", "phone_id", "phone_number_l2c", "phone_n_distributed", 
-    "care_manager", "v1", "v2", "v3", "v4", "v5", "v3_r_distributed", 
-    "v3_r_completed", "v4_r_distributed", "v4_r_completed", "v5_r_distributed", 
-    "v5_r_completed", "v2_phone", "v3_phone", "v4_phone", "v5_phone"
+    "id", "status", "date_baseline", "date_dropped", "date_v2_scheduled", "date_v2_presented",
+    "late_v2", "no_show_v2","days_v2_to_v3_scheduled","date_v3_scheduled", 
+    "date_v3_presented", "late_v3", "no_show_v3", "days_v3_to_v4_scheduled", 
+    "date_v4_scheduled", "date_v4_presented", "late_v4", "no_show_v4", 
+    "days_4v_to_v5_scheduled", "date_v5_scheduled", "date_v5_presented", 
+    "late_v5", "no_show_v5", "group", "v2_status", "dropped_status", "name_first",
+    "name_middle_init",  "name_last", "gender", "race", "hispanic", "date_birth", 
+    "age", "clincard_id", "n_clincards", "phone_id", "phone_number_l2c", 
+    "phone_n_distributed", "care_manager", "v1", "v2", "v3", "v4", "v5", 
+    "v3_r_distributed", "v3_r_completed", "v4_r_distributed", 
+    "v4_r_completed","v5_r_distributed", "v5_r_completed", "v2_phone", "v3_phone",
+    "v4_phone", "v5_phone"
   ),
   col_types = c(
     # Some of the dates must be imported as text because the have embedded 
     # notes (e.g., "no show")
-    rep("text",2) , rep("date", 9), rep("text", 7), "date", "numeric", "text", 
-    "numeric", rep("text", 2), "numeric", "text", rep("numeric", 15)
+    rep("text",2), rep("date", 4), rep("text", 2), "numeric", rep("date", 2),
+    rep("text", 2), "numeric", rep("date", 2), rep("text", 2), "numeric", rep("date", 2), rep("text", 11),
+    "date", "numeric", "text", "numeric", rep("text", 2), "numeric", "text", rep("text", 15)
   ),
   na = c("", ".", "N/A", "No show", "No Show"),
   skip = 1
-)
+) %>% 
+  filter(!is.na(id))
 
 # Print a message for when this file is being sourced
 cat(
@@ -100,26 +92,25 @@ cat(
   "columns.\n"
 )
 
-# 2021-11-04: Master log screened in imported with 325 rows and 41 columns.
+# 2022-07-01: Master log screened in imported with 378 rows and 55 columns.
 ```
 
 ## Screened-out
 
 ```{r}
 master_log_screened_out <- read_excel(
-  "/Volumes/link2Care/Live Documents/L2C_Master_Log.xlsm",
-  # For testing
-  # "/Users/bradcannell/Desktop/L2C_Master_Log.xlsm",
+  path,
   sheet = "Screened Out",
   col_names = c(
     "id", "name_full", "date_baseline", "gender",  "race", "hispanic", 
     "date_birth", "age", "reason_1", "reason_2", "reason_3", "notes"
   ),
   col_types = c(
-    "numeric", "text", "date", rep("text", 3), "date", "numeric", 
+    "text", "text", "date", rep("text", 3), "date", "numeric", 
     rep("text", 3), "skip", "text", "skip"
   ),
-  skip = 1
+  skip = 1,
+  na = c("", "N/A")
 )
 
 # Print a message for when this file is being sourced
@@ -130,39 +121,19 @@ cat(
   "columns.\n"
 )
 
-# 2021-04-23: Master log screened out imported with 45 rows and 12 columns.
+# 2022-07-01: Master log screened out imported with 60 rows and 12 columns.
 ```
 
 
 # 🚧Data management
-
-## Coerce data columns
-
-```{r}
-master_log_screened_in <- master_log_screened_in %>% 
-  mutate(
-    across(
-      c(date_v2:date_v5),
-      ~ as.Date(as.numeric(.x), origin = "1899-12-30")
-    )
-  )
-
-# 'NAs introduced by coercion' error is a result of attempting to change text 
-# to numbers. For example, "no show". R converts those to NA instead. That's
-# exactly what we want.
-```
-
-```{r}
-dim(master_log_screened_in) # 279  33
-```
 
 ## Coerce group to numeric 
 
 So that it can be combined with the QDS data.
 
 ```{r}
-master_log_screened_in <- master_log_screened_in %>%
-  mutate(
+master_log_screened_in <- master_log_screened_in %>% 
+  mutate( 
     group = case_when(
       group == "UCM"    ~ 1,
       group == "UCM+SP" ~ 2,
@@ -171,15 +142,48 @@ master_log_screened_in <- master_log_screened_in %>%
   )
 ```
 
+Data check: There should only be 3 groups
+
 ```{r}
 table(master_log_screened_in$group)
+```
+
+```{r}
+if (length(table(master_log_screened_in$group)) != 3) {
+  stop("The group column should only have 3 values. It has ", length(table(master_log_screened_in$group)))
+}
+```
+
+
+# Create codebook for both data frames
+
+```{r}
+print(
+  codebookr::codebook(
+    master_log_screened_in,
+    title = "Master Log Screened In",
+    subtitle = "Created in data_survey_03_master_log_import.Rmd"
+  ),
+  "docs/codebooks/master_log_screened_in.docx"
+)
+```
+
+```{r}
+print(
+  codebookr::codebook(
+    master_log_screened_out,
+    title = "Master Log Screened Out",
+    subtitle = "Created in data_survey_03_master_log_import.Rmd"
+  ),
+  "docs/codebooks/master_log_screened_out.docx"
+)
 ```
 
 
 # 💾Save the data frames
 
 ```{r}
-path <- "/Volumes/Link2Care/Participant Data/R Data/master_log_screened_in.rds"
+path <- "../Participant Data/R Data/master_log_screened_in.rds"
 ```
 
 ```{r}
@@ -196,7 +200,7 @@ cat(
 ```
 
 ```{r}
-path <- "/Volumes/Link2Care/Participant Data/R Data/master_log_screened_out.rds"
+path <- "../Participant Data/R Data/master_log_screened_out.rds"
 ```
 
 ```{r}
@@ -223,7 +227,7 @@ cat(
   "columns.\n"
 )
 
-# 2021-04-28: Master log cleaned with 279 rows and 33 columns.
+# 2022-07-01: Master log cleaned with 378 rows and 55 columns.
 ```
 
 
@@ -233,8 +237,4 @@ Don't use `rm(list = ls())` because is causes R to drop the helper functions in 
 
 ```{r}
 rm(list = ls()[ls() != "source_rmd"])
-```
-
-```{r echo=FALSE}
-sessionInfo()
 ```
