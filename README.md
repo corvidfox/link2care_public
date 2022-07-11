@@ -1,13 +1,16 @@
-# Link2Care Repository
+# Link2Care Public Repository
 
 This is the public code repository for the Link2Care project. General information about Link2Care is available at [add L2C website link].
 
 The code in this repository is used for general data/project management. The code repositories for individual manuscripts related to the Link2Care project are linked below. 
 
-# Links to notes pages
+For more information on using this repository for the analysis of Link2Care project data, please view the [public wiki](https://github.com/brad-cannell/link2care_public/wiki) and/or contact one of the project investigators.
 
-[Notes on files in the data directory](data/notes_data_folder.md)   
-[Notes on cleaning individual data sets for merging -- including variable naming convensions ](docs/notes_cleaning_individual_data_sets_for_merge.md)
+1. Dr. Michael Businelle, co-PI, michael-businelle@ouhsc.edu
+
+2. Dr. Jennifer Gonzalez, co-PI, jgonzalez@mmhpi.org
+
+3. Dr. Brad Cannell, co-I, Michael.B.Cannell@uth.tmc.edu
 
 # Links to manuscript repositories
 
