@@ -9,7 +9,7 @@ This file is used to import the Link2Care arrest data and do some initial data c
 
 **NOTE on data sources:**
 
-The arrest data is securely transmitted by Dr. Gonzalez as an Excel file, which is stored on the the UTHealth servers in Participant Data > Arrest Data Requests.
+The arrest data is securely transmitted by Dr. Gonzalez as an Excel file, which is stored on OneDrive in Participant Data > Arrest Data Requests.
 
 
 # 📦Load packages
@@ -21,23 +21,15 @@ library(readr, warn.conflicts = FALSE)
 ```
 
 
-# 🌎Connect to UTH server 
-
-```{bash eval=FALSE}
-# Don't drill all the way down to live documents because not all of the data is in live documents.
-open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/'
-```
-
-
 # 📥Import data 
 
 * Had to remove password from Excel sheet before import. File -> Passwords... -> Delete password.   
 
 ```{r}
-path <- "/Volumes/Link2Care/Participant Data/Arrest Data Requests/current_arrest_data.xlsx"
+path <- "../Participant Data/Arrest Data Requests/current_arrest_data.xlsx"
 ```
 
-Check the most recent file modification dates on the UTHealth servers and print for user when this file is being sourced.
+Check the most recent file modification dates on OneDrive and print for user when this file is being sourced.
 
 ```{r}
 cat(
@@ -67,14 +59,14 @@ cat(
   "Arrest data", nrow(arrest), "rows and", ncol(arrest), "columns.\n"
 )
 
-# 2021-07-28: Arrest data 238 rows and 8 columns.
+# 2022-07-11: Arrest data 274 rows and 8 columns.
 ```
 
 
 # 💾Save the data frame
 
 ```{r}
-path <- "/Volumes/Link2Care/Participant Data/R Data/arrest.rds"
+path <- "../Participant Data/R Data/arrest.rds"
 ```
 
 ```{r}
@@ -111,8 +103,4 @@ Don't use `rm(list = ls())` because is causes R to drop the helper functions in 
 
 ```{r}
 rm(list = ls()[ls() != "source_rmd"])
-```
-
-```{r echo=FALSE}
-sessionInfo()
 ```

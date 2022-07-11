@@ -9,7 +9,7 @@ This file is used to import the Link2Care Bridge sessions data and do some initi
 
 **NOTE on data sources:**
 
-The Bridge sessions data is securely stored as an Excel file on the the UTHealth servers in Participant Data > Bridge Session Data.
+The Bridge sessions data is securely stored as an Excel file on OneDrive in Participant Data > Bridge Session Data.
 
 
 # 📦Load packages
@@ -23,20 +23,12 @@ library(readr, warn.conflicts = FALSE)
 ```
 
 
-# 🌎Connect to UTH server 
-
-```{bash eval=FALSE}
-# Don't drill all the way down to live documents because not all of the data is in live documents.
-open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/'
-```
-
-
 # 📥Import data 
 
 * Bridge session Excel file is password protected and the password can't be removed. Therefore, you have to open the password protected file, select all the data, copy, and then paste into a new Excel file that is not password protected.   
 
 ```{r}
-path <- "/Volumes/Link2Care/Participant Data/Bridge Session Data/bridge_session_minutes.xlsx"
+path <- "../Participant Data/Bridge Session Data/bridge_session_minutes.xlsx"
 ```
 
 Check the most recent file modification dates on the UTHealth servers and print for user when this file is being sourced.
@@ -71,7 +63,7 @@ cat(
   "Bridge session data", nrow(bridge), "rows and", ncol(bridge), "columns.\n"
 )
 
-# 2021-07-28: Bridge session data 2912 rows and 10 columns.
+# 2022-07-11: Bridge session data 3744 rows and 10 columns.
 ```
 
 
@@ -188,7 +180,7 @@ bridge_wide <- bridge %>%
 # 💾Save the data frames
 
 ```{r}
-path <- "/Volumes/Link2Care/Participant Data/R Data/bridge.rds"
+path <- "../Participant Data/R Data/bridge.rds"
 ```
 
 ```{r}
@@ -205,7 +197,7 @@ cat(
 ```
 
 ```{r}
-path <- "/Volumes/Link2Care/Participant Data/R Data/bridge_wide.rds"
+path <- "../Participant Data/R Data/bridge_wide.rds"
 ```
 
 ```{r}
@@ -230,7 +222,7 @@ cat(
   "Bridge session long data cleaned with", nrow(bridge), "rows and", ncol(bridge), "columns.\n"
 )
 
-# 2021-07-28: Bridge session long data cleaned with 2346 rows and 20 columns.
+# 2022-07-11: Bridge session long data cleaned with 3095 rows and 20 columns.
 ```
 
 ```{r}
@@ -239,7 +231,7 @@ cat(
   "Bridge session wide data cleaned with", nrow(bridge_wide), "rows and", ncol(bridge_wide), "columns.\n"
 )
 
-# 2021-07-28: Bridge session wide data cleaned with 300 rows and 20 columns.
+# 2022-07-11: Bridge session wide data cleaned with 376 rows and 20 columns.
 ```
 
 
@@ -249,8 +241,4 @@ Don't use `rm(list = ls())` because is causes R to drop the helper functions in 
 
 ```{r}
 rm(list = ls()[ls() != "source_rmd"])
-```
-
-```{r echo=FALSE}
-sessionInfo()
 ```

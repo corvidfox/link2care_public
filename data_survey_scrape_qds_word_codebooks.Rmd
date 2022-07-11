@@ -5,7 +5,7 @@ date: "2021-07-17 <br> Updated: `r Sys.Date()`"
 
 # ⭐️Overview
 
-This file is used to scrape the Word version of the QDS codebooks. We are doing this to facilitate the process of combining all 5 individual QDS files into one. 
+This file is used to scrape the Word version of the QDS codebooks. We are doing this to facilitate the process of combining all 5 individual QDS files into one. For more information about the reason this file exists and how it was used, please see the public wiki: https://github.com/brad-cannell/link2care_public/wiki/Notes-on-changing-the-QDS-column-names#why-scrape-the-codebooks
 
 This shouldn't need to be run again in the future. Just leaving it in the code to preserve an accurate history of what was done. 
 

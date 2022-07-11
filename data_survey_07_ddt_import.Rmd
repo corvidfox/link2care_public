@@ -16,9 +16,9 @@ It’s the delayed discount task that asks the participants 6-7 questions about 
 Question example:
 Would you prefer 500 now or 1000 in 2 days.
 
-The raw ddt data is in the udrive. It’s Located-Link2Care-participant data-DDT individual files.
+The raw DDT data is on OneDrive. It’s located in Participant Data > DDT Data-Individual Files.
 
-We also have a combined excel sheet that has the K & ED50 Values that Michael is interested in.  Location-Link2Care-participant data-SPSS Data DDT-L2C_DDT_Database. Excel & SPSS format. 
+We also have a combined excel sheet that has the K & ED50 Values that Michael is interested in.  It’s located in Participant Data > SPSS Data > DDT.
 
 
 # 📦Load packages
@@ -30,18 +30,10 @@ library(readr, warn.conflicts = FALSE)
 ```
 
 
-# 🌎Connect to UTH server 
-
-```{bash eval=FALSE}
-# Don't drill all the way down to live documents because not all of the data is in live documents.
-open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/'
-```
-
-
 # 📥Import data 
 
 ```{r}
-path <- "/Volumes/Link2Care/Participant Data/SPSS Data/DDT/L2C_DDT_Database_1.sav"
+path <- "../Participant Data/SPSS Data/DDT/L2C_DDT_Database_1.sav"
 ```
 
 Check the most recent file modification dates on the UTHealth servers and print for user when this file is being sourced.
@@ -127,14 +119,14 @@ cat(
   "DDT data cleaned with", nrow(ddt), "rows and", ncol(ddt), "columns.\n"
 )
 
-# 2021-08-17: DDT data cleaned with 1212 rows and 4 columns.
+# 2022-07-11: DDT data cleaned with 1516 rows and 4 columns.
 ```
 
 
 # 💾Save the data frame
 
 ```{r}
-path <- "/Volumes/Link2Care/Participant Data/R Data/ddt.rds"
+path <- "../Participant Data/R Data/ddt.rds"
 ```
 
 ```{r}
@@ -149,7 +141,7 @@ cat(
   "DDT data saved to", path, "\n"
 )
 
-# 2021-08-17: DDT data saved to /Volumes/Link2Care/Participant Data/R Data/ddt.rds 
+# 2022-07-11: DDT data saved to ../Participant Data/R Data/ddt.rds 
 ```
 
 
@@ -159,8 +151,4 @@ Don't use `rm(list = ls())` because is causes R to drop the helper functions in 
 
 ```{r}
 rm(list = ls()[ls() != "source_rmd"])
-```
-
-```{r echo=FALSE}
-sessionInfo()
 ```

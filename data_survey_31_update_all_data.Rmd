@@ -15,14 +15,6 @@ source("R/source_rmd.R")
 ```
 
 
-# 🌎Connect to UTH server 
-
-```{bash eval=FALSE}
-# Make sure you are connected to the VPN
-open 'smb://islgpcifs.uthouston.edu/sph_research/'
-```
-
-
 # 📥Import data 
 
 We previously imported and did some initial cleaning of the following data sets:
@@ -39,12 +31,12 @@ We previously imported and did some initial cleaning of the following data sets:
 ```{r}
 source_rmd("data_survey_01_qds_import.Rmd")
 
-# 2021-07-30: v1 imported with 303 rows and 810 columns.
-# 2021-07-30: v2 imported with 276 rows and 210 columns.
-# 2021-07-30: v3 imported with 197 rows and 542 columns.
-# 2021-07-30: v4 imported with 147 rows and 598 columns.
-# 2021-07-30: v5 imported with 133 rows and 639 columns.
-# 2021-07-30: QDS data imported and merged with 1056 rows and 1046 columns.
+# 2022-07-11: v1 imported with 360 rows and 810 columns.
+# 2022-07-11: v2 imported with 331 rows and 213 columns.
+# 2022-07-11: v3 imported with 232 rows and 542 columns.
+# 2022-07-11: v4 imported with 170 rows and 598 columns.
+# 2022-07-11: v5 imported with 148 rows and 649 columns.
+# 2022-07-11: QDS data imported and merged with 1241 rows and 1049 columns.
 ```
 
 ## REDCap
@@ -52,7 +44,7 @@ source_rmd("data_survey_01_qds_import.Rmd")
 ```{r}
 source_rmd("data_survey_02_redcap_import.Rmd")
 
-# 2021-07-30: REDCap data cleaned with 21 rows and 911 columns.
+# 2022-07-11: REDCap data cleaned with 21 rows and 911 columns.
 ```
 
 ## Master log 
@@ -60,7 +52,7 @@ source_rmd("data_survey_02_redcap_import.Rmd")
 ```{r}
 source_rmd("data_survey_03_master_log_import.Rmd")
 
-# 2021-08-17: Master log cleaned with 309 rows and 37 columns.
+# 2022-07-11: Master log cleaned with 383 rows and 55 columns.
 ```
 
 ## Timeline followback 
@@ -68,7 +60,7 @@ source_rmd("data_survey_03_master_log_import.Rmd")
 ```{r}
 source_rmd("data_survey_04_tlfb_import.Rmd")
 
-# 2021-07-30: TLFB data cleaned with 1212 rows and 21 columns.
+# 2022-07-11: TLFB data cleaned with 1516 rows and 21 columns.
 ```
 
 ## Arrest data
@@ -80,7 +72,7 @@ Before you can import the Excel file, you must open it and remove the password f
 ```{r}
 source_rmd("data_survey_05_arrests_import.Rmd")
 
-# 2021-07-30: Arrest data cleaned with 238 rows and 8 columns.
+# Arrest data cleaned with 274 rows and 8 columns.
 ```
 
 ## Bridge sessions data
@@ -88,7 +80,7 @@ source_rmd("data_survey_05_arrests_import.Rmd")
 ```{r}
 source_rmd("data_survey_06_bridge_sessions_import.Rmd")
 
-# 2021-07-30: Bridge session wide data cleaned with 300 rows and 20 columns.
+# 2022-07-11: Bridge session wide data cleaned with 376 rows and 20 columns.
 ```
 
 ## DDT data
@@ -96,7 +88,7 @@ source_rmd("data_survey_06_bridge_sessions_import.Rmd")
 ```{r}
 source_rmd("data_survey_07_ddt_import.Rmd")
 
-# 2021-08-17: DDT data cleaned with 1212 rows and 4 columns.
+# 2022-07-11: DDT data cleaned with 1516 rows and 4 columns.
 ```
 
 
@@ -105,7 +97,7 @@ source_rmd("data_survey_07_ddt_import.Rmd")
 ```{r}
 source_rmd("data_survey_21_merge.Rmd")
 
-# 2021-08-17: Combined Participant data cleaned with 1083 rows and 1202 columns.
+# 2022-07-11: Combined Participant data cleaned with 1285 rows and 1205 columns.
 ```
 
 
@@ -116,8 +108,3 @@ Don't use `rm(list = ls())` because is causes R to drop the helper functions in 
 ```{r}
 rm(list = ls())
 ```
-
-```{r echo=FALSE}
-sessionInfo()
-```
-

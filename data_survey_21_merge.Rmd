@@ -31,14 +31,6 @@ library(haven, warn.conflicts = FALSE)
 ```
 
 
-# 🌎Connect to UTH server 
-
-```{bash eval=FALSE}
-# Don't drill all the way down to live documents because not all of the data is in live documents.
-open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/'
-```
-
-
 # 📥Import data 
 
 We previously imported and did some initial cleaning of the following data sets:
@@ -56,7 +48,7 @@ Most of the data cleaning that was done was to standardize column names. [Click 
 After doing this initial cleaning, the individual files were saved in RDS format on the U drive.
 
 ```{r}
-path <- "/Volumes/Link2Care/Participant Data/R data/"
+path <- "../Participant Data/R data/"
 ```
 
 ```{r}
@@ -88,13 +80,13 @@ for (i in seq_along(data_frames)) {
 
 rm(df_nm, full_path, i, path)
 
-# 2021-08-17: qds_all_visits_import.rds imported as qds with 1056 rows and 1046 columns.
-# 2021-08-17: redcap_import.rds imported as rc with 21 rows and 911 columns.
-# 2021-08-17: master_log_screened_in.rds imported as ml with 306 rows and 37 columns.
-# 2021-08-17: tlfb.rds imported as tlfb with 1212 rows and 21 columns.
-# 2021-08-17: arrest.rds imported as arrest with 238 rows and 8 columns.
-# 2021-08-17: bridge_wide.rds imported as bridge with 300 rows and 20 columns.
-# 2021-08-17: ddt.rds imported as ddt with 303 rows and 9 columns.
+# 2022-07-11: qds_all_visits_import.rds imported as qds with 1056 rows and 1046 columns.
+# 2022-07-11: redcap_import.rds imported as rc with 21 rows and 911 columns.
+# 2022-07-11: master_log_screened_in.rds imported as ml with 383 rows and 55 columns.
+# 2022-07-11: tlfb.rds imported as tlfb with 1516 rows and 21 columns.
+# 2022-07-11: arrest.rds imported as arrest with 274 rows and 8 columns.
+# 2022-07-11: bridge_wide.rds imported as bridge with 376 rows and 20 columns.
+# 2022-07-11: ddt.rds imported as ddt with 1516 rows and 4 columns.
 ```
 
 
@@ -337,7 +329,7 @@ rm(
 
 At this point, `group_membership_key` contains the final group value we will use for each participant. After merging all the other data sets below, we will add the corrected group membership information. 
 
-# 🔄Merge data 
+# 🔄 Merge data 
 
 ## QDS and REDCap
 
@@ -482,7 +474,7 @@ l2c_survey <- l2c_survey %>%
 Make sure we get a warning if the number of columns in `l2c_survey` changes.
 
 ```{r}
-if (ncol(l2c_survey) != 1202) {
+if (ncol(l2c_survey) != 1205) {
   stop(
     "The number of columns in l2c_survey is different than expected.",
     " The expected number was 1,200.",
@@ -501,14 +493,14 @@ cat(
   "rows and", ncol(l2c_survey), "columns.\n"
 )
 
-# 2022-03-15: Combined Participant data cleaned with 1083 rows and 1202 columns.
+# 2022-07-11: Combined Participant data cleaned with 1157 rows and 1202 columns.
 ```
 
 
 # 💾Save the data frame
 
 ```{r}
-path <- "/Volumes/Link2Care/Participant Data/SPSS Data/combined_participant_data.sav"
+path <- "../Participant Data/SPSS Data/combined_participant_data.sav"
 ```
 
 ```{r}
@@ -525,7 +517,7 @@ cat(
 ```
 
 ```{r}
-path <- "/Volumes/Link2Care/Participant Data/R Data/combined_participant_data.rds"
+path <- "../Participant Data/R Data/combined_participant_data.rds"
 ```
 
 ```{r}
@@ -548,8 +540,4 @@ Don't use `rm(list = ls())` because is causes R to drop the helper functions in 
 
 ```{r}
 rm(list = ls()[ls() != "source_rmd"])
-```
-
-```{r echo=FALSE}
-sessionInfo()
 ```

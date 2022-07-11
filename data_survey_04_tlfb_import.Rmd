@@ -9,7 +9,7 @@ This file is used to import the Link2Care follow-up visit survey data and do som
 
 **NOTE on data sources:**
 
-The TLFB data is exported from somewhere as 3 individual Excel files (i.e., alcohol, drug use, location) for each participant. Those individual files are stored on the the UTHealth servers in Participant Data > TLFB Data. At some point, SPSS is used to merge (and possibly clean?) these individual data sets. The merged TLFB data is stored on the UTHealth servers in Participant Data > SPSS Data > TLFB Data. That is the data we are importing below.
+The TLFB data is exported from somewhere as 3 individual Excel files (i.e., alcohol, drug use, location) for each participant. Those individual files are stored on OneDrive in Participant Data > TLFB Data. At some point, SPSS is used to merge (and possibly clean?) these individual data sets. The merged TLFB data is stored on the UTHealth servers in Participant Data > SPSS Data > TLFB Data. That is the data we are importing below.
 
 
 # 📦Load packages
@@ -21,21 +21,13 @@ library(readr, warn.conflicts = FALSE)
 library(testthat, warn.conflicts = FALSE)
 ```
 
-# 🌎Connect to UTH server 
-
-```{bash eval=FALSE}
-# Don't drill all the way down to live documents because not all of the data is in live documents.
-open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/'
-```
-
-
 # 📥Import data 
 
 ```{r}
-path <- "/Volumes/Link2Care/Participant Data/SPSS Data/TLFB Data/TLFB_Database.sav"
+path <- "../Participant Data/SPSS Data/TLFB Data/TLFB_Database.sav"
 ```
 
-Check the most recent file modification dates on the UTHealth servers and print for user when this file is being sourced.
+Check the most recent file modification dates on OneDrive and print for user when this file is being sourced.
 
 ```{r}
 cat(
@@ -54,7 +46,7 @@ cat(
   "TLFB", nrow(tlfb), "rows and", ncol(tlfb), "columns.\n"
 )
 
-# 2021-07-28: TLFB 1200 rows and 21 columns.
+# 2022-07-11: TLFB 1516 rows and 21 columns.
 ```
 
 
@@ -103,7 +95,7 @@ tlfb <- tlfb %>%
 # 💾Save the data frame
 
 ```{r}
-path <- "/Volumes/Link2Care/Participant Data/R Data/tlfb.rds"
+path <- "../Participant Data/R Data/tlfb.rds"
 ```
 
 ```{r}
@@ -128,7 +120,7 @@ cat(
   "TLFB data cleaned with", nrow(tlfb), "rows and", ncol(tlfb), "columns.\n"
 )
 
-# 2021-06-30: REDCap data cleaned with 21 rows and 911 columns.
+# 2022-07-11: TLFB data cleaned with 1516 rows and 21 columns.
 ```
 
 
@@ -139,20 +131,3 @@ Don't use `rm(list = ls())` because is causes R to drop the helper functions in 
 ```{r}
 rm(list = ls()[ls() != "source_rmd"])
 ```
-
-```{r echo=FALSE}
-sessionInfo()
-```
-
-
-
-
-
-
-
-
-
-
-
-
-

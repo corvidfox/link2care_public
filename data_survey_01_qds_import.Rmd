@@ -5,27 +5,9 @@ date: "2020-12-23 <br> Updated: `r Sys.Date()`"
 
 # ⭐️Overview
 
-This file is used to import the Link2Care follow-up visit survey data and do some initial data cleaning. 
+This file is used to import the Link2Care follow-up visit survey data and do some initial data cleaning.
 
-**NOTE on using multiple import code files:**
-Previously, I was trying to clean all the separate data frames (i.e, QDS v1-v5, REDCap, and Master Log) in a single Rmd file. 
-
-In theory, this is more efficient than importing and cleaning each visit file separately. For example, we can clean "race" instead of cleaning "race_v1", "race_v2", etc.
-
-However, there are at least two issues with that approach:   
-1. There are intentional differences in the variable names (e.g., "V1" and "V2"), and unintentional errors (e.g., HEIGHT_3) in the variable names, from data frame to data frame that make combining them very difficult.   
-2. These differences and errors can be "fixed"; however, doing so makes the variable names so different from the codebook that the codebook is barely usable.
-
-For now, I'm going to try importing and cleaning each data file using a separate code file. There may be opportunities to make this more efficient in the future.
-
-**NOTE on data sources:**
-* The QDS data is exported from QDS in SPSS data format. The data has to be exported by visit (i.e., v1, v2, ... v5). The SPSS data is then added to the UTHealth servers.
-
-* Some of the v3-v5 visits are also done using REDCap. That data is exported from REDCap and added to the UTHealth servers.
-
-**NOTE on Kiteworks:**
-Currently, I'm importing all of this data from the UTHealth server. The data should also be available on Kiteworks if you are unable to connect to the server for some reason.
-
+[Notes on cleaning individual L2C data sets for merging](https://github.com/brad-cannell/link2care_public/wiki/Notes-on-cleaning-individual-L2C-data-sets-for-merging)
 
 # 📦Load packages
 
@@ -45,20 +27,12 @@ source("R/standardize_col_names.R")
 ```
 
 
-# 🌎Connect to UTH server 
-
-```{bash eval=FALSE}
-# Don't drill all the way down to live documents because not all of the data is in live documents.
-open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/'
-```
-
-
 # 📥Import data 
 
 Import all 5 QDS data frames
 
 ```{r}
-qds_spss_path <- "/Volumes/Link2Care/Participant Data/SPSS Data/QDS Data/"
+qds_spss_path <- "../Participant Data/SPSS Data/QDS Data/"
 qds_spss_paths <- paste0(qds_spss_path, "Visit_", 1:5, "_Data.SAV")
 ```
 
@@ -71,7 +45,7 @@ walk(
     sav_nm <- paste0("Visit_", x, "_Data.SAV")
     path <- paste0(qds_spss_path, sav_nm)
     cat(
-      sav_nm, "last modified on UTHealth server:", as.character(file.info(path)$mtime), "\n"
+      sav_nm, "last modified on OneDrive", as.character(file.info(path)$mtime), "\n"
     )
   }
 )
@@ -110,11 +84,11 @@ walk(
 # These are expected to change over time as we add more people to the study.
 # However, drastic changes from month-to-month, or even quarter-to-quarter,
 # should initiate an investigation into what's going on.
-# 2021-07-19: v1 imported with 295 rows and 810 columns.
-# 2021-07-19: v2 imported with 271 rows and 210 columns.
-# 2021-07-19: v3 imported with 194 rows and 542 columns.
-# 2021-07-19: v4 imported with 145 rows and 598 columns.
-# 2021-07-19: v5 imported with 133 rows and 639 columns.
+# 2022-07-03: v1 imported with 360 rows and 810 columns.
+# 2022-07-03: v2 imported with 331 rows and 213 columns.
+# 2022-07-03: v3 imported with 232 rows and 542 columns.
+# 2022-07-03: v4 imported with 170 rows and 598 columns.
+# 2022-07-03: v5 imported with 148 rows and 649 columns.
 ```
 
 
@@ -122,7 +96,7 @@ walk(
 
 We have to make the column names match across visits so that we can merge all of the individual QDS data frames into one.
 
-## Reorder columnn names and manual changes
+## Reorder column names and manual changes
 
 1. The columns in the data are not arranged in the order that they exist in the actual QDS survey for some reason. This makes the data harder to work with, and it will make the codebook we eventually create difficult to use. So, we are going to reorder them. To prevent us from typing out 810 variable names manually, we are going to read-in the variable names from the codebook and then create a blog of text that we copy and paste into a code chunk using `select()` below. Prepping the codebook to be able to do this took a long time and isn't very future-proof. However, we should only have to do this step once. As changes occur to QDS in the future, we can just update the code chunk with the `select()` function.
 
@@ -162,11 +136,11 @@ Where multiple answers are possible and t26_v1___1 - t26_v1___6 are dummy variab
 
 On 2021-06-30 the QDS survey was changed to be more like the REDCap survey. The QDS data now has T26A_V1, T26A_V1A, T26A_V1B, T26A_V1C, T26A_V1D, T26A_V1E, and T26A_V1F that correspond to t26_v1___1 - t26_v1___6 in REDCap.
 
-Remember that because of a naming error with T3B_V1, T26_V1 was already manually changed to T27 in the codebook by MBC. Changing "T26_V1" (the name that appears in the outdated codebook) to "T26A_V1" (the name that actually appears in the data frame now).
+Remember that because of a naming error with T3B_V1, T26_V1 was already manually changed to T27 in the QDS Word codebooks (e.g., L2C_V1 Codebook.docx) by MBC. Changing "T26_V1" (the name that appears in the outdated codebook) to "T26A_V1" (the name that actually appears in the data frame now).
 
 This change affects V1, V3, V4, and V5.
 
-### v1: Reorder columnn names and manual changes
+### v1: Reorder column names and manual changes
 
 ```{r}
 v1 <- v1 %>% 
@@ -764,8 +738,21 @@ v1 <- v1 %>%
 )
 ```
 
+Take a look at what comes after `ETIME_V1`. Over time, if new variables are added to the QDS data, this could change. If it does, we may want to rename or rearrange the new columns.
 
-### v2: Reorder columnn names and manual changes
+```{r}
+# v1 %>% 
+#   select(ETIME_V1:ncol(.))
+```
+
+```{r}
+# v1 %>% 
+#   select(t_4, t_5, T5_V1val)
+```
+
+I'm not sure what T5_V1val is or where it comes from. I think the first thing I'm going to do is just get a complete codebook created. After that's done, I'm sure there will be lots of little issues to clean up. I'm come back and take care of this then.
+
+### v2: Reorder column names and manual changes
 
 ```{r}
 v2 <- v2 %>% 
@@ -825,7 +812,7 @@ v2 <- v2 %>%
 ```
 
 
-### v3: Reorder columnn names and manual changes
+### v3: Reorder column names and manual changes
 
 ```{r}
 v3 <- v3 %>% 
@@ -1175,7 +1162,7 @@ v3 <- v3 %>%
 )
 ```
 
-### v4: Reorder columnn names and manual changes
+### v4: Reorder column names and manual changes
 
 ```{r}
 v4 <- v4 %>% 
@@ -1536,14 +1523,12 @@ v4 <- v4 %>%
 )
 ```
 
-### v5: Reorder columnn names and manual changes
-
-**NOTE:** Spoke with James and Joe on 2021-07-19. V5 will have a VISIT_TYPE column, but not until they actually give a participant a follow-up using the V5 QDS.
+### v5: Reorder column names and manual changes
 
 ```{r}
 v5 <- v5 %>% 
   select(
-    TODAY_V5, II_V5, SUBJECT, GROUP, VISIT_V5, TEST_V5, 
+    TODAY_V5, VISIT_TYPE, II_V5, SUBJECT, GROUP, VISIT_V5, TEST_V5, 
     
     # Biological/Anthropometric Measures
     GENDER, weight = WEIGHT_5, HEIGHT_V5, waist_c = WAIST_C5, CO_V5, READ1_V5, 
@@ -1820,7 +1805,13 @@ v5 <- v5 %>%
     t_23 = T22_V5,
     t_25 = T24_V5,
     t_26 = T25_V5,
-    t_27 = T26_V5,
+    t_27 = T26A_V5,
+    t_27a = T26A_V5A,
+    t_27b = T26A_V5B,
+    t_27c = T26A_V5C,
+    t_27d = T26A_V5D,
+    t_27e = T26A_V5E,
+    t_27f = T26A_V5F,
     t_28 = T27_V5,
     t_29 = T28_V5,
     t_30 = T29_V5,
@@ -2017,7 +2008,7 @@ qds_all_visits <- qds_all_visits %>%
 test_that("The expected columns exists in the qds_all_visits data.", {
   expect_equal(
     length(qds_all_visits),
-    1046L
+    1049L
   )
 })
 ```
@@ -2030,18 +2021,18 @@ cat(
   "QDS data imported and merged with", nrow(qds_all_visits), "rows and", ncol(qds_all_visits), "columns.\n"
 )
 
-# 2021-07-19: QDS data imported and merged with 1038 rows and 1046 columns.
+# 2022-07-03: QDS data imported and merged with 1241 rows and 1049 columns.
 ```
 
 
 # 💾Save the data frame
 
 ```{r}
-rds_path <- "/Volumes/Link2Care/Participant Data/R Data/qds_all_visits_import.rds"
-write_rds(qds_all_visits, rds_path)
+rds_path <- "../Participant Data/R Data/qds_all_visits_import.rds"
+write_rds(qds_all_visits, "../Participant Data/R data/qds_all_visits_import.rds")
 
 # Michael also wants an SPSS version
-spss_path <- "/Volumes/Link2Care/Participant Data/SPSS Data/QDS Data/qds_all_visits_import.SAV"
+spss_path <- "../Participant Data/SPSS Data/QDS Data/qds_all_visits_import.SAV"
 write_sav(qds_all_visits, spss_path)
 ```
 
@@ -2062,8 +2053,4 @@ Don't use `rm(list = ls())` because is causes R to drop the helper functions in 
 
 ```{r}
 rm(list = ls()[ls() != "source_rmd"])
-```
-
-```{r echo=FALSE}
-sessionInfo()
 ```
