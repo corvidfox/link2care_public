@@ -1,0 +1,117 @@
+---
+title: "Krista Kezbers Request 2022-08-02"
+editor: 
+  markdown: 
+    wrap: sentence
+---
+
+# Overview
+
+**2022-08-02 from Krista Kezbers to Brad Cannell**
+
+Hi Brad, Is there any chance you could run a quick frequencies table for the variables below in the L2C dataset?
+We have a staff member thinking about an abstract submission but wasn't sure if there was enough data to justify her research questions.
+I know you are probably swamped with work, so if it's allowable/possible, feel free to send me the dataset and I can run them.
+Let me know what you think.
+Thanks, Krista
+
+**2022-07-29 from Nadia Stanley to Krista Kezbers**
+
+Hi Krista, Here are some research questions and potential variables for the topic I mentioned in our meeting today:
+
+**Questions**:
+
+1.  Do unhoused individuals who have certain mental health disorders (Schizophrenia, Bipolar disorder, PTSD, and other Anxiety disorders) report wrongful convictions more often than unhoused individuals without those certain mental health disorders?
+
+2.  Is there a relationship between race and wrongful convictions among unhoused individuals?
+
+**Variables**: (I did not see specific variable names in the appendix)
+
+-   Screening Questionnaire
+
+    -   Q3.
+        How would you best describe your race (Check only one):
+
+-   The Brief Homelessness Questionnaire: Question 9 and 20.
+
+    -   Q9.
+        Are you currently receiving treatment for mental health problems (example: Depression, Bipolar Disorder, Anxiety)?
+
+    -   Q20.
+        Have you ever been convicted of a crime that you did not commit?
+
+-   Score for the MINI Mental Health Status Questionnaire (question 22 in the screening questionnaire)
+
+-   Self-Rated Health Questionnaire: Questions 20,21, 22, and 23.
+    These questions could be used to look at specific mental health issues and wrongful conviction.
+
+    -   Q20.
+        Have you ever been diagnosed with Schizophrenia or Schizoaffective disorder?
+
+    -   Q21.
+        Have you ever been diagnosed with Bipolar disorder?
+
+    -   Q22.
+        Have you ever been diagnosed with Post Traumatic Stress Disorder (PTSD)?
+
+    -   Q23.
+        Have you ever been diagnosed with an Anxiety Disorder besides PTSD?
+        (examples: Panic Disorder,Generalized Anxiety Disorder, Obsessive Compulsive Disorder)
+
+
+# Load packages
+
+```{r}
+library(dplyr, warn.conflicts = FALSE)
+library(freqtables)
+```
+
+
+# Load data
+
+```{r}
+l2c <- readr::read_rds("../../Participant Data/R data/combined_participant_data.rds")
+dim(l2c) # 1285 1205
+```
+
+
+# Data management
+
+```{r}
+l2c_v1 <- filter(l2c, visit == 1)
+```
+
+
+# Analysis
+
+```{r}
+l2c_v1 %>% 
+  freq_table(race)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
