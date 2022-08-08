@@ -24,6 +24,7 @@ library(testthat, warn.conflicts = FALSE)
 
 ```{r}
 source("R/standardize_col_names.R")
+source("R/add_source_attr.R")
 ```
 
 
@@ -84,11 +85,11 @@ walk(
 # These are expected to change over time as we add more people to the study.
 # However, drastic changes from month-to-month, or even quarter-to-quarter,
 # should initiate an investigation into what's going on.
-# 2022-07-03: v1 imported with 360 rows and 810 columns.
-# 2022-07-03: v2 imported with 331 rows and 213 columns.
-# 2022-07-03: v3 imported with 232 rows and 542 columns.
-# 2022-07-03: v4 imported with 170 rows and 598 columns.
-# 2022-07-03: v5 imported with 148 rows and 649 columns.
+# 2022-08-06: v1 imported with 401 rows and 810 columns.
+# 2022-08-06: v2 imported with 369 rows and 213 columns.
+# 2022-08-06: v3 imported with 243 rows and 542 columns.
+# 2022-08-06: v4 imported with 179 rows and 598 columns.
+# 2022-08-06: v5 imported with 152 rows and 649 columns.
 ```
 
 
@@ -741,7 +742,7 @@ v1 <- v1 %>%
 Take a look at what comes after `ETIME_V1`. Over time, if new variables are added to the QDS data, this could change. If it does, we may want to rename or rearrange the new columns.
 
 ```{r}
-# v1 %>% 
+# v1 %>%
 #   select(ETIME_V1:ncol(.))
 ```
 
@@ -751,6 +752,13 @@ Take a look at what comes after `ETIME_V1`. Over time, if new variables are adde
 ```
 
 I'm not sure what T5_V1val is or where it comes from. I think the first thing I'm going to do is just get a complete codebook created. After that's done, I'm sure there will be lots of little issues to clean up. I'm come back and take care of this then.
+
+### v1: Add source attribute for codebook
+
+```{r}
+# Can't pipe the data frame in
+add_source_attr(v1, "Visit 1")
+```
 
 ### v2: Reorder column names and manual changes
 
@@ -809,6 +817,17 @@ v2 <- v2 %>%
 ) %>% 
   # Drop unneeded columns
   select(-II_V1)
+```
+
+### v2: Add attributes for codebook
+
+For now, we will just add the source attribute to all columns. We will add descriptions later after all of the files are merged.
+
+```{r}
+for (col in names(v2)) {
+  attr(v2[[col]], "source") <- "Visit 2"
+}
+rm(col)
 ```
 
 
