@@ -1,8 +1,8 @@
 ---
 title: "Krista Kezbers Request 2022-08-02"
-editor: 
-  markdown: 
-    wrap: sentence
+output: 
+  word_document:
+    reference_doc: "word_style_template_01.docx"
 ---
 
 # Overview
@@ -77,6 +77,17 @@ dim(l2c) # 1285 1205
 
 # Data management
 
+Remove "haven_labelled" and "vctrs_vctr" classes
+
+```{r}
+for (col in names(l2c)) {
+  # class(l2c[[col]])
+  class(l2c[[col]]) <- class(l2c[[col]])[!(class(l2c[[col]]) %in% c("haven_labelled", "vctrs_vctr"))]
+}
+```
+
+Keep baseline data only
+
 ```{r}
 l2c_v1 <- filter(l2c, visit == 1)
 ```
@@ -85,33 +96,65 @@ l2c_v1 <- filter(l2c, visit == 1)
 # Analysis
 
 ```{r}
-l2c_v1 %>% 
-  freq_table(race)
+custom_freq_table <- function(.col) {
+  l2c_v1 %>% 
+    freq_table({{ .col }}) %>% 
+    mutate(across(where(is.double), ~ round(.x, 2))) %>% 
+    knitr::kable()
+}
+
+# For testing
+# custom_freq_table(ml_race)
 ```
 
+Race and Ethnicity
 
+```{r}
+custom_freq_table(ml_race)
+```
 
+```{r}
+custom_freq_table(ml_hispanic)
+```
 
+Are you currently receiving treatment for mental health problems (example: Depression, Bipolar Disorder, Anxiety)?
 
+```{r}
+custom_freq_table(bh_9)
+```
 
+Have you ever been convicted of a crime that you did not commit?
 
+```{r}
+custom_freq_table(bh_26)
+```
 
+Score for the MINI Mental Health Status Questionnaire (question 22 in the screening questionnaire)
 
+```{r}
+meantables::mean_table(l2c_v1, mms_score) %>% knitr::kable()
+```
 
+Have you ever been diagnosed with Schizophrenia or Schizoaffective disorder?
 
+```{r}
+custom_freq_table(srh_20)
+```
 
+Have you ever been diagnosed with Bipolar disorder?
 
+```{r}
+custom_freq_table(srh_21)
+```
 
+Have you ever been diagnosed with Post Traumatic Stress Disorder (PTSD)?
 
+```{r}
+custom_freq_table(srh_22)
+```
 
+Have you ever been diagnosed with an Anxiety Disorder besides PTSD? (examples: Panic Disorder,Generalized Anxiety Disorder, Obsessive Compulsive Disorder)
 
-
-
-
-
-
-
-
-
-
-
+```{r}
+custom_freq_table(srh_23)
+```
