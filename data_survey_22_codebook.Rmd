@@ -498,9 +498,21 @@ Prevent the summary statistics from being added to the column attributes table f
 # Try for the full data frame
 
 ```{r}
+devtools::install("/Users/bradcannell/Dropbox/R/Packages/codebookr")
+```
+
+```{r}
+library(codebookr)
+```
+
+
+
+```{r}
 start <- lubridate::now()
 combined_participant_data_cb <- codebook(
-  combined_participant_data, 
+  # select(combined_participant_data, 835:840),
+  # select(combined_participant_data, 835),
+  combined_participant_data,
   no_summary_stats = c(
     "ml_name_first", "ml_name_middle_init", "ml_name_last", "ml_date_birth",
     "ml_clincard_id", "ml_phone_number_l2c", "ml_care_manager", "ii"
@@ -516,7 +528,7 @@ end - start # Time difference of 5.937892 mins
 # Create codebook
 
 ```{r}
-print(combined_participant_data_cb, "Combined Participant Data Codebook.docx")
+print(combined_participant_data_cb, "codebooks/Combined Participant Survey Data Codebook.docx")
 ```
 
 
