@@ -1,0 +1,51 @@
+---
+title: "Mental Health Medication Adherence among Recently Incarcerated Homeless"
+---
+
+# Load package
+
+```{r}
+library(dplyr, warn.conflicts = FALSE)
+library(haven) # Must use any time you are working with haven labeled data
+library(readr)
+library(freqtables)
+```
+
+# Load data
+
+```{r}
+l2c <- read_rds("../../Participant Data/R data/combined_participant_data.rds")
+dim(l2c) # 1285 1205
+```
+
+Prescribed medications (psychiatric: [s24_v1]). Why did you not take your medication (variable name: [s26x_v1]—spans A to E).    
+
+```{r}
+l2c %>% 
+  select(id, visit, starts_with("srh_24")) %>% 
+  filter(visit == 1) %>% 
+  mutate(srh_any_meds = srh_24 > 0) %>% 
+  relocate(srh_any_meds, .after = srh_24) %>% 
+  freq_table(srh_any_meds)
+```
+
+Report every missing medication
+
+```{r}
+l2c %>% 
+  select(id, visit, srh_25, srh_27, srh_29, srh_31, srh_33) %>% 
+  filter(visit == 1) %>% 
+  mutate(
+    across(
+      c(srh_25:srh_33),
+      ~ .x > 0,
+      .names = "{.col}_any"
+    )
+  ) %>%
+  rowwise() %>% 
+  mutate(missed_any_meds = sum(c_across(srh_25:srh_33), na.rm = TRUE) > 0) %>% 
+  ungroup() %>% 
+  freq_table(missed_any_meds)
+```
+
+
