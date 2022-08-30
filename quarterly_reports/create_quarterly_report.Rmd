@@ -5,39 +5,27 @@ date: "2021-05-10 <br> Updated: `r Sys.Date()`"
 
 # 📝Instructions
 
-1. Connect to UTH server.
+1. Update the quarterly report template document: template_l2c_quarterly_report.docx
 
-```{bash}
-# Make sure you are connected to the VPN
-# Don't drill all the way down to live documents because not all of the data is in live documents.
-open 'smb://islgpcifs.uthouston.edu/sph_research/Link2Care/'
-```
-
-2. Unlock the Bridge Session data   
-
-* This Bridge Session Data is in "/Volumes/Link2Care/Participant Data/Bridge Session Data/Current_Bridge Session Minutes_as of_5-4-21.xlsx". You have to download to local drive first because it's password protected (Link2Care).    
-* You're not able to remove the password from this Excel document. Instead, you have to copy the information in the sheet and pasted it into a new Excel file.  
-* Upload the unlocked file to the UTH server as "/Volumes/Link2Care/Participant Data/Bridge Session Data/bridge_session_minutes.xlsx"   
-
-3. Update file paths, if necessary. 
+2. Update file paths below, if necessary. 
 
 ```{r}
-master_log_path <- "/Volumes/Link2Care/Live Documents/Master Log (version2).xlsx"
-phone_term_path <- "/Volumes/Link2Care/Live Documents/Link2Care Phone Terminations.xlsx"
-remote_path <- "/Volumes/Link2Care/Live Documents/L2C Remote Interview & Redcap Tracking.xlsx"
-ema_initial_pay_approach_path <- "/Volumes/Link2Care/Live Documents/ema_data comparison.xlsx"
-ema_15_day_path <- "/Volumes/Link2Care/Live Documents/15_Day_EMA.xlsx"
-arrest_path <- "/Volumes/Link2Care/Participant Data/Arrest Data Requests/current_arrest_data.xlsx"
-bridge_path <- "/Volumes/Link2Care/Participant Data/Bridge Session Data/bridge_session_minutes.xlsx"
+master_log_path <- "../../Live Documents/Master Log (version2).xlsx"
+phone_term_path <- "../../Live Documents/Link2Care Phone Terminations.xlsx"
+remote_path <- "../../Live Documents/L2C Remote Interview & Redcap Tracking.xlsx"
+ema_initial_pay_approach_path <- "../../Live Documents/ema_data comparison.xlsx"
+ema_15_day_path <- "../../Live Documents/15_Day_EMA.xlsx"
+arrest_path <- "../../Participant Data/Arrest Data Requests/current_arrest_data.xlsx"
+bridge_path <- "../../Participant Data/Bridge Session Data/bridge_session_minutes.xlsx"
 ```
 
-4. Click "Run All Chunks Below" to create the  quarterly report as a Word document.
-
+3. Click "Run All Chunks Below" to create the  quarterly report as a Word document. (**Not ready yet**)
 
 # 📦Load packages
 
 ```{r message=FALSE}
 library(dplyr, warn.conflicts = FALSE)
+library(readr, warn.conflicts = FALSE)
 library(readxl, warn.conflicts = FALSE)
 library(freqtables, warn.conflicts = FALSE)
 library(meantables, warn.conflicts = FALSE)
@@ -103,7 +91,7 @@ cat(
   "columns.\n"
 )
 
-# 2022-04-19: Master log screened in imported with 360 rows and 55 columns.
+# 2022-08-14: Master log screened in imported with 405 rows and 55 columns.
 ```
 
 ## Master log Screened-out
@@ -134,7 +122,7 @@ cat(
   "columns.\n"
 )
 
-# 2021-11-23: Master log screened out imported with 53 rows and 12 columns.
+# 2022-08-14: Master log screened out imported with 64 rows and 12 columns.
 ```
 
 ## Phone terminations
@@ -180,11 +168,7 @@ remote <- read_excel(
 
 ## EMA data
 
-NOTES: Eventually, I will pull this data directly from Insight. Need to learn how to use Insight first.
-
-Download the data from Kiteworks needed to recreate the stats for Table 9 about participants who received the initial payment approach. These stats shouldn't change over time. I just want to check them to be thorough.
-
-* Kiteworks -> Link2Care -> EMA Comparison -> ema_data comparison.xlsx
+NOTES: Eventually, I may want to pull this data directly from Insight. Need to learn how to use Insight first.
 
 ```{r}
 ema_initial_pay_approach <- read_excel(
@@ -212,6 +196,10 @@ ema <- read_excel(
   ),
   skip = 1
 )
+
+# Errors are because some zeros are stored as text instead of numbers in the Excel file. Safe to ignore.
+# For data checking
+# select(ema, id, emas_9) %>% filter(id == 2111)
 ```
 
 ## Arrests
@@ -360,6 +348,8 @@ phone_terminations_long <- phone_terminations %>%
 ```{r}
 remote <- remote %>% 
   mutate(
+    # Fix different spellings
+    group = if_else(group == "UCM+SP", "UCM + SP", group),
     group_f = factor(group, c("UCM", "UCM + SP", "L2C"))
   )
 ```
@@ -420,7 +410,7 @@ ema <- ema %>%
   ungroup()
 ```
 
-Create an variable that indicates if all 12 15-day periods have been tallied.
+Create a variable that indicates if all 12 15-day periods have been tallied.
 
 ```{r}
 ema_initial_pay_approach <- ema_initial_pay_approach %>%
@@ -644,9 +634,19 @@ recruitment <- master_log_screened_in %>%
 
 # 📈Analysis
 
-## 📌 Note on Table names
+## 📄Load Word template
 
-You should probably use descriptive names for these tables instead of numbers. The numbers may change over time. You might also want to organize this Rmd file by sections that match the quarterly report. But maybe not.
+```{r}
+doc <- read_docx("template_l2c_quarterly_report.docx")
+
+# Pg. 3
+## Add number of participants screened-in and the date
+doc <- doc %>% 
+  body_replace_text_at_bkm("n_participants", as.character(n_screened_in)) %>% 
+  body_replace_text_at_bkm("date", format(Sys.Date(), "%B %d, %Y"))
+```
+
+**NOTES:** You may want to use descriptive names for these tables instead of numbers. The numbers may change over time. You might also want to organize this Rmd file by sections that match the quarterly report. But maybe not.
 
 ## Table 1
 
@@ -856,6 +856,13 @@ table_1_ft <- flextable(table_1) %>%
 # table_1_ft
 ```
 
+### 📄 Add Table 1 to Word
+
+```{r}
+## Add Table 1. Demographic characteristics of all people screened-in.
+doc <- body_replace_flextable_at_bkm(doc, "table_demographics", table_1_ft)
+```
+
 Clean up
 
 ```{r}
@@ -924,54 +931,107 @@ table_2_ft <- flextable(table_2) %>%
 # table_2_ft
 ```
 
+### 📄 Add Table 2 to Word
+
+```{r}
+doc <- body_replace_flextable_at_bkm(doc, "table_screen_out", table_2_ft)
+```
+
+## Table 3
+
+Table 3. Payment card and phone loss. 
+
+Adding to the Word template as we go.
+
+Total number of ClinCards distributed
+
+```{r}
+doc <- body_replace_text_at_bkm(
+  doc, 
+  "t3_tot_clin_card_dist", 
+  sum(master_log_screened_in$n_clincards, na.rm = TRUE) %>% as.character()
+)
+```
+
+Total number of participants with ClinCard replacements
+
+```{r}
+doc <- body_replace_text_at_bkm(
+  doc, 
+  "t3_tot_n_part_clincard_replace", 
+  sum(master_log_screened_in$n_clincards > 1, na.rm = TRUE) %>% as.character()
+)
+```
+
+Total number of phones distributed
+
+```{r}
+doc <- body_replace_text_at_bkm(
+  doc, 
+  "t3_tot_phones_dist", 
+  sum(master_log_screened_in$phone_n_distributed, na.rm = TRUE) %>% as.character()
+)
+```
+
+Total number of participants with phone replacements
+
+```{r}
+doc <- body_replace_text_at_bkm(
+  doc, 
+  "t3_tot_n_part_phone_replace", 
+  sum(master_log_screened_in$phone_n_distributed > 1, na.rm = TRUE) %>% as.character()
+)
+```
+
+Number of ClinCard replacements
+
+```{r}
+# Don't need the first row. Those arent' "replacements"
+t3_n_clincard_replacements <- count(master_log_screened_in, n_clincards) %>% 
+  slice(-1) %>% 
+  pull(n) %>% 
+  as.character()
+```
+
+```{r}
+# Data check
+if (length(t3_n_clincard_replacements) != 5) {
+  stop(
+    paste0(
+      "Expecting t3_n_clincard_replacements to have 5 values, but it has ",
+      length(t3_n_clincard_replacements), ". You may need to update Table 3 ",
+      "in template_l2c_quarterly_report.docx to accomodate."
+    )     
+  )
+}
+```
+
+```{r}
+for (i in seq_along(t3_n_clincard_replacements)) {
+  doc <- body_replace_text_at_bkm(
+    doc,
+    paste0("t3_n_clincard_replacements_", i),
+    t3_n_clincard_replacements[i]
+  )
+}
+```
+
+
+## Table 4
+
+Table 4. Phone distribution and replacement.
+
 ### 📌NOTES on automation
 
 2021-05-11. I spent an entire day getting table 1 formatted correctly. At this point, I'm going to try to improve the code by cleaning up the data management and the organization of the code. I probably won't have time to automate all the output with flextable and officer. That will have to wait for the next report. 
 
 Also, delete all these separate Word documents with tables after you make the big automated report.
 
-## Table 3
-
-Table 3. Payment card and phone loss. 
-
-2021-05-11: Filled in manually.
-
-Total number of ClinCards distributed
-
 ```{r}
-sum(master_log_screened_in$n_clincards, na.rm = TRUE)
+# For testing
+# doc <- read_docx("template_l2c_quarterly_report.docx")
+# print(doc, "test.docx")
 ```
-
-Total number of participants with ClinCard replacements
-
-```{r}
-sum(master_log_screened_in$n_clincards > 1, na.rm = TRUE)
-```
-
-Total number of phones distributed
-
-```{r}
-sum(master_log_screened_in$phone_n_distributed, na.rm = TRUE)
-```
-
-Total number of participants with phone replacements
-
-```{r}
-sum(master_log_screened_in$phone_n_distributed > 1, na.rm = TRUE)
-```
-
-Number of ClinCard replacements
-
-```{r}
-master_log_screened_in %>% 
-  freq_table(n_clincards)
-```
-
-## Table 4
-
-Table 4. Phone distribution and replacement.
-
-2021-05-11: Filled in manually.
 
 Total # of phones distributed overall
 
@@ -1896,19 +1956,20 @@ ggsave("fig_3.jpeg", width = 7, height = 4)
 
 ```{r}
 # Read in template
-doc <- read_docx("template_l2c_quarterly_report.docx")
+# 2022-08-16: Read in above and already added tables 1-3
+# doc <- read_docx("template_l2c_quarterly_report.docx")
 
 # Pg. 3
 ## Add number of participants screened-in and the date
-doc <- doc %>% 
-  body_replace_text_at_bkm("n_participants", as.character(n_screened_in)) %>% 
-  body_replace_text_at_bkm("date", format(Sys.Date(), "%B %d, %Y"))
+# doc <- doc %>% 
+#   body_replace_text_at_bkm("n_participants", as.character(n_screened_in)) %>% 
+#   body_replace_text_at_bkm("date", format(Sys.Date(), "%B %d, %Y"))
 
 ## Add Table 1. Demographic characteristics of all people screened-in.
-doc <- body_replace_flextable_at_bkm(doc, "table_demographics", table_1_ft)
+# doc <- body_replace_flextable_at_bkm(doc, "table_demographics", table_1_ft)
 
 ## Add Table 2. Distribution of reasons for screen-out.
-doc <- body_replace_flextable_at_bkm(doc, "table_screen_out", table_2_ft)
+# doc <- body_replace_flextable_at_bkm(doc, "table_screen_out", table_2_ft)
 
 ## Add Figure 1. Reasons for phone terminations overall.
 doc <- doc %>% 
