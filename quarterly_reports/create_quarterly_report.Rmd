@@ -11,7 +11,7 @@ date: "2021-05-10 <br> Updated: `r Sys.Date()`"
 
 ```{r}
 master_log_path <- "../../Live Documents/Master Log (version2).xlsx"
-phone_term_path <- "../..//Live Documents/Link2Care Phone Terminations.xlsx"
+phone_term_path <- "../../Live Documents/Link2Care Phone Terminations.xlsx"
 remote_path <- "../../Live Documents/L2C Remote Interview & Redcap Tracking.xlsx"
 ema_initial_pay_approach_path <- "../../Live Documents/ema_data comparison.xlsx"
 ema_15_day_path <- "../../Live Documents/15_Day_EMA.xlsx"
