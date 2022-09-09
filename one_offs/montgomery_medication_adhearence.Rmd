@@ -2,50 +2,1273 @@
 title: "Mental Health Medication Adherence among Recently Incarcerated Homeless"
 ---
 
-# Load package
+# ⭐️Overview
+
+2022-08-06: Received abstract proposal from Michael. The proposal is in: L2C Teams/Abstract Projects/Audrey Montgomery/Montgomery_AbstractAndManuscript_Proposal_Form.docx
+
+The purpose of the current study is to compare psychiatric medications adherence across diagnoses and to explore how mobile health apps can be used to increase medication adherence. 
+
+## Questions
+
+1. What to do about insurance some people have zeros all the way across -- Even for None? Right now, they are missing.
+
+# 📦Load packages
 
 ```{r}
 library(dplyr, warn.conflicts = FALSE)
+library(dagitty)
+library(ggdag, warn.conflicts = FALSE)
+library(ggplot2)
 library(haven) # Must use any time you are working with haven labeled data
 library(readr)
 library(freqtables)
+library(meantables)
+library(purrr)
+library(tidyr)
+library(stringr)
+library(flextable)
+library(officer)
 ```
 
-# Load data
+# 📥Import data 
+
+This data was created in data_survey_31_update_all_data.Rmd
 
 ```{r}
-l2c <- read_rds("../../Participant Data/R data/combined_participant_data.rds")
+l2c <- readr::read_rds("../../Participant Data/R data/combined_participant_data.rds")
 dim(l2c) # 1285 1205
 ```
 
-Prescribed medications (psychiatric: [s24_v1]). Why did you not take your medication (variable name: [s26x_v1]—spans A to E).    
+# 🚧Data management
+
+Keep baseline data only
 
 ```{r}
-l2c %>% 
-  select(id, visit, starts_with("srh_24")) %>% 
-  filter(visit == 1) %>% 
-  mutate(srh_any_meds = srh_24 > 0) %>% 
-  relocate(srh_any_meds, .after = srh_24) %>% 
-  freq_table(srh_any_meds)
+l2c_v1 <- filter(l2c, visit == 1)
+dim(l2c_v1) # 360 1205
 ```
 
-Report every missing medication
+## Variables needed
+
+Independent Variables:
+
+* Have you ever been diagnosed with Depression? [srh_19]
+* Have you ever been diagnosed with Schizophrenia or Schizoaffective disorder? [srh_20]
+* Have you ever been diagnosed with Bipolar disorder? [srh_21]
+* Have you ever been diagnosed with Post Traumatic Stress Disorder (PTSD)? [srh_22]
+* Have you ever been diagnosed with an Anxiety Disorder besides PTSD? [srh_23]
+
+Dependent Variables:
+
+* I have a prescription for the following disorders: (check all that apply)
+  * Depression: [srh_24a]
+  * Schizophrenia or Schizoaffective disorder: [srh_24b]
+  * Bipolar Disorder: [srh_24c]
+  * Anxiety Disorder: [srh_24d]
+  * Post Traumatic Stress Disorder (PTSD): [srh_24e]
+  * None of the above: [srh_24f]
+
+* What were the reasons that you did not take your depression medication yesterday? (check all that apply)
+  * Side effects:  [srh_26a]
+  * Forgot: [srh_26b]
+  * The medication is not working: [srh_26c]
+  * I do not need the medication anymore: [srh_26d]
+  * I have not picked up the medication from the pharmacy: [srh_26e]
+  * I cannot get the medication refilled: [srh_26f]
+  * Other reasons: [srh_26g]
+
+* What were the reasons that you did not take your Schizophrenia or Schizoaffective disorder medication yesterday? (check all that apply)
+  * Side effects:  [srh_28a]
+  * Forgot: [srh_28b]
+  * The medication is not working: [srh_28c]
+  * I do not need the medication anymore: [srh_28d]
+  * I have not picked up the medication from the pharmacy: [srh_28e]
+  * I cannot get the medication refilled: [srh_28f]
+  * Other reasons: [srh_28g]
+
+* What were the reasons that you did not take your Bipolar Disorder medication yesterday? (check all that apply)
+  * Side effects:  [srh_30a]
+  * Forgot: [srh_30b]
+  * The medication is not working: [srh_30c]
+  * I do not need the medication anymore: [srh_30d]
+  * I have not picked up the medication from the pharmacy: [srh_30e]
+  * I cannot get the medication refilled: [srh_30f]
+  * Other reasons: [srh_30g]
+
+* What were the reasons that you did not take your Anxiety Disorder medication yesterday? (check all that apply)
+  * Side effects:  [srh_32a]
+  * Forgot: [srh_32b]
+  * The medication is not working: [srh_32c]
+  * I do not need the medication anymore: [srh_32d]
+  * I have not picked up the medication from the pharmacy: [srh_32e]
+  * I cannot get the medication refilled: [srh_32f]
+  * Other reasons: [srh_32g]
+
+* What were the reasons that you did not take your PTSD medication yesterday? (check all that apply)
+  * Side effects:  [srh_34a]
+  * Forgot: [srh_34b]
+  * The medication is not working: [srh_34c]
+  * I do not need the medication anymore: [srh_34d]
+  * I have not picked up the medication from the pharmacy: [srh_34e]
+  * I cannot get the medication refilled: [srh_34f]
+  * Other reasons: [srh_34g]
+  
+* Did you take your depression medication yesterday? [srh_25]
+* Did you take your Schizophrenia or Schizoaffective disorder medication yesterday? [srh_27]
+* Did you take your Bipolar Disorder medication yesterday? [srh_29]
+* Did you take your Anxiety Disorder medication yesterday? [srh_31]
+* Did you take your PTSD medication yesterday? [srh_33]
+
+Covariates:
+
+* Gender: [ml_gender]
+* Latinx: [ml_hispanic]
+* Race: [ml_race]
+* Age: [ml_age]
+* Release from Dallas Jail: [sq_7]
+* Current Homelessness: [sq_8]
+* Education: [dem_edu_20_cat]
+* Insurance: [dem_ins_medicare:dem_ins_none]    
+* Do you believe that a smartphone app can help you to change your actions or behavior? [srh_50]
+* Have you ever used a smartphone app to manage one or more health-related issues? [srh_51]
+* Food/calorie tracking: What type of health related issue? [srh_52a]
+* Medication reminders: What type of health related issue? [srh_52b]
+* Mood manager: What type of health related issue? [srh_52c]
+* Physical activity: What type of health related issue? [srh_52d]
+* Sleep Tracker: What type of health related issue? [srh_52e]
+* Smoking Cessation: What type of health related issue? [srh_52f]
+* Stress reduction: What type of health related issue? [srh_52g]
+* Weight loss tracking: What type of health related issue? [srh_52h]
+* Other: What type of health related issue? [srh_52i]
 
 ```{r}
-l2c %>% 
-  select(id, visit, srh_25, srh_27, srh_29, srh_31, srh_33) %>% 
-  filter(visit == 1) %>% 
+l2c_v1_analysis <- l2c_v1 %>% 
+  select(
+    id, group, ml_gender, ml_race, ml_hispanic, ml_age, dem_edu_20_cat, 
+    dem_ins_medicare:dem_ins_none, srh_19:srh_23, srh_24a:srh_24f, srh_26a:srh_26g, 
+    srh_28a:srh_28g, srh_30a:srh_30g, srh_32a:srh_32g, srh_34a:srh_34g, srh_25, 
+    srh_27, srh_29, srh_31, srh_33, srh_50, srh_51, srh_52a:srh_52i
+  )
+
+dim(l2c_v1_analysis) # 360  74
+```
+
+## 🧮Recode/calculate variables
+
+### Group
+
+Create a variable that indicates if the participant was in a smartphone group or not.
+
+```{r}
+l2c_v1_analysis <- l2c_v1_analysis %>% 
+  mutate(
+    group = factor(group, 1:3, c("UCM", "UCM+SP", "L2C")),
+    smart_phone = if_else(group == "UCM", "No", "Yes", NA_character_) %>% factor()
+  )
+```
+
+
+### Demographic variables
+
+* Coerce race and gender to factors
+* Collapse education categories, coerce to factor
+* Collapse insurance categories, coerce to factor
+
+```{r}
+l2c_v1_analysis <- l2c_v1_analysis %>%
+  mutate(
+    
+    # Gender
+    gender_f = factor(ml_gender, c("M", "F", "Other"), c("Male", "Female", "Other")),
+    
+    # Race/ethnicity
+    race_3cat = case_when(
+      is.na(ml_race)  ~ NA_character_,
+      ml_race == "AA" ~ "Black or African American",
+      ml_race == "W"  ~ "White",
+      TRUE         ~ "Other"
+    ),
+    race_3cat_f = factor(
+      race_3cat,
+      c("Black or African American", "White", "Other")
+    ),
+    hispanic_f = factor(ml_hispanic, c("N", "Y"), c("Non-Hispanic", "Hispanic")),
+    race_4cat = case_when(
+      is.na(hispanic_f) ~ NA_integer_, # Missing - can't determine Hispanic ethnicity
+      hispanic_f == "Hispanic" ~ 3L, # Hispanic, any race
+      is.na(race_3cat_f) ~ NA_integer_, # Missing - We know non-Hispanic, but not race
+      race_3cat_f == "White" ~ 1L, # White, non-Hispanic
+      race_3cat_f == "Black or African American" ~ 2L, # Black, non-Hispanic
+      race_3cat_f == "Other" ~ 4L # Other race, non-Hispanic
+    ),
+    race_4cat_f = factor(
+      race_4cat,
+      c(1L:4L),
+      c("White, non-Hispanic", "Black, non-Hispanic", "Hispanic, any race", "Other race, non-Hispanic")
+    ),
+    
+    # Education
+    edu_4cat = case_when(
+      dem_edu_20_cat < 12 ~ 1L, # Less than HS
+      dem_edu_20_cat == 12 ~ 2L, # HS or GED
+      dem_edu_20_cat < 16 ~ 3L, # HS grad, no Bachelors
+      dem_edu_20_cat <= 20 ~ 4L # Bachelors or higher
+    ),
+    edu_4cat_f = factor(
+      edu_4cat,
+      c(1L:4L),
+      c("Less than HS", "HS or GED", "HS grad, no Bachelors", "Bachelors or higher")
+    )
+  ) %>% 
+  
+  # Insurance
+  rowwise() %>% 
+  mutate(ins_count = sum(c_across(dem_ins_medicare:dem_ins_private))) %>% 
+  ungroup() %>% 
+  mutate(
+    ins_6cat = case_when(
+      dem_ins_none == 1     ~ 6, # None
+      ins_count > 1         ~ 5, # Multiple
+      dem_medicaid == 1     ~ 1, # Medicaid
+      dem_ins_medicare == 1 ~ 2, # Medicare
+      dem_ins_private == 1  ~ 3, # Private
+      dem_ins_military == 1 ~ 4  # Military
+    ),
+    ins_6cat_f = factor(
+      ins_6cat, 1:6,
+      c("Medicaid", "Medicare", "Private", "Military", "Multiple", "None")
+    ),
+    ins_any = if_else(ins_6cat_f == "None", 0, 1),
+    ins_any_f = factor(ins_any, 0:1, c("No", "Yes"))
+  ) %>% 
+  
+  # Relocate calculated variables
+  relocate(gender_f, .after = ml_gender) %>% 
+  relocate(c(race_3cat, race_3cat_f), .after = ml_race) %>% 
+  relocate(hispanic_f, .after = ml_hispanic) %>% 
+  relocate(c(edu_4cat, edu_4cat_f), .after = dem_edu_20_cat) %>% 
+  relocate(c(ins_count, ins_6cat, ins_6cat_f, ins_any, ins_any_f), .after = dem_ins_private)
+
+dim(l2c_v1_analysis) # 360  87
+```
+
+### Independent Variables
+
+* Have you ever been diagnosed with Depression? [srh_19]
+* Have you ever been diagnosed with Schizophrenia or Schizoaffective disorder? [srh_20]
+* Have you ever been diagnosed with Bipolar disorder? [srh_21]
+* Have you ever been diagnosed with Post Traumatic Stress Disorder (PTSD)? [srh_22]
+* Have you ever been diagnosed with an Anxiety Disorder besides PTSD? [srh_23]
+
+```{r}
+l2c_v1_analysis <- l2c_v1_analysis %>%
+  # select(srh_19:srh_23) %>% 
+  rowwise() %>% 
+  mutate(diag_count = sum(c_across(srh_19:srh_23))) %>% 
+  ungroup() %>% 
+  mutate(diag_any = diag_count > 0) %>% 
+  # Coerce to factors
   mutate(
     across(
-      c(srh_25:srh_33),
-      ~ .x > 0,
-      .names = "{.col}_any"
+      srh_19:srh_23,
+      ~ factor(.x, 0:1, c("No", "Yes"))
     )
-  ) %>%
-  rowwise() %>% 
-  mutate(missed_any_meds = sum(c_across(srh_25:srh_33), na.rm = TRUE) > 0) %>% 
-  ungroup() %>% 
-  freq_table(missed_any_meds)
+  ) %>% 
+  # Rename for imporoved readability
+  rename(
+    depression = srh_19, schizophrenia = srh_20, bipolar = srh_21, 
+    ptsd = srh_22, anxiety = srh_23
+  )
+
+dim(l2c_v1_analysis) # 360  89
 ```
+
+### Dependent Variables
+
+* I have a prescription for the following disorders: (check all that apply)
+  * Depression: [srh_24a]
+  * Schizophrenia or Schizoaffective disorder: [srh_24b]
+  * Bipolar Disorder: [srh_24c]
+  * Anxiety Disorder: [srh_24d]
+  * Post Traumatic Stress Disorder (PTSD): [srh_24e]
+  * None of the above: [srh_24f]
+  
+* Did you take your depression medication yesterday? [srh_25]
+* Did you take your Schizophrenia or Schizoaffective disorder medication yesterday? [srh_27]
+* Did you take your Bipolar Disorder medication yesterday? [srh_29]
+* Did you take your Anxiety Disorder medication yesterday? [srh_31]
+* Did you take your PTSD medication yesterday? [srh_33]
+
+* What were the reasons that you did not take your depression medication yesterday? (check all that apply)
+  * Side effects:  [srh_26a]
+  * Forgot: [srh_26b]
+  * The medication is not working: [srh_26c]
+  * I do not need the medication anymore: [srh_26d]
+  * I have not picked up the medication from the pharmacy: [srh_26e]
+  * I cannot get the medication refilled: [srh_26f]
+  * Other reasons: [srh_26g]
+
+* What were the reasons that you did not take your Schizophrenia or Schizoaffective disorder medication yesterday? (check all that apply)
+  * Side effects:  [srh_28a]
+  * Forgot: [srh_28b]
+  * The medication is not working: [srh_28c]
+  * I do not need the medication anymore: [srh_28d]
+  * I have not picked up the medication from the pharmacy: [srh_28e]
+  * I cannot get the medication refilled: [srh_28f]
+  * Other reasons: [srh_28g]
+
+* What were the reasons that you did not take your Bipolar Disorder medication yesterday? (check all that apply)
+  * Side effects:  [srh_30a]
+  * Forgot: [srh_30b]
+  * The medication is not working: [srh_30c]
+  * I do not need the medication anymore: [srh_30d]
+  * I have not picked up the medication from the pharmacy: [srh_30e]
+  * I cannot get the medication refilled: [srh_30f]
+  * Other reasons: [srh_30g]
+
+* What were the reasons that you did not take your Anxiety Disorder medication yesterday? (check all that apply)
+  * Side effects:  [srh_32a]
+  * Forgot: [srh_32b]
+  * The medication is not working: [srh_32c]
+  * I do not need the medication anymore: [srh_32d]
+  * I have not picked up the medication from the pharmacy: [srh_32e]
+  * I cannot get the medication refilled: [srh_32f]
+  * Other reasons: [srh_32g]
+
+* What were the reasons that you did not take your PTSD medication yesterday? (check all that apply)
+  * Side effects:  [srh_34a]
+  * Forgot: [srh_34b]
+  * The medication is not working: [srh_34c]
+  * I do not need the medication anymore: [srh_34d]
+  * I have not picked up the medication from the pharmacy: [srh_34e]
+  * I cannot get the medication refilled: [srh_34f]
+  * Other reasons: [srh_34g]
+  
+#### Any prescription for the disorders listed above
+
+For each of the questions about prescriptions for specific medications (srh_24a:srh_24e), did the participant respond "yes" to any?
+* Yes to any one of them should be a "Yes"
+* No to all of them should be a "No"
+* NA for any of them should be an NA
+* Yes to srh_24f (prescribed none) and a Yes to any of srh_24a:srh_24e should be an NA. Unreliable.
+  
+```{r}
+l2c_v1_analysis <- l2c_v1_analysis %>% 
+  # For testing
+  # select(srh_24a:srh_24f) %>% 
+  # Create a new var: prescribed_any
+  rowwise() %>% 
+  mutate(
+    prescribed_count = sum(c_across(c(srh_24a:srh_24e))),
+    prescribed_any   = prescribed_count > 0
+  ) %>% 
+  # Data check: Missing prescribed_any
+  # filter(is.na(prescribed_any)) %>% # 0 rows
+  ungroup() %>% 
+  # Data check: How many reported a prescription AND said prescribed none?
+  # filter(srh_24f == 1 & prescribed_any == TRUE) %>%  # 5. Change to NA - Unreliable
+  mutate(
+    across(
+      c(srh_24f, srh_24a, srh_24b, srh_24c, srh_24d, srh_24e, prescribed_count, prescribed_any),
+      ~ ifelse(srh_24f == 1 & prescribed_any == TRUE, NA, .x)
+    )
+  )
+
+dim(l2c_v1_analysis) # 360  91
+```
+
+#### Missed taking a any meds yesterday
+
+Among those who were given a prescription for a medication (srh_24a:srh_24e), how many reported that they did not take it yesterday (srh_25, 27, 29, 31, 33)?
+
+So, 
+- For each medication question, did they say yes? 
+- If they said yes, did they respond to the "did you take it yesterday" question? 
+- Among those who responded to the "did you take it yesterday" question, for every condition that they responded "yes" to having prescription for, how many said yes and no to missing yesterday?
+
+**Data check:** How many of those who reported a prescription have a missing value for did you take it yesterday? None as of 2022-09-06.
+
+```{r}
+l2c_v1_analysis %>% 
+  # Line up prescription next to take or not for testing
+  select(
+    srh_24f, # None
+    srh_24a, srh_25, # Depression prescription have/take
+    srh_24b, srh_27, # Schizophrenia prescription have/take
+    srh_24c, srh_29, # Bipolar prescription have/take
+    srh_24d, srh_31, # Anxiety prescription have/take
+    srh_24e, srh_33  # PTSD prescription have/take
+  ) %>% 
+  # Create new vars for missing take prescription response
+  # If you said "yes" to having a prescription (e.g., srh_24a), did you give a 
+  # response to taking it yesterday (e.g., srh_25)?
+  mutate(
+    dep_yest_miss = srh_24a == 1 & is.na(srh_25),
+    sch_yest_miss = srh_24b == 1 & is.na(srh_27),
+    bip_yest_miss = srh_24c == 1 & is.na(srh_29),
+    anx_yest_miss = srh_24d == 1 & is.na(srh_31),
+    pts_yest_miss = srh_24e == 1 & is.na(srh_33)
+  ) %>%
+  summarise(across(dep_yest_miss:pts_yest_miss, sum, na.rm = TRUE))
+```
+
+From above, we know that everyone who reported having a prescription (srh_24a:srh_24e) has a non-missing value for the follow-up "did you take it yesterday" question. Next, let's determine:
+
+1. How many people who were prescribed each type of medication forgot to take it yesterday?
+2. How many people who were prescribed any type of medication forgot to take it yesterday?
+  
+```{r}
+l2c_v1_analysis <- l2c_v1_analysis %>%
+  # Line up prescription next to take or not for testing
+  # select(
+  #   srh_24f, # None
+  #   srh_24a, srh_25, # Depression prescription have/take
+  #   srh_24b, srh_27, # Schizophrenia prescription have/take
+  #   srh_24c, srh_29, # Bipolar prescription have/take
+  #   srh_24d, srh_31, # Anxiety prescription have/take
+  #   srh_24e, srh_33  # PTSD prescription have/take
+  # ) %>% 
+  
+  # Create new vars: prescribed_x_missed
+  # If they were ever prescribed a medication, did they answer "no" to any of
+  # the "Did you take your X medication yesterday?" questions?
+  mutate(
+    prescribed_dep_missed = srh_24a == 1 & srh_25 == 0,
+    prescribed_schiz_missed = srh_24b == 1 & srh_27 == 0,
+    prescribed_bipo_missed = srh_24c == 1 & srh_29 == 0,
+    prescribed_anx_missed = srh_24d == 1 & srh_31 == 0,
+    prescribed_ptsd_missed = srh_24e == 1 & srh_33 == 0
+  ) %>% 
+  # Convert FALSE to NA if they weren't prescribed the medication in the first 
+  # place. For example, a person who has a value of 0 for srh_24a (prescribed
+  # depression meds) and a value of NA for srh_25 (took depression meds 
+  # yesterday) currently has a value of FALSE for prescribed_dep_missed (missed
+  # depression meds yesterday). Really, it makes more sense for them to have an NA.
+  mutate(
+    prescribed_dep_missed = if_else(srh_24a == 0, NA, prescribed_dep_missed),
+    prescribed_schiz_missed = if_else(srh_24b == 0, NA, prescribed_schiz_missed),
+    prescribed_bipo_missed = if_else(srh_24c == 0, NA, prescribed_bipo_missed),
+    prescribed_anx_missed = if_else(srh_24d == 0, NA, prescribed_anx_missed),
+    prescribed_ptsd_missed = if_else(srh_24e == 0, NA, prescribed_ptsd_missed)
+  ) %>% 
+  
+  # Count number of missed across prescription types
+  # select(prescribed_dep_missed:prescribed_ptsd_missed) %>% # For testing
+  rowwise() %>%
+  mutate(
+    prescribed_missed_count = sum(
+      c_across(prescribed_dep_missed:prescribed_ptsd_missed),
+      na.rm = TRUE
+    ),
+    # If all "missed" are NA, then prescribed_missed_count should be NA, not 0
+    prescribed_missed_na_count = sum(is.na(
+      c_across(prescribed_dep_missed:prescribed_ptsd_missed)
+    )),
+    prescribed_missed_count = if_else(
+      prescribed_missed_na_count == 5, NA_integer_, prescribed_missed_count
+    )
+  ) %>% 
+  ungroup() %>% 
+  
+  # Create a new var: prescribed_missed_any
+  # If prescribed_missed_count is > 0, then they where prescribed at least one 
+  # medication AND told us that they did not take that prescribed medication
+  # yesterday.
+  mutate(prescribed_missed_any = if_else(prescribed_missed_count > 0, TRUE, FALSE, NA)) %>% 
+  
+  # Coerce to factors
+  mutate(
+    across(
+      srh_24a:srh_52i,
+      ~ factor(.x, 0:1, c("No", "Yes"))
+    )
+  ) %>% 
+  
+  # Rename for improved readability
+  rename(
+    meds_depression = srh_24a, meds_schizophrenia = srh_24b, 
+    meds_bipolar = srh_24c, meds_anxiety = srh_24d, meds_ptsd = srh_24e,
+    meds_none = srh_24f,
+    meds_depression_yest = srh_25, meds_schizophrenia_yest = srh_27,
+    meds_bipolar_yest = srh_29, meds_anxiety_yest = srh_31,
+    meds_ptsd_yest = srh_33
+  )
+
+dim(l2c_v1_analysis) # 360  99
+```
+
+#### Resons for not taking meds
+
+* What were the reasons that you did not take your depression medication yesterday? (check all that apply)
+  * Side effects:  [srh_26a]
+  * Forgot: [srh_26b]
+  * The medication is not working: [srh_26c]
+  * I do not need the medication anymore: [srh_26d]
+  * I have not picked up the medication from the pharmacy: [srh_26e]
+  * I cannot get the medication refilled: [srh_26f]
+  * Other reasons: [srh_26g]
+  
+* Schizophrenia = srh_28a:srh_28g
+* Bipolar = srh_30a:srh_30g
+* Anxiety = srh_32a:srh_32g
+* PTSD = srh_34a:srh_34g
+
+Rename the columns listed above to make them more informative
+
+```{r}
+prefixes <- c("dep", "schiz", "bip", "anx", "ptsd") %>% rep(each = 7)
+reasons <- c("side_effects", "forgot", "not_work", "not_need", "not_pick_up", "no_refill", "other")
+new_names <- paste(prefixes, reasons, sep = "_")
+l2c_v1_analysis <- l2c_v1_analysis %>% 
+  rename_with(
+    .cols = c(srh_26a:srh_34g),
+    .fn = ~new_names
+  )
+```
+
+### Other covariates
+
+* Do you believe that a smartphone app can help you to change your actions or behavior? [srh_50]
+* Have you ever used a smartphone app to manage one or more health-related issues? [srh_51]
+* Food/calorie tracking: What type of health related issue? [srh_52a]
+* Medication reminders: What type of health related issue? [srh_52b]
+* Mood manager: What type of health related issue? [srh_52c]
+* Physical activity: What type of health related issue? [srh_52d]
+* Sleep Tracker: What type of health related issue? [srh_52e]
+* Smoking Cessation: What type of health related issue? [srh_52f]
+* Stress reduction: What type of health related issue? [srh_52g]
+* Weight loss tracking: What type of health related issue? [srh_52h]
+* Other: What type of health related issue? [srh_52i]
+
+```{r}
+# At this moment, I don't think there is any calculated variables I need to create. 
+# I'm going to start by just looking at "did you take your medication?" by diagnosis.
+```
+
+# 📈Analysis
+
+The purpose of the current study is to compare psychiatric medications adherence across diagnoses and to explore how mobile health apps can be used to increase medication adherence. 
+
+```{r}
+coord_dag <- list(
+  x = c(x = 1, c = 2, y = 3),
+  y = c(x = 0, c = 1, y = 0)
+)
+
+dag <- ggdag::dagify(
+  y ~ x,
+  x ~ c,
+  y ~ c,
+  coords = coord_dag,
+  labels = c(
+    "y" = "Medication \n Adherence", 
+    "c" = "Covariates",
+    "x" = "MH Diagnosis"
+  )
+)
+
+ggdag::ggdag(
+  dag, # the dag object we created
+  text = FALSE, # this means the original names won't be shown
+  use_labels = "label") + # instead use the new names
+  theme_dag()
+```
+
+## MH Diagnosis
+
+How many people had each type of MH diagnosis (srh_19:srh_23)?
+
+* I have a prescription for the following disorders: (check all that apply)
+  * Depression: [srh_24a]
+  * Schizophrenia or Schizoaffective disorder: [srh_24b]
+  * Bipolar Disorder: [srh_24c]
+  * Anxiety Disorder: [srh_24d]
+  * Post Traumatic Stress Disorder (PTSD): [srh_24e]
+  * None of the above: [srh_24f]
+
+```{r}
+# One var
+l2c_v1_analysis %>% 
+  freq_table(!! sym("depression"))
+```
+
+```{r}
+# Many vars
+map_df(
+  select(l2c_v1_analysis, depression:anxiety) %>% names(),
+  ~ l2c_v1_analysis %>% 
+      freq_table(!! sym(.x)) %>% 
+      filter(cat == "Yes")
+)
+```
+
+## Have prescription
+
+How many people had a prescription for each medication? 
+
+* I have a prescription for the following disorders: (check all that apply)
+  * Depression: [srh_24a]
+  * Schizophrenia or Schizoaffective disorder: [srh_24b]
+  * Bipolar Disorder: [srh_24c]
+  * Anxiety Disorder: [srh_24d]
+  * Post Traumatic Stress Disorder (PTSD): [srh_24e]
+  * None of the above: [srh_24f]
+
+```{r}
+# One var
+l2c_v1_analysis %>% 
+  filter(!is.na(!! sym("meds_depression"))) %>% 
+  freq_table(!! sym("meds_depression"))
+```
+
+```{r}
+# Many vars
+map_df(
+  select(l2c_v1_analysis, meds_depression:meds_ptsd) %>% names(),
+  ~ l2c_v1_analysis %>% 
+      filter(!is.na(!! sym(.x))) %>% 
+      freq_table(!! sym(.x)) %>% 
+      filter(cat == "Yes")
+)
+```
+
+## Missed prescription yesterday
+
+How many people who were prescribed each type of medication forgot to take it yesterday?
+
+* Did you take your depression medication yesterday? [srh_25]
+* Did you take your Schizophrenia or Schizoaffective disorder medication yesterday? [srh_27]
+* Did you take your Bipolar Disorder medication yesterday? [srh_29]
+* Did you take your Anxiety Disorder medication yesterday? [srh_31]
+* Did you take your PTSD medication yesterday? [srh_33]
+
+```{r}
+# One var
+l2c_v1_analysis %>% 
+  # Keep only people with a prescription
+  filter(!! sym("meds_depression") == "Yes") %>% 
+  freq_table(!! sym("meds_depression_yest"))
+```
+
+```{r}
+# Many vars
+map2_df(
+  select(l2c_v1_analysis, meds_depression:meds_ptsd) %>% names(),
+  select(l2c_v1_analysis, meds_depression_yest:meds_ptsd_yest) %>% names(),
+  ~ l2c_v1_analysis %>% 
+    # Keep only people with a prescription
+    filter(!! sym(.x) == "Yes") %>% 
+    freq_table(!! sym(.y)) %>% 
+    # DID NOT take medication only
+    filter(cat == "No")
+) %>% 
+  arrange(desc(percent))
+```
+
+How many people who were prescribed any type of medication forgot to take it yesterday?
+
+```{r}
+l2c_v1_analysis %>% 
+  filter(prescribed_any == TRUE) %>% 
+  freq_table(prescribed_missed_any)
+```
+
+How many people missed taking their medication yesterday by ever having each mental health diagnosis?
+
+```{r}
+# One var
+l2c_v1_analysis %>% 
+  # Remove missing prescribed_missed_any
+  filter(!is.na(prescribed_missed_any)) %>% 
+  freq_table(!! sym("depression"), !! sym("prescribed_missed_any"))
+```
+
+```{r}
+map_df(
+  # Mental health diagnosis
+  select(l2c_v1_analysis, depression:anxiety) %>% names(),
+  ~ l2c_v1_analysis %>% 
+    # Remove missing prescribed_missed_any
+    filter(!is.na(prescribed_missed_any)) %>% 
+    freq_table(!! sym(.x), prescribed_missed_any) %>% 
+    # DID NOT take medication only
+    filter(col_cat == TRUE)
+) %>% 
+  select(row_var:n_total, percent_row, lcl_row:ucl_row)
+```
+
+## Table 1
+
+Define variable list
+
+```{r}
+cont_vars <- c("ml_age")
+```
+
+```{r}
+cat_vars <- c(
+  "depression", "schizophrenia", "bipolar", "ptsd", "anxiety", "gender_f", 
+  "race_4cat_f", "edu_4cat_f"
+)
+```
+
+Filter out rows with a missing value for prescribed_missed_any
+
+```{r}
+l2c_v1_analysis_complete <- l2c_v1_analysis %>% 
+  filter(!is.na(prescribed_missed_any))
+
+dim(l2c_v1_analysis_complete) # 207  99
+```
+
+Function cont by group
+
+```{r}
+cont_stats_group_fn <- function(.data, .group, .pred, stat_recipe = NULL, .digits = 2) {
+  .data %>% 
+    # Remove rows with missing values
+    filter(!is.na({{ .pred }})) %>%
+    group_by({{ .group }}) %>%
+    # Calculations
+    mean_table({{ .pred }}) %>%  
+    # Format statistics
+    mean_format(stat_recipe, digits = .digits) %>% 
+    # Keep columns of interest
+    select(var = response_var, group_cat, formatted_stats) %>%
+    # Display by row_cat
+    pivot_wider(
+      names_from = "group_cat",
+      values_from = "formatted_stats"
+    )
+}
+
+# Test
+# cont_stats_group_fn(l2c_v1_analysis_complete, prescribed_missed_any, ml_age, stat_recipe = "mean (sd)")
+```
+
+Loop over all continuous variables
+
+```{r}
+cont_by_group <- map_df(
+  .x = cont_vars,
+  .f = ~ cont_stats_group_fn(l2c_v1_analysis_complete, prescribed_missed_any, !! sym(.x), stat_recipe = "mean (sd)")
+)
+```
+
+Function cat by group
+
+```{r}
+cat_stats_group_fn <- function(.data, .outcome, .pred, stat_recipe = NULL, .digits = 0) {
+  .data %>% 
+    # Remove rows with missing values
+    filter(!is.na({{ .pred }})) %>% 
+    # Calculations
+    freq_table({{ .outcome }}, {{ .pred }}) %>%  
+    # Format statistics
+    freq_format(stat_recipe, digits = .digits) %>% 
+    # Keep columns of interest
+    select(row_var:col_cat, formatted_stats) %>%
+    # Display by row_cat
+    pivot_wider(
+      names_from = "row_cat",
+      values_from = "formatted_stats"
+    ) %>%
+    # Add spaces in front of category labels
+    mutate(col_cat = paste0("  ", col_cat)) %>%
+    # Slide category labels under row variable label
+    add_row(col_cat = !!quo_name(enquo(.pred)), .before = 1) %>%
+    select(-row_var, -col_var, var = col_cat) %>%
+    # Paste all categories into one row
+    mutate(
+      across(
+        everything(),
+        function(x) {
+          x <- paste(x, collapse = "\n")
+          # Remove leading NA
+          x <- stringr::str_remove(x, "^NA")
+          x
+        }
+      )
+    ) %>%
+    slice(1)
+}
+
+# Test
+# cat_stats_group_fn(l2c_v1_analysis_complete, prescribed_missed_any, gender_f, stat_recipe = "n (percent_row%)")
+```
+
+Loop over all categorical variables
+
+```{r}
+cat_by_group <- map_df(
+  .x = cat_vars,
+  .f = ~ cat_stats_group_fn(l2c_v1_analysis_complete, prescribed_missed_any, !! sym(.x), stat_recipe = "n (percent_row%)")
+)
+```
+
+Bind cat and cont by group
+
+```{r}
+table_01 <- bind_rows(
+  cont_by_group,
+  cat_by_group
+)
+```
+
+### Make flextable
+
+```{r}
+table_01_ft <- flextable(table_01)
+```
+
+Format flextable
+
+```{r}
+# N's for column headers
+col_head_n <- table(l2c_v1_analysis_complete$prescribed_missed_any)
+no_col_header <- paste0("None Missed Yesterday\n(n = ", col_head_n[1], ")")
+yes_col_header <- paste0("Missed Yesterday\n(n = ", col_head_n[2], ")")
+```
+
+```{r}
+table_01_ft <- table_01_ft %>%
+  # Change column widths. figure out through trial and error
+  width(width = c(2.38, 2.07, 2.07)) %>%
+  # Center text in all but the first column
+  align(j = -1, align = "center", part = "all") %>%
+  # Change header names -- add subgroup n's to headers
+  set_header_labels(
+    var = "Characteristic",
+    "FALSE" = no_col_header,
+    "TRUE" = yes_col_header
+  ) %>%
+  # Bold column headers
+  bold(part = "header")
+```
+
+Improve row headers
+
+```{r}
+# Get all of the variable names and add to a data frame
+names_to_headers <- tibble(
+  string = table_01$var,
+  var_name = str_extract(string, "^\\w*"),
+  type = if_else(var_name %in% cat_vars, "cat", "cont"),
+  # We could maybe event grab these somewhere else if we save recipe
+  # For now, just typing in manually
+  stat = if_else(type == "cat", "n (col percent)", "mean (sd)")
+)
+```
+
+```{r}
+# Wrap all of this in a function
+case_when_vars <- paste0('var_name == ', '"', names_to_headers$var_name, '"', ' ~ "",')
+case_when_vars <- paste(case_when_vars, collapse = "\n    ")
+case_when_vars <- str_remove(case_when_vars, ",$")
+```
+
+```{r}
+# The user needs to tell us what the row header text should say
+# Print some code that will help us make sure we don't miss any vars
+# names_to_headers$var_name
+cat(
+paste0("names_to_headers <- names_to_headers %>%\n  mutate(header = case_when(\n    ", case_when_vars, "\n  ))")
+)
+```
+
+```{r}
+# A function for updating without starting over could be useful too.
+names_to_headers <- names_to_headers %>%
+  mutate(header = case_when(
+    var_name == "ml_age" ~ "Age",
+    var_name == "depression" ~ "Depression",
+    var_name == "schizophrenia" ~ "Schizophrenia",
+    var_name == "bipolar" ~ "Bipolar",
+    var_name == "ptsd" ~ "PTSD",
+    var_name == "anxiety" ~ "Anxiety",
+    var_name == "gender_f" ~ "Gender",
+    var_name == "race_4cat_f" ~ "Race/Ethnicity",
+    var_name == "edu_4cat_f" ~ "Eduction"
+  ))
+```
+
+```{r}
+# Add the stats to the row headers
+names_to_headers <- names_to_headers %>%
+  mutate(header = paste0(header, ", ", stat))
+```
+
+```{r}
+# Add carrot to the front of var_name so that the row header is only replaced
+# when the string is found in the variable name as opposed to anywhere in string
+names_to_headers$var_name <- paste0("^", names_to_headers$var_name)
+```
+
+```{r}
+# Loop over all variables
+for (i in 1:nrow(names_to_headers)) {
+  table_01_ft <- table_01_ft %>%
+    compose(
+      i = ~ stringr::str_detect(var, names_to_headers$var_name[[i]]), 
+      j = 1, 
+      as_paragraph(str_replace(
+        names_to_headers$string[[i]], 
+        names_to_headers$var_name[[i]], 
+        names_to_headers$header[[i]]
+      ))
+    )
+}
+```
+
+Finish flextable formatting
+
+```{r}
+table_01_ft <- table_01_ft %>%
+  # Use padding for row separation
+  padding(padding.top = 0, padding.bottom = 10, part = "body") %>%
+  # Change font to TNR 11
+  font(fontname = "Arial", part = "all") %>%
+  fontsize(part = "all", size = 11)
+```
+
+Add flextable to Word document
+
+```{r}
+doc <- read_docx("../../Abstract Projects/Audrey Montgomery/Montgomery_AbstractAndManuscript_Proposal_Form.docx") %>% 
+  body_replace_flextable_at_bkm("table_01", table_01_ft)
+```
+
+```{r}
+print(
+  doc,
+  "../../Abstract Projects/Audrey Montgomery/Montgomery_AbstractAndManuscript_Proposal_Form_2022_08_07.docx"
+)
+```
+
+## Table 2
+
+```{r}
+preds <- c("depression", "schizophrenia", "bipolar", "ptsd", "anxiety")
+```
+
+```{r}
+unadj_formulas <- paste("prescribed_missed_any", preds, sep = " ~ ")
+```
+
+```{r}
+covars <- c("ml_age", "gender_f", "race_4cat_f", "edu_4cat_f")
+```
+
+```{r}
+covars_mod <- paste(covars, collapse = " + ")
+```
+
+```{r}
+rhs <- paste(preds, covars_mod, sep = " + ")
+```
+
+```{r}
+adj_formulas <- paste("prescribed_missed_any", rhs, sep = " ~ ")
+```
+
+### Unadjusted
+
+```{r}
+# For testing
+glm(
+  formula = unadj_formulas[3],
+  family = binomial(link = 'logit'),
+  data = l2c_v1_analysis
+) %>% 
+  broom::tidy(exp = TRUE, conf.int = TRUE) %>% 
+  mutate(
+    across(
+      where(is.numeric), 
+      ~ format(round(.x, 2), digits = 2, nsmall = 2)
+    )
+  ) %>% 
+  mutate(stats = paste0(estimate, " (", conf.low, "-", conf.high, ")")) %>% 
+  select(term, stats) %>% 
+  slice(2)
+```
+
+```{r}
+# All predictors
+unadj_logistic <- map_df(
+  unadj_formulas,
+  ~ glm(
+    formula = .x,
+    family = binomial(link = 'logit'),
+    data = l2c_v1_analysis
+  ) %>% 
+    broom::tidy(exp = TRUE, conf.int = TRUE) %>% 
+    mutate(
+      across(
+        where(is.numeric), 
+        ~ format(round(.x, 2), digits = 2, nsmall = 2)
+      )
+    ) %>% 
+    mutate(stats = paste0(estimate, " (", conf.low, "-", conf.high, ")")) %>% 
+    select(term, stats) %>% 
+    slice(2)
+)
+```
+
+### Check for effect measure modification\
+
+```{r}
+emm_rhs <- paste(preds, "smart_phone", sep = "*")
+emm_formulas <- paste("prescribed_missed_any", emm_rhs, sep = " ~ ")
+```
+
+```{r}
+# For testing
+glm(
+  formula = prescribed_missed_any ~ depression*smart_phone,
+  family = binomial(link = 'logit'),
+  data = l2c_v1_analysis
+) %>% 
+  broom::tidy(exp = TRUE, conf.int = TRUE) %>% 
+  mutate(
+    across(
+      where(is.numeric), 
+      ~ format(round(.x, 2), digits = 2, nsmall = 2)
+    )
+  ) %>% 
+  mutate(stats = paste0(estimate, " (", conf.low, "-", conf.high, ")")) %>% 
+  select(term, stats) %>% 
+  slice(4)
+```
+
+```{r}
+# All predictors
+map_df(
+  emm_formulas,
+  ~ glm(
+    formula = .x,
+    family = binomial(link = 'logit'),
+    data = l2c_v1_analysis
+  ) %>% 
+    broom::tidy(exp = TRUE, conf.int = TRUE) %>% 
+    mutate(
+      across(
+        where(is.numeric), 
+        ~ format(round(.x, 2), digits = 2, nsmall = 2)
+      )
+    ) %>% 
+    mutate(stats = paste0(estimate, " (", conf.low, "-", conf.high, ")")) %>% 
+    mutate(stats = str_replace(stats, "- ", "-")) %>% 
+    select(term, stats) %>% 
+    slice(4)
+)
+```
+
+
+### Adjusted
+
+```{r}
+# For testing
+glm(
+  formula = adj_formulas[1],
+  family = binomial(link = 'logit'),
+  data = l2c_v1_analysis
+) %>% 
+  broom::tidy(exp = TRUE, conf.int = TRUE) %>% 
+  mutate(
+    across(
+      where(is.numeric), 
+      ~ format(round(.x, 2), digits = 2, nsmall = 2)
+    )
+  ) %>% 
+  mutate(stats = paste0(estimate, " (", conf.low, "-", conf.high, ")")) %>% 
+  mutate(stats = str_replace(stats, "- ", "-")) %>%
+  select(term, stats) %>% 
+  slice(2)
+```
+
+```{r}
+# All predictors
+adj_logistic <- map_df(
+  adj_formulas,
+  ~ glm(
+    formula = .x,
+    family = binomial(link = 'logit'),
+    data = l2c_v1_analysis
+  ) %>% 
+    broom::tidy(exp = TRUE, conf.int = TRUE) %>% 
+    mutate(
+      across(
+        where(is.numeric), 
+        ~ format(round(.x, 2), digits = 2, nsmall = 2)
+      )
+    ) %>% 
+    mutate(stats = paste0(estimate, " (", conf.low, "-", conf.high, ")")) %>% 
+    mutate(stats = str_replace(stats, "- ", "-")) %>% 
+    select(term, stats) %>% 
+    slice(2)
+)
+```
+
+### Combined Flextable
+
+Bind cat and cont by group
+
+```{r}
+table_02 <- left_join(
+  unadj_logistic,
+  adj_logistic,
+  by = "term",
+  suffix = c("_unadj", "_adj")
+)
+```
+
+Make flextable
+
+```{r}
+table_02_ft <- flextable(table_02)
+```
+
+Format flextable
+
+```{r}
+table_02_ft <- table_02_ft %>%
+  # Change column widths. figure out through trial and error
+  width(width = c(3.25, 1.62, 1.62)) %>%
+  # Center text in all but the first column
+  align(j = -1, align = "center", part = "all") %>%
+  # Change header names -- add subgroup n's to headers
+  set_header_labels(
+    term = "Mental health condition, ever diagnosed",
+    stats_unadj = "Unadjusted\nOR (95% CI)",
+    stats_adj = "Adjusted\nOR (95% CI)"
+  ) %>%
+  # Bold column headers
+  bold(part = "header")
+```
+
+Improve row headers
+
+```{r}
+table_02_ft <- table_02_ft %>% 
+  compose(i = 1, j = 1, as_paragraph(as_chunk("Depression"))) %>% 
+  compose(i = 2, j = 1, as_paragraph(as_chunk("Schizophrenia or Schizoaffective disorder"))) %>% 
+  compose(i = 3, j = 1, as_paragraph(as_chunk("Bipolar disorder"))) %>% 
+  compose(i = 4, j = 1, as_paragraph(as_chunk("Post Traumatic Stress Disorder (PTSD)"))) %>% 
+  compose(i = 5, j = 1, as_paragraph(as_chunk("Anxiety Disorder besides PTSD")))
+```
+
+Finish flextable formatting
+
+```{r}
+table_02_ft <- table_02_ft %>%
+  # Use padding for row separation
+  padding(padding.top = 0, padding.bottom = 10, part = "body") %>%
+  # Change font to TNR 11
+  font(fontname = "Arial", part = "all") %>%
+  fontsize(part = "all", size = 11)
+```
+
+Add flextable to Word document
+
+```{r}
+doc <- read_docx("../../Abstract Projects/Audrey Montgomery/Montgomery_AbstractAndManuscript_Proposal_Form.docx") %>% 
+  body_replace_flextable_at_bkm("table_01", table_01_ft) %>% 
+  # Overall n in title
+  body_replace_text_at_bkm("n_overall", as.character(sum(table(l2c_v1_analysis_complete$prescribed_missed_any)))) %>% 
+  body_replace_flextable_at_bkm("table_02", table_02_ft)
+```
+
+```{r}
+print(
+  doc,
+  "../../Abstract Projects/Audrey Montgomery/Montgomery_AbstractAndManuscript_Proposal_Form_2022_08_07.docx"
+)
+```
+
+## Table 3
+
+Reasons for not taking medication on the previous day by medication type.
+
+For column headers, who many people reported not taking each medication on the previous day?
+
+```{r}
+l2c_v1_analysis %>% 
+  summarise(
+    across(
+      prescribed_dep_missed:prescribed_ptsd_missed,
+      sum, na.rm = TRUE
+    )
+  )
+```
+
+```{r}
+# One var
+l2c_v1_analysis %>% 
+  # Remove missing
+  filter(!is.na(!! sym("dep_side_effects"))) %>% 
+  freq_table(!! sym("dep_side_effects")) %>% 
+  freq_format("n (percent%)", digits = 0)
+```
+
+```{r}
+# Loop over all reasons
+all_reasons <- map_df(
+  new_names,
+  ~ l2c_v1_analysis %>% 
+    # Remove missing
+    filter(!is.na(!! sym(.x))) %>% 
+    freq_table(!! sym(.x)) %>% 
+    freq_format("n (percent%)", digits = 0) %>% 
+    # Keep "Yes" only
+    filter(cat == "Yes") %>% 
+    # Keep var and formatted stats only
+    select(var, formatted_stats)
+)
+```
+
+I checked and the n_total output by the code above matches the total number of people who reported missing a medication a couple of code chunks above. 
+
+Now let's reshape the data to make it easier to fit into the word table
+
+```{r}
+all_reasons <- all_reasons %>% 
+  # Need to separate the medication type and the reason before pivoting.
+  separate(var, c("med", "reason"), extra = "merge") %>% 
+  pivot_wider(
+    names_from = med,
+    values_from = formatted_stats
+  )
+```
+
+Because I'm running low on time and I already have a table outline made in the Word template document, I'm just going to output this table to a temporary Word doc. Then, I will copy and paste the values into the template.
+
+```{r}
+all_reasons_ft <- flextable(all_reasons) %>% autofit()
+doc <- read_docx() %>% body_add_flextable(all_reasons_ft)
+print(doc, "/Users/bradcannell/Desktop/temp.docx")
+```
+
+Add flextable to Word document
+
+```{r}
+doc <- read_docx("../../Abstract Projects/Audrey Montgomery/Montgomery_AbstractAndManuscript_Proposal_Form.docx") %>% 
+  body_replace_flextable_at_bkm("table_01", table_01_ft) %>% 
+  # Overall n in title
+  body_replace_text_at_bkm("n_overall", as.character(sum(table(l2c_v1_analysis_complete$prescribed_missed_any)))) %>% 
+  body_replace_flextable_at_bkm("table_02", table_02_ft)
+```
+
+```{r}
+print(
+  doc,
+  "../../Abstract Projects/Audrey Montgomery/Montgomery_AbstractAndManuscript_Proposal_Form_2022_08_08.docx"
+)
+```
+
+
+
+
+
+
 
 
