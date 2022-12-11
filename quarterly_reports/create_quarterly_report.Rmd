@@ -76,7 +76,10 @@ master_log_screened_in <- read_excel(
     # notes (e.g., "no show")
     rep("text",2), rep("date", 4), rep("text", 2), "numeric", rep("date", 2),
     rep("text", 2), "numeric", rep("date", 2), rep("text", 2), "numeric", rep("date", 2), rep("text", 11),
-    "date", "numeric", "text", "numeric", rep("text", 2), "numeric", "text", rep("text", 15)
+    "date", "numeric", "text", "numeric", rep("text", 2), "numeric", "text", rep("text", 15),
+    # They have some calculations in BD:BH of the the Excel sheet. I'm skipping
+    # those so that the sheet can be read in without errors.
+    rep("skip", 5)
   ),
   na = c("", ".", "N/A", "No show", "No Show"),
   skip = 1
@@ -91,7 +94,7 @@ cat(
   "columns.\n"
 )
 
-# 2022-08-14: Master log screened in imported with 405 rows and 55 columns.
+# 2022-12-04: Master log screened in imported with 442 rows and 55 columns.
 ```
 
 ## Master log Screened-out
@@ -104,11 +107,14 @@ master_log_screened_out <- read_excel(
   sheet = "Screened Out",
   col_names = c(
     "id", "name_full", "date_baseline", "gender",  "race", "hispanic", 
-    "date_birth", "age", "reason_1", "reason_2", "reason_3", "notes"
+    "date_birth", "age", "reason_1", "reason_2", "reason_3",  "reason_4", 
+    "reason_5", "reason_6", "reason_7", "reason_8", "reason_9", "notes"
   ),
   col_types = c(
     "text", "text", "date", rep("text", 3), "date", "numeric", 
-    rep("text", 3), "skip", "text", "skip"
+    rep("text", 9), "text", 
+    # There is a "key" in column S. Will will not read that in to the data.
+    "skip"
   ),
   skip = 1,
   na = c("", "N/A")
@@ -122,7 +128,7 @@ cat(
   "columns.\n"
 )
 
-# 2022-08-14: Master log screened out imported with 64 rows and 12 columns.
+# 2022-12-04: Master log screened out imported with 68 rows and 18 columns.
 ```
 
 ## Phone terminations
@@ -146,6 +152,16 @@ phone_terminations <- read_excel(
   na = c("", "N/A"),
   skip = 1
 )
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "Phone terminations imported with", nrow(phone_terminations), 
+  "rows and", ncol(phone_terminations),
+  "columns.\n"
+)
+
+# 2022-12-04: Phone terminations imported with 444 rows and 22 columns.
 ```
 
 ## Remote Interview & Redcap Tracking Sheet
@@ -164,6 +180,16 @@ remote <- read_excel(
   na = c("", "N/A", "."),
   skip = 3
 )
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "Remote interview imported with", nrow(remote), 
+  "rows and", ncol(remote),
+  "columns.\n"
+)
+
+# 2022-12-04: Remote interview imported with 134 rows and 9 columns.
 ```
 
 ## EMA data
@@ -176,30 +202,83 @@ ema_initial_pay_approach <- read_excel(
   sheet = "Old EMA",
   range = "A2:N48",
   col_names = c(
-    "id", "group", paste("emas", 1:12, sep = "_")
+    "id", "group", paste0("emas_completed_cycle_", 1:12)
   ),
   col_types = c(
-    "numeric", "text", rep("numeric", 12)
+    "text", "text", rep("numeric", 12)
   )
 )
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "EMA initial pay approach data imported with", nrow(ema_initial_pay_approach), 
+  "rows and", ncol(ema_initial_pay_approach),
+  "columns.\n"
+)
+
+# 2022-12-04: EMA initial pay approach data imported with 47 rows and 14 columns.
+# This is not expected to change over time.
 ```
 
 ```{r}
+# Create column names for use below when reading in the EMA data.
+# Cycles 1 through 12 each have 6 variables with the same names.
+ema_col_nms <- c(
+  "date_complete", "contact", "initials", "locator_update", "emas_completed",
+  "compensation"
+)
+
+ema_cycles <- paste("cycle", 1:12, sep = "_")
+
+ema_col_nms <- paste(ema_col_nms, rep(ema_cycles, each = 6), sep = "_")
+```
+
+```{r warning=FALSE}
 ema <- read_excel(
   ema_15_day_path,
   sheet = "15_Day_EMA_Log",
   col_names = c(
-    "id", "group", paste("emas", 1:12, sep = "_")
+    "id", "name", "group", "date_randomization",
+    # Cycles 1 through 12 each have 6 variables with the same names.
+    ema_col_nms
   ),
   col_types = c(
-    "numeric", "skip", "text", rep(c(rep("skip", 5), "numeric"), 12), rep("skip", 7)
+    rep("text", 3), "date", 
+    rep(c("date", "text", "text", "text", "numeric", "text"), 12),
+    # There are some calculations in the spreadsheet to the right of the data
+    # that we don't want to import.
+    rep("skip", 6)
   ),
+  na = c("", "N/A", "."),
   skip = 1
 )
 
-# Errors are because some zeros are stored as text instead of numbers in the Excel file. Safe to ignore.
-# For data checking
-# select(ema, id, emas_9) %>% filter(id == 2111)
+# Warnings for this chunk are silenced.
+# There were two sources of the warnings. 
+# First, there are warnings because some zeros are stored as text instead of 
+# numbers in the Excel file. These are safe to ignore.
+# Second, there is a warning that says, "datetimeWarning: NA inserted for 
+# impossible 1900-02-29". It appears to be a warning about dates that are pre 
+# 1900 (https://github.com/tidyverse/readxl/issues/551). 
+# However, the warning doesn't tell us which cells are causing the warning. 
+# I think the warnings are for the date_randomization column. Specifically, 
+# there are some calculated columns in the Excel spreadsheet the are copied
+# down past the last row with participant data. It looks like those are all
+# being converted to NA. This is safe to ignore. Additionally, we need to 
+# drop those rows from the data frame. 
+
+ema <- filter(ema, !is.na(id))
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "EMA completion data imported with", nrow(ema), 
+  "rows and", ncol(ema),
+  "columns.\n"
+)
+
+# 2022-12-04: EMA completion data imported with 369 rows and 76 columns.
 ```
 
 ## Arrests
@@ -220,6 +299,16 @@ arrest <- read_excel(
   na = c("", "None"),
   skip = 1
 )
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "Arrest data imported with", nrow(arrest), 
+  "rows and", ncol(arrest),
+  "columns.\n"
+)
+
+# 2022-12-04: Arrest data imported with 329 rows and 8 columns.
 ```
 
 ## Bridge Case Session Minutes
@@ -237,6 +326,16 @@ bridge <- read_excel(
   ),
   skip = 10
 )
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "Bridge session data imported with", nrow(bridge), 
+  "rows and", ncol(bridge),
+  "columns.\n"
+)
+
+# 2022-12-04: Bridge session data imported with 4274 rows and 10 columns.
 ```
 
 
@@ -363,15 +462,22 @@ Keep UCM+SP and L2C rows only for EMA analysis.
 unique(ema$group)
 ```
 
-Also, only keep participants who have gone through all 12 EMA cycles. The denominator for the calculations in the analysis section below should only include participants who have been in the study long enough to complete all 12 cycles. I'm determining which rows from the ema data to keep by finding the highest id number with a non-missing value for emas_12 (on the spreadsheet: "EMAs_Completed12"). 
+```{r}
+ema <- ema %>% 
+  mutate(group = str_remove_all(group, " "))
+```
+
+Also, only keep participants who have gone through all 12 EMA cycles. The denominator for the calculations in the analysis section below should only include participants who have been in the study long enough to complete all 12 cycles. I'm determining which rows from the EMA data to keep by finding the highest id number with a non-missing value for emas_completed_cycle_12 (on the spreadsheet: "EMAs_Completed12"). 
 
 What is the highest id with all 12 cycles? 
 
 ```{r}
 highest_id_w_12 <- ema %>% 
-  filter(!is.na(emas_12)) %>% 
+  filter(!is.na(emas_completed_cycle_12)) %>% 
   pull(id) %>% 
   max()
+
+highest_id_w_12 # 2370
 ```
 
 ```{r}
@@ -380,15 +486,26 @@ ema <- ema %>%
   filter(id <= highest_id_w_12)
 ```
 
-Setting NA to zero in 15 day EMA log
-
+Setting NA to zero in 15 day EMA log, if they exist.
 NOTES: This should be happening directly in the Excel file.
+
+```{r}
+# For data checking
+ema %>% 
+  select(id, starts_with("emas_completed")) %>% 
+  filter(
+    if_any(
+      everything(), 
+      ~ is.na(.x)
+    )
+  )
+```
 
 ```{r}
 ema <- ema %>% 
   mutate(
     across(
-      emas_1:emas_12,
+      starts_with("emas_completed"),
       ~if_else(is.na(.x), 0, .x)
     )
   )
@@ -399,15 +516,21 @@ Add a column for total EMAs completed
 ```{r}
 ema_initial_pay_approach <- ema_initial_pay_approach %>% 
   rowwise() %>% 
-  mutate(emas_total = sum(c_across(emas_1:emas_12))) %>% 
+  mutate(emas_completed_total = sum(c_across(starts_with("emas_completed")))) %>% 
   ungroup()
 ```
 
 ```{r}
 ema <- ema %>% 
   rowwise() %>% 
-  mutate(emas_total = sum(c_across(emas_1:emas_12))) %>% 
+  mutate(emas_completed_total = sum(c_across(starts_with("emas_completed")))) %>% 
   ungroup()
+```
+
+```{r}
+# For data checking
+# ema %>% 
+#   select(id, starts_with("emas_completed"), emas_completed_total)
 ```
 
 Create a variable that indicates if all 12 15-day periods have been tallied.
@@ -415,14 +538,14 @@ Create a variable that indicates if all 12 15-day periods have been tallied.
 ```{r}
 ema_initial_pay_approach <- ema_initial_pay_approach %>%
   rowwise() %>% 
-  mutate(n_periods = sum(!is.na(c_across(emas_1:emas_12)))) %>% 
+  mutate(n_periods = sum(!is.na(c_across(matches("emas_completed_cycle"))))) %>% 
   ungroup()
 ```
 
 ```{r}
-ema <- ema %>% 
+ema <- ema %>%
   rowwise() %>% 
-  mutate(n_periods = sum(!is.na(c_across(emas_1:emas_12)))) %>% 
+  mutate(n_periods = sum(!is.na(c_across(matches("emas_completed_cycle"))))) %>% 
   ungroup()
 ```
 
@@ -443,10 +566,11 @@ Make a long version of the data.
 
 ```{r}
 ema_combined_long <- ema_combined %>% 
+  select(id:pay_approach) %>% 
   pivot_longer(
-    emas_1:emas_12,
+    emas_completed_cycle_1:emas_completed_cycle_12,
     names_to = "cycle",
-    names_prefix = "emas_",
+    names_prefix = "emas_completed_cycle_",
     values_to = "n_completed"
   ) %>% 
   mutate(cycle_f = factor(cycle, 1:12))
@@ -634,6 +758,12 @@ recruitment <- master_log_screened_in %>%
 
 # 📈Analysis
 
+Number of participants screened in
+
+```{r}
+n_screened_in <- nrow(screened_in) # 442
+```
+
 ## 📄Load Word template
 
 ```{r}
@@ -653,12 +783,6 @@ doc <- doc %>%
 Table 1. Demographic characteristics of all people screened for study inclusion.
 
 ### Screened-in
-
-Number of participants screened_in
-
-```{r}
-n_screened_in <- nrow(screened_in)
-```
 
 ```{r}
 t1_cont_stats_si <- master_log_combined %>%
@@ -754,7 +878,6 @@ table_1_so <- t1_cont_stats_so %>%
   bind_rows(t1_cat_stats_so) %>% 
   rename(screened_out = formatted_stats)
 ```
-
 
 ### Combined
 
@@ -883,13 +1006,17 @@ unique(screened_out$reason_1)
 ```{r}
 table_2 <- screened_out %>%
   pivot_longer(
-    reason_1:reason_3,
+    reason_1:reason_9,
     names_to = "reason_number",
     names_prefix = "reason_",
     values_to = "reason"
   ) %>% 
   filter(!is.na(reason)) %>% 
-  freq_table(reason) %>% 
+  # Change reason to factor so that we can add all categories of screen-out
+  # reasons -- including those with zero observations (e.g., Refused to report 
+  # SSN or residency)
+  mutate(reason_f = factor(reason) %>% fct_expand("Refused to report SSN or residency")) %>% 
+  freq_table(reason_f) %>% 
   arrange(desc(n)) %>% 
   # Get n from n_total column
   add_row(cat = "Total", n = max(.$n_total), percent = 100.0) %>% 
@@ -1007,6 +1134,7 @@ if (length(t3_n_clincard_replacements) != 5) {
 ```
 
 ```{r}
+# Add the numbers directly to the table in the Word document
 for (i in seq_along(t3_n_clincard_replacements)) {
   doc <- body_replace_text_at_bkm(
     doc,
@@ -1016,27 +1144,21 @@ for (i in seq_along(t3_n_clincard_replacements)) {
 }
 ```
 
-
 ## Table 4
 
 Table 4. Phone distribution and replacement.
 
-### 📌NOTES on automation
-
-2021-05-11. I spent an entire day getting table 1 formatted correctly. At this point, I'm going to try to improve the code by cleaning up the data management and the organization of the code. I probably won't have time to automate all the output with flextable and officer. That will have to wait for the next report. 
-
-Also, delete all these separate Word documents with tables after you make the big automated report.
-
-```{r}
-# For testing
-# doc <- read_docx("template_l2c_quarterly_report.docx")
-# print(doc, "test.docx")
-```
-
 Total # of phones distributed overall
 
 ```{r}
-sum(master_log_screened_in$phone_n_distributed, na.rm = TRUE)
+sum(master_log_screened_in$phone_n_distributed, na.rm = TRUE) # 413
+
+# Add to Word document
+doc <- body_replace_text_at_bkm(
+  doc,
+  "t4_n_phones_distributed",
+  sum(master_log_screened_in$phone_n_distributed, na.rm = TRUE) %>% as.character()
+)
 ```
 
 Total # of participants in phone groups
@@ -1046,13 +1168,30 @@ NOTES: 2020-12-03, from James, Phone groups are L2C and UCM+SP only.
 ```{r}
 master_log_screened_in %>% 
   filter(group == "L2C" | group == "UCM+SP") %>% 
-  nrow()
+  nrow() # 269
+
+# Add to Word document
+doc <- body_replace_text_at_bkm(
+  doc,
+  "t4_n_in_phone_groups",
+  master_log_screened_in %>% 
+    filter(group == "L2C" | group == "UCM+SP") %>% 
+    nrow() %>% 
+    as.character()
+)
 ```
 
 Total number of participants with phone replacements
 
 ```{r}
-sum(master_log_screened_in$phone_n_distributed > 1, na.rm = TRUE)
+sum(master_log_screened_in$phone_n_distributed > 1, na.rm = TRUE) # 134
+
+# Add to Word document
+doc <- body_replace_text_at_bkm(
+  doc,
+  "t4_n_in_phone_replacements",
+  sum(master_log_screened_in$phone_n_distributed > 1, na.rm = TRUE) %>% as.character()
+)
 ```
 
 Number of participants w/ phone replacement (UCM+SP)
@@ -1060,7 +1199,17 @@ Number of participants w/ phone replacement (UCM+SP)
 ```{r}
 master_log_screened_in %>% 
   filter(group == "UCM+SP") %>% 
-  summarise(sum(phone_n_distributed > 1, na.rm = TRUE))
+  summarise(sum(phone_n_distributed > 1, na.rm = TRUE)) # 61
+
+# Add to Word document
+doc <- body_replace_text_at_bkm(
+  doc,
+  "t4_n_in_phone_replacements_ucm_sp",
+  master_log_screened_in %>% 
+    filter(group == "UCM+SP") %>% 
+    summarise(sum(phone_n_distributed > 1, na.rm = TRUE)) %>% 
+    as.character()
+)
 ```
 
 Number of participants w/ phone replacement (L2C)
@@ -1068,7 +1217,53 @@ Number of participants w/ phone replacement (L2C)
 ```{r}
 master_log_screened_in %>% 
   filter(group == "L2C") %>% 
-  summarise(sum(phone_n_distributed > 1, na.rm = TRUE))
+  summarise(sum(phone_n_distributed > 1, na.rm = TRUE)) # 73
+
+# Add to Word document
+doc <- body_replace_text_at_bkm(
+  doc,
+  "t4_n_in_phone_replacements_l2c",
+  master_log_screened_in %>% 
+    filter(group == "L2C") %>% 
+    summarise(sum(phone_n_distributed > 1, na.rm = TRUE)) %>% 
+    as.character()
+)
+```
+
+Total number of participants in UCM+SP w/ 1 phone replacement
+
+```{r}
+master_log_screened_in %>% 
+  filter(group == "UCM+SP") %>% 
+  summarise(sum(phone_n_distributed == 2, na.rm = TRUE)) # 56
+
+# Add to Word document
+doc <- body_replace_text_at_bkm(
+  doc,
+  "t4_n_1_phone_replacement_ucm",
+  master_log_screened_in %>% 
+    filter(group == "UCM+SP") %>% 
+    summarise(sum(phone_n_distributed == 2, na.rm = TRUE)) %>% 
+    as.character()
+)
+```
+
+Total number of participants in L2C w/ 1 phone replacement
+
+```{r}
+master_log_screened_in %>% 
+  filter(group == "L2C") %>% 
+  summarise(sum(phone_n_distributed == 2, na.rm = TRUE)) # 67
+
+# Add to Word document
+doc <- body_replace_text_at_bkm(
+  doc,
+  "t4_n_1_phone_replacement_l2c",
+  master_log_screened_in %>% 
+    filter(group == "L2C") %>% 
+    summarise(sum(phone_n_distributed == 2, na.rm = TRUE)) %>% 
+    as.character()
+)
 ```
 
 Number of participants in UCM+SP w/ >1 phone replacement
@@ -1076,7 +1271,17 @@ Number of participants in UCM+SP w/ >1 phone replacement
 ```{r}
 master_log_screened_in %>% 
   filter(group == "UCM+SP") %>% 
-  summarise(sum(phone_n_distributed > 2, na.rm = TRUE))
+  summarise(sum(phone_n_distributed > 2, na.rm = TRUE)) # 5
+
+# Add to Word document
+doc <- body_replace_text_at_bkm(
+  doc,
+  "t4_n_mult_phone_replacements_ucm",
+  master_log_screened_in %>% 
+    filter(group == "UCM+SP") %>% 
+    summarise(sum(phone_n_distributed > 2, na.rm = TRUE)) %>% 
+    as.character()
+)
 ```
 
 Number of Participants in L2C w/ >1 phone replacement
@@ -1084,7 +1289,17 @@ Number of Participants in L2C w/ >1 phone replacement
 ```{r}
 master_log_screened_in %>% 
   filter(group == "L2C") %>% 
-  summarise(sum(phone_n_distributed > 2, na.rm = TRUE))
+  summarise(sum(phone_n_distributed > 2, na.rm = TRUE)) # 6
+
+# Add to Word document
+doc <- body_replace_text_at_bkm(
+  doc,
+  "t4_n_mult_phone_replacements_l2c",
+  master_log_screened_in %>% 
+    filter(group == "L2C") %>% 
+    summarise(sum(phone_n_distributed > 2, na.rm = TRUE)) %>% 
+    as.character()
+)
 ```
 
 Footnote: Number of participants had phone replaced 1 time (2 phones per participant total).
@@ -1141,6 +1356,18 @@ Save figure for copy and paste into report
 
 ```{r}
 ggsave("fig_1.jpeg", width = 7, height = 4)
+```
+
+### 📌NOTES on automation
+
+2021-05-11. At this point, I'm going to try to improve the code by cleaning up the data management and the organization of the code. I probably won't have time to automate all the output with flextable and officer. That will have to wait for the next report. 
+
+Also, delete all these separate Word documents with tables after you make the big automated report.
+
+```{r}
+# For testing
+# doc <- read_docx("template_l2c_quarterly_report.docx")
+# print(doc, "test.docx")
 ```
 
 ## Table 5
@@ -1263,6 +1490,7 @@ Table 7. Number and percent of participants who completed visits 1 through 5.
 
 ```{r}
 table_7_overall <- master_log_screened_in %>% 
+  select(v1:v5) %>% 
   pivot_longer(
     cols = v1:v5,
     names_to = "visit",
@@ -1304,6 +1532,25 @@ table_7_w_v2 <- master_log_screened_in %>%
   ) %>% 
   freq_format("n (percent)", digits = 1) %>% 
   select(visit, formatted_stats)
+```
+
+```{r}
+# Add column totals directly to Word document
+# Overall
+sum(master_log_screened_in$v1 == "Yes") # 442
+doc <- body_replace_text_at_bkm(
+  doc,
+  "t7_n_overall",
+  sum(master_log_screened_in$v1 == "Yes") %>% as.character()
+)
+
+# Participants Who Attended Visit 2
+sum(master_log_screened_in$v2 == "Yes") # 406
+doc <- body_replace_text_at_bkm(
+  doc,
+  "t7_n_attend_2",
+  sum(master_log_screened_in$v2 == "Yes") %>% as.character()
+)
 ```
 
 Merged 7 overall and 7 with V2 together and make flextable.
@@ -1361,6 +1608,16 @@ By visit
 ```{r}
 count(remote, visit)
 ```
+
+Use the master log next time...
+
+```{r}
+master_log_screened_in %>% 
+  select(id, v3_r_distributed:v5_phone) %>% 
+  # Use completed, not distributed
+  
+```
+
 
 ## Table 9
 
@@ -1471,6 +1728,140 @@ Footnote 2: "Revised payment approach. Includes PTs 2074 and above (n = XXX). Th
 ema %>% filter(id > 2074) %>% nrow()
 ```
 
+## Replace table 9
+
+For the December 2022 quarterly report, James and Michael decided to replace table 9. They wanted the same information, but they want it in a different form. Instead of using a table, we are now using 3 charts.
+
+### Figure 2
+
+Number of Ecological Momentary Assessments (EMA) completed by 15-day cycle and payment approach.
+
+```{r}
+# Medians for the plot
+median_emas_completed <- ema_combined_long %>%
+  group_by(cycle_f, pay_approach) %>% 
+  summarise(
+    median = median(n_completed),
+    .groups = "drop"
+  )
+```
+
+```{r}
+ggplot(ema_combined_long) +
+  geom_jitter(aes(x = pay_approach, y = n_completed, col = pay_approach), height = 0.05, alpha = .1) +
+  facet_wrap(vars(cycle_f), nrow = 1) + 
+  geom_segment(
+    aes(x = rep(c(0.5, 1.5), 12), y = median, xend = rep(c(1.5, 2.5), 12), yend = median), 
+    size = 0.75, col = "red", data = median_emas_completed
+  ) +
+  labs(subtitle = "15-Day Cycle (1-12)") +
+  xlab("Cycles") +
+  ylab("Number of EMA's Completed") +
+  scale_color_manual("Payment Approach", values = c("#BC581A", "#00519B")) +
+  theme_classic() +
+  theme(
+    legend.position = "bottom", 
+    axis.ticks.x = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+  )
+```
+
+Save figure for copy and paste into report
+
+```{r}
+ggsave("fig_emas_by_cycle.jpeg", width = 7, height = 4)
+```
+
+```{r}
+doc <- doc %>% 
+  body_replace_img_at_bkm(
+    "fig_emas_by_cycle", 
+    external_img("fig_emas_by_cycle.jpeg", width = 7, height = 4)
+  )
+```
+
+### Figure 3
+
+Percentage of participants who completed zero Ecological Momentary Assessments (EMA) by 15-day cycle and payment approach.
+
+```{r}
+ema_zero_seven <- ema_combined_long %>% 
+  group_by(cycle_f, pay_approach) %>% 
+  summarise(
+    rows = n(),
+    zeros = sum(n_completed == 0),
+    seven_plus = sum(n_completed >= 7),
+    .groups = "drop"
+  ) %>% 
+  mutate(
+    percent_zero = zeros / rows * 100,
+    percent_zero_formatted = paste0(round(percent_zero, 0), "%"),
+    percent_seven_plus = seven_plus / rows * 100,
+    percent_seven_plus_formatted = paste0(round(percent_seven_plus, 0), "%")
+  )
+```
+
+```{r}
+ggplot(ema_zero_seven, aes(x = cycle_f, y = percent_zero, col = pay_approach, group = pay_approach)) + 
+  geom_point() +
+  geom_line() +
+  geom_text(aes(label = percent_zero_formatted), nudge_y = 2.5) +
+  xlab("15-Day EMA Cycle") +
+  ylab("Percent of Participants") +
+  scale_color_manual("Payment Approach", values = c("#BC581A", "#00519B")) +
+  theme_classic() +
+  theme(
+    legend.position = "bottom"
+  )
+```
+
+Save figure for copy and paste into report
+
+```{r}
+ggsave("fig_zero_emas_by_cycle.jpeg", width = 7, height = 4)
+```
+
+```{r}
+doc <- doc %>% 
+  body_replace_img_at_bkm(
+    "fig_zero_emas_by_cycle", 
+    external_img("fig_zero_emas_by_cycle.jpeg", width = 7, height = 4)
+  )
+```
+
+### Figure 4
+
+Percentage of participants who completed seven or more Ecological Momentary Assessments (EMA) by 15-day cycle and payment approach.
+
+```{r}
+ggplot(ema_zero_seven, aes(x = cycle_f, y = percent_seven_plus, col = pay_approach, group = pay_approach)) + 
+  geom_point() +
+  geom_line() +
+  geom_text(aes(label = percent_seven_plus_formatted), nudge_y = 2.5) +
+  xlab("15-Day EMA Cycle") +
+  ylab("Percent of Participants") +
+  scale_color_manual("Payment Approach", values = c("#BC581A", "#00519B")) +
+  theme_classic() +
+  theme(
+    legend.position = "bottom"
+  )
+```
+
+Save figure for copy and paste into report
+
+```{r}
+ggsave("fig_seven_plus_emas_by_cycle.jpeg", width = 7, height = 4)
+```
+
+```{r}
+doc <- doc %>% 
+  body_replace_img_at_bkm(
+    "fig_seven_plus_emas_by_cycle", 
+    external_img("fig_seven_plus_emas_by_cycle.jpeg", width = 7, height = 4)
+  )
+```
+
 ## Table 10
 
 Table 10. Arrests by treatment arm 12 months after enrollment.
@@ -1497,9 +1888,9 @@ arrest %>%
   select(row_cat, formatted_stats, n_row)
 ```
 
-## Table 12
+## Table 11
 
-Table 12. Number and percent of participants who used Bridge case management.
+Table 11. Number and percent of participants who used Bridge case management.
 
 2021-05-11: Filled in manually.
 
@@ -1525,7 +1916,7 @@ case_mgmt_vars <- quos(
 Overall
 
 ```{r}
-table_12_overall <- map_df(
+table_11_overall <- map_df(
   case_mgmt_vars,
   function(x) {
     bridge_wide %>% 
@@ -1540,7 +1931,7 @@ table_12_overall <- map_df(
 By Group
 
 ```{r}
-table_12_by_group <- map_df(
+table_11_by_group <- map_df(
   case_mgmt_vars,
   function(x) {
     bridge_wide %>% 
@@ -1560,8 +1951,8 @@ table_12_by_group <- map_df(
 Merge together and create flextable object.
 
 ```{r}
-table_12_ft <- table_12_overall %>% 
-  left_join(table_12_by_group, by = c("var" = "col_var")) %>% 
+table_11_ft <- table_11_overall %>% 
+  left_join(table_11_by_group, by = c("var" = "col_var")) %>% 
   flextable() %>% 
   my_ft_theme()
 ```
@@ -1572,13 +1963,13 @@ NOTES: Delete all these separate Word documents with tables after you make the b
 
 ```{r}
 read_docx() %>%
-  body_add_flextable(table_12_ft) %>% 
-  print("table_12_ft.docx")
+  body_add_flextable(table_11_ft) %>% 
+  print("table_11_ft.docx")
 ```
 
-## Table 13
+## Table 12
 
-Table 13. Number and duration of case management sessions used.
+Table 12. Number and duration of case management sessions used.
 
 2021-05-11: Filled in manually.
 
@@ -1817,7 +2208,7 @@ bridge %>%
   ) 
 ```
 
-## Figure 2
+## Figure 5
 
 Figure 2. Recruitment by month.
 
@@ -1862,7 +2253,7 @@ ggplot(baseline_per_month, aes(date, n, group = 1)) +
 Save figure for copy and paste into report
 
 ```{r}
-ggsave("fig_2.jpeg", width = 7, height = 4)
+ggsave("fig_recruitment_by_month.jpeg", width = 7, height = 4)
 ```
 
 Footnotes
@@ -1905,7 +2296,7 @@ recruitment %>%
   summarise(mean = mean(n))
 ```
 
-## Figure 3
+## Figure 6
 
 Figure 3. Monthly recruitment stratified by year.
 
@@ -1944,7 +2335,7 @@ ggplot(baseline_per_month_by_year, aes(month_f, n, group = year_f)) +
 Save figure for copy and paste into report
 
 ```{r}
-ggsave("fig_3.jpeg", width = 7, height = 4)
+ggsave("fig_recruitment_by_year.jpeg", width = 7, height = 4)
 ```
 
 
@@ -1983,18 +2374,18 @@ doc <- doc %>%
 doc <- doc %>% 
   body_replace_text_at_bkm("n_randomized", as.character(n_randomized))
 
-## Add Figure 2. Recruitment by month.
+## Add Figure 5. Recruitment by month.
 doc <- doc %>% 
   body_replace_img_at_bkm(
     "fig_recruitment_by_month", 
-    external_img("fig_2.jpeg", width = 7, height = 4)
+    external_img("fig_recruitment_by_month.jpeg", width = 7, height = 4)
   )
 
-## Add Figure 3. Recruitment by year.
+## Add Figure 6. Recruitment by year.
 doc <- doc %>% 
   body_replace_img_at_bkm(
     "fig_recruitment_by_year", 
-    external_img("fig_3.jpeg", width = 7, height = 4)
+    external_img("fig_recruitment_by_year.jpeg", width = 7, height = 4)
   )
 ```
 
