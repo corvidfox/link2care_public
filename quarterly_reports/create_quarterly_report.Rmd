@@ -76,10 +76,10 @@ master_log_screened_in <- read_excel(
     # notes (e.g., "no show")
     rep("text",2), rep("date", 4), rep("text", 2), "numeric", rep("date", 2),
     rep("text", 2), "numeric", rep("date", 2), rep("text", 2), "numeric", rep("date", 2), rep("text", 11),
-    "date", "numeric", "text", "numeric", rep("text", 2), "numeric", "text", rep("text", 15),
+    "date", "numeric", "text", "numeric", rep("text", 2), "numeric", "text", rep("text", 15)
     # They have some calculations in BD:BH of the the Excel sheet. I'm skipping
     # those so that the sheet can be read in without errors.
-    rep("skip", 5)
+    # rep("skip", 5)
   ),
   na = c("", ".", "N/A", "No show", "No Show"),
   skip = 1
@@ -128,7 +128,7 @@ cat(
   "columns.\n"
 )
 
-# 2022-12-04: Master log screened out imported with 68 rows and 18 columns.
+# 2023-03-15: Master log screened out imported with 68 rows and 18 columns.
 ```
 
 ## Phone terminations
@@ -161,7 +161,7 @@ cat(
   "columns.\n"
 )
 
-# 2022-12-04: Phone terminations imported with 444 rows and 22 columns.
+# 2023-03-15: Phone terminations imported with 444 rows and 22 columns.
 ```
 
 ## Remote Interview & Redcap Tracking Sheet
@@ -189,7 +189,7 @@ cat(
   "columns.\n"
 )
 
-# 2022-12-04: Remote interview imported with 134 rows and 9 columns.
+# 2023-03-15: Remote interview imported with 143 rows and 9 columns.
 ```
 
 ## EMA data
@@ -278,7 +278,7 @@ cat(
   "columns.\n"
 )
 
-# 2022-12-04: EMA completion data imported with 369 rows and 76 columns.
+# 2023-03-15: EMA completion data imported with 369 rows and 76 columns.
 ```
 
 ## Arrests
@@ -291,10 +291,10 @@ arrest <- read_excel(
   arrest_path,
   sheet = "Sheet1",
   col_names = c(
-    "id", "arrested", "date_baseline", paste("date", 1:5, sep = "_")
+    "id", "arrested", "date_baseline", paste("date", 1:12, sep = "_"), "n_arrests"
   ),
   col_types = c(
-    "text", "text", rep("date", 6)
+    "text", "text", rep("date", 13), "numeric"
   ),
   na = c("", "None"),
   skip = 1
@@ -308,7 +308,7 @@ cat(
   "columns.\n"
 )
 
-# 2022-12-04: Arrest data imported with 329 rows and 8 columns.
+# 2023-03-15: Arrest data imported with 499 rows and 16 columns.
 ```
 
 ## Bridge Case Session Minutes
@@ -335,7 +335,7 @@ cat(
   "columns.\n"
 )
 
-# 2022-12-04: Bridge session data imported with 4274 rows and 10 columns.
+# 2023-03-15: Bridge session data imported with 4353 rows and 10 columns.
 ```
 
 
@@ -380,6 +380,7 @@ Recode variables and create factors
 ```{r}
 master_log_combined <- master_log_combined %>%
   mutate(
+    group_f = factor(group, c("UCM", "UCM+SP", "L2C")),
     gender_f = factor(gender, c("M", "F", "Other"), c("Male", "Female", "Other")),
     race_3cat = case_when(
       is.na(race)  ~ NA_character_,
@@ -477,7 +478,7 @@ highest_id_w_12 <- ema %>%
   pull(id) %>% 
   max()
 
-highest_id_w_12 # 2370
+highest_id_w_12 # 2410
 ```
 
 ```{r}
@@ -1005,8 +1006,9 @@ unique(screened_out$reason_1)
 
 ```{r}
 table_2 <- screened_out %>%
+  select(id, starts_with("reason")) |> 
   pivot_longer(
-    reason_1:reason_9,
+    starts_with("reason"),
     names_to = "reason_number",
     names_prefix = "reason_",
     values_to = "reason"
@@ -1016,10 +1018,17 @@ table_2 <- screened_out %>%
   # reasons -- including those with zero observations (e.g., Refused to report 
   # SSN or residency)
   mutate(reason_f = factor(reason) %>% fct_expand("Refused to report SSN or residency")) %>% 
-  freq_table(reason_f) %>% 
+  # 2023-03-20: Michael wants the denominator to be number of people who were 
+  # screened out. Then, add a note saying that the percentages add up to 
+  # more than 100 because people could be screened out for multiple reasons.
+  count(reason_f, .drop = FALSE) |> 
+  mutate(
+    n_total = length(unique(screened_out$id)),
+    prop = n / n_total,
+    percent = prop * 100
+  ) |> 
   arrange(desc(n)) %>% 
-  # Get n from n_total column
-  add_row(cat = "Total", n = max(.$n_total), percent = 100.0) %>% 
+  rename(cat = reason_f) %>% 
   freq_format("n (percent)", digits = 1) %>%
   select(cat, formatted_stats)
 ```
@@ -1048,7 +1057,6 @@ table_2_ft <- flextable(table_2) %>%
   align(j = 2, align = "center", part = "all") %>%
 
   # Adjust bottom borders
-  hline(i = 7, border = fp_border(width = 1)) %>% 
   hline_bottom(border = fp_border(width = 1)) %>% 
   
   # Style with my theme
@@ -1578,46 +1586,65 @@ Table 8. COVID-19 phone interviews (N={see below}) since protocol change on 3/17
 
 2021-05-11: Filled in manually.
 
+2023-03-20: James says we should pull these numbers from the Master Log instead of remote. 
+
 Total interviews by mode (phone vs. redcap)
 
 ```{r}
-remote %>% 
-  count(mode) %>% 
-  add_row(mode = "Total", n = sum(.$n))
+remote_interviews <- screened_in |> 
+  # Use completed, not distributed
+  select(id, group_f, v3_r_completed, v4_r_completed, v5_r_completed, v2_phone:v5_phone) |> 
+  # Rename to make for easier pivoting later
+  rename_with(
+    ~ paste("REDCap", str_extract(.x, "\\d"), sep = "_"),
+    v3_r_completed:v5_r_completed
+  ) |> 
+  rename_with(
+    ~ paste("Phone", str_extract(.x, "\\d"), sep = "_"),
+    v2_phone:v5_phone
+  ) |>
+  pivot_longer(
+    c(-id, -group_f),
+    names_to = c(".value", "visit"),
+    names_sep = "_",
+    names_transform = list(visit = as.integer)
+  ) |> 
+  mutate(
+    REDCap = if_else(REDCap == "No", 0L, 1L),
+    Phone = if_else(Phone == "No", 0L, 1L),
+    mode = case_when(
+      REDCap == 1 & Phone == 1 ~ 3L, # Both
+      Phone == 1 ~ 1L, # Phone
+      REDCap == 1 ~ 2L, # REDCap
+      TRUE ~ NA_integer_
+    ),
+    mode_f = factor(mode, 1:3, c("Phone", "REDCap", "Both"))
+  ) |> 
+  filter(!is.na(mode_f))
 ```
 
 Total
 
 ```{r}
-remote %>% 
+remote_interviews %>% 
   summarise(
-    n = n(), # 81
-    n_unique = length(unique(id)) # 58
+    n = n(), # 152
+    n_unique = length(unique(id)) # 102
   )
 ```
 
 By group
 
 ```{r}
-count(remote, group_f) %>% 
+count(remote_interviews, group_f) %>% 
   add_row(group_f = "Total", n = sum(.$n))
 ```
 
 By visit
 
 ```{r}
-count(remote, visit)
+count(remote_interviews, visit)
 ```
-
-Use the master log next time...
-
-```{r}
-master_log_screened_in %>% 
-  select(id, v3_r_distributed:v5_phone) %>% 
-  # Use completed, not distributed
-  
-```
-
 
 ## Table 9
 
@@ -2404,7 +2431,7 @@ print(
 # 🗑Clean up
 
 ```{r eval=FALSE}
-rm(list = ls())
+# rm(list = ls())
 ```
 
 ```{r echo=FALSE}
