@@ -5,7 +5,9 @@ date: "2021-05-10 <br> Updated: `r Sys.Date()`"
 
 # 📝Instructions
 
-1. Update the quarterly report template document: template_l2c_quarterly_report.docx
+1. Update the quarterly report template document: template_l2c_quarterly_report.docx.
+  - Update the Quarter and date information on page 1.
+  - Update the Quarter and date information in the header beginning on page 2.
 
 2. Update file paths below, if necessary. 
 
@@ -19,7 +21,16 @@ arrest_path <- "../../Participant Data/Arrest Data Requests/current_arrest_data.
 bridge_path <- "../../Participant Data/Bridge Session Data/bridge_session_minutes.xlsx"
 ```
 
-3. Click "Run All Chunks Below" to create the  quarterly report as a Word document. (**Not ready yet**)
+3. Click "Run All Chunks Below" to create the quarterly report as a Word document. It will also create multiple other Word documents that contain tables of data. They are exported as separate Word documents because the coping the data and pasting into the appropriate table in the quarterly report is too easy to justify the effort of doing all of the table formatting in R code below.
+
+These tables require a cut and paste of values:
+  - Table 05: Reasons for phone terminations
+  - Table 06: Number and percent of participants per L2C group 
+  - Table 07: Number and percent of participants who completed visits 1 through 5
+  - Table 08: COVID-19 phone, REDCap, and combination interviews
+  - Table 10: Arrests by treatment arm 12 months after enrollment
+  - Table 11: Number and percent of participants who used Bridge case management
+  - Table 12: Number and duration of case management sessions used
 
 # 📦Load packages
 
@@ -44,6 +55,7 @@ library(flextable, warn.conflicts = FALSE)
 ```{r}
 source("../R/get_mean_sd.R")
 source("../R/flextable_helpers.R")
+source("../R/bridge_table_fns.R")
 ```
 
 
@@ -577,7 +589,53 @@ ema_combined_long <- ema_combined %>%
   mutate(cycle_f = factor(cycle, 1:12))
 ```
 
+For the March 2023 quarterly report: There are actually two different revised payment approaches. Michael wants to plot them separately.
+
+2023-03-20, From James:
+I want to mention that there was some bleed over from the 1nd RPA into the 2st RPA for 2 participants (2147 & 2148) when we switched over to the 2nd RPA. The PIs wanted us to get all the participants who were on the 1st RPA consented on the 2nd RPA asap. I don’t think this changes your analysis procedure, but wanted to advise.  
+
+There are 2 RPA and the original payment structure for EMA Comp:
+* 1st 2001-2073 Participants. Compensated on their V3-v5. 10, 15, 25 for EMA Completion. 
+* 1st RPA 2074-2152 Frequency of payment was changed to every 15 days. Comp was the same as original 10, 15, 25 for EMA Completion. 
+* 2nd RPA 2153-2442. Frequency of payment was every 15 days and doubled comp. 20, 30, 50.
+
+```{r}
+ema_combined_long <- ema_combined_long |> 
+  mutate(
+    pay_approach_3cat = case_when(
+      id < 2074 ~ 1L, # Initial
+      id < 2153 ~ 2L, # Increased pay frequency
+      TRUE      ~ 3L  # Doubled pay amount
+    ),
+    pay_approach_3cat_f = factor(
+      pay_approach_3cat, 1:3, 
+      c("Initial Approach", "Increased Payment Frequency", "Double Payment Amount")
+    )
+  )
+```
+
 ## Arrests
+
+Remove blank rows from arrest data.
+
+```{r eval=FALSE}
+# Data check
+arrest |> 
+  filter(is.na(id)) |> 
+  nrow() # 20230-03-21: 57
+```
+
+```{r}
+arrest <- arrest |> 
+  filter(!is.na(id))
+```
+
+Are there any id's missing from the arrest data?
+
+```{r eval=FALSE}
+# Data check
+# setdiff(master_log_screened_in$id, arrest$id) # No difference
+```
 
 Merge L2C group into the arrest data.
 
@@ -589,6 +647,19 @@ arrest <- arrest %>%
     by = "id"
   ) %>% 
   select(id, group, everything())
+```
+
+Create factor version of group
+
+```{r eval=FALSE}
+unique(arrest$group)
+```
+
+```{r}
+arrest <- arrest |> 
+  mutate(
+    group_f = factor(group, c("UCM", "UCM+SP", "L2C"))
+  )
 ```
 
 ## Bridge Case Session Minutes
@@ -912,9 +983,6 @@ Create flextable object
 ```{r}
 table_1_ft <- flextable(table_1) %>% 
   
-  # Change column widths
-  width(width = 2.33) %>%
-  
   # Format the header row
   set_header_labels(
     var = "Characteristic",
@@ -975,7 +1043,10 @@ table_1_ft <- flextable(table_1) %>%
   
   # Style with my theme
   # Remove vertical cell padding and TNR 11 font
-  my_ft_theme() 
+  my_ft_theme() |> 
+  
+  # Change column widths
+  width(width = 2.33)
 
 # table_1_ft
 ```
@@ -1000,7 +1071,7 @@ rm(
 
 Table 2. Distribution of reasons for screen-out
 
-```{r}
+```{r eval=FALSE}
 unique(screened_out$reason_1)
 ```
 
@@ -1038,9 +1109,6 @@ Create flextable object
 ```{r}
 table_2_ft <- flextable(table_2) %>% 
   
-  # Change column widths
-  width(width = 3.5) %>% 
-  
   # Format the header row
   set_header_labels(
     cat = "Reason For Screen Out",
@@ -1061,7 +1129,10 @@ table_2_ft <- flextable(table_2) %>%
   
   # Style with my theme
   # Remove vertical cell padding and TNR 11 font
-  my_ft_theme()
+  my_ft_theme() |> 
+  
+  # Change column widths
+  width(width = 3.5)
   
 # table_2_ft
 ```
@@ -1366,37 +1437,48 @@ Save figure for copy and paste into report
 ggsave("fig_1.jpeg", width = 7, height = 4)
 ```
 
-### 📌NOTES on automation
-
-2021-05-11. At this point, I'm going to try to improve the code by cleaning up the data management and the organization of the code. I probably won't have time to automate all the output with flextable and officer. That will have to wait for the next report. 
-
-Also, delete all these separate Word documents with tables after you make the big automated report.
+### 📄 Add Figure 1 to Word
 
 ```{r}
-# For testing
-# doc <- read_docx("template_l2c_quarterly_report.docx")
-# print(doc, "test.docx")
+# Add Figure 1. Reasons for phone terminations overall.
+doc <- doc %>% 
+  body_replace_text_at_bkm("n_phone_terminations", as.character(n_phone_terminations)) %>% 
+  body_replace_img_at_bkm(
+    "fig_phone_terminations", 
+    external_img("fig_1.jpeg", width = 7, height = 4)
+  )
 ```
 
 ## Table 5
 
 Table 5. Reasons for phone terminations by informed consent form iteration
 
-2021-05-11: Filled in manually. Can come back and do this one line table 6 below if I don't fully automate right away.
+2021-05-11: Filled in manually.
 
 By ICF. ICF 1 and 2 should not change over time.
 
 ```{r}
-table_5 <- phone_terminations_long %>%
+table_05 <- phone_terminations_long %>%
   filter(!is.na(reason_f)) %>% 
   # Arrange reasons in the same order they appear in the table
-  mutate(reason_ordered = fct_relevel(
-    reason_f,
-    "Stolen", "Completed Study", "Non-Compliance", "Lost", "Defective", 
-    "Sold or Gifted", "Returned to Staff", "Broken"
-  )) %>% 
-  freq_table(icf, reason_ordered) %>%
-  freq_format("n (percent_row)", digits = 1) %>% 
+  mutate(
+    reason_ordered = fct_relevel(
+      reason_f,
+      "Stolen", "Completed Study", "Non-Compliance", "Lost", "Defective", 
+      "Sold or Gifted", "Returned to Staff", "Broken"
+    ),
+    # Add Total category
+    reason_ordered = fct_expand(reason_ordered,"Total")
+  ) %>% 
+  freq_table(icf, reason_ordered) |> 
+  select(row_cat, col_cat, n, percent_row) |> 
+  # Calculate totals for each icf
+  group_by(row_cat) |> 
+  mutate(
+    n = if_else(col_cat == "Total", sum(n), n),
+    percent_row = if_else(col_cat == "Total", sum(percent_row), percent_row)
+  ) |> 
+  freq_format("n (percent_row)", digits = 1) |> 
   select(row_cat, col_cat, formatted_stats) %>% 
   pivot_wider(
     names_from = "row_cat",
@@ -1404,11 +1486,14 @@ table_5 <- phone_terminations_long %>%
   )
 ```
 
+NOTES: 
+1. Table 5 "non-compliance" and "completed" n for ICF#1 needs to be updated manually. This is done to show how many PT's would have been terminated if non-compliance protocol was in place during IFC#1 and compare to ICF#2 and #3. 
+
 Create flextable
 
 ```{r}
-table_5_ft <- flextable(table_5) %>% 
-  my_ft_theme()
+table_05_ft <- flextable(table_05) %>% 
+  my_ft_theme() 
 ```
 
 Output Word document for easy copy paste into template (DELETE)
@@ -1416,24 +1501,9 @@ Output Word document for easy copy paste into template (DELETE)
 
 ```{r}
 read_docx() %>%
-  body_add_flextable(table_5_ft) %>% 
-  print("table_5_ft.docx")
+  body_add_flextable(table_05_ft) %>% 
+  print("table_05_ft.docx")
 ```
-
-Add a total row to the bottom of the table. Again, filling this in by hand for now.
-
-```{r}
-phone_terminations_long %>%
-  filter(!is.na(reason_f)) %>%
-  freq_table(icf, reason_f) %>% 
-  group_by(row_cat) %>% 
-  filter(row_number() == 1) %>% 
-  select(row_var:row_cat, n_row, n_total)
-```
-
-NOTES: 
-1. Figure out why this doesn't add up to the total number of phone terminations in table 4 and figure 1. I'm assuming there are two terminations with no reason given. 
-2. Table 5 "non-compliance" and "completed" n for ICF#1 needs to be updated manually. This is done to show how many PT's would have been terminated if non-compliance protocol was in place during IFC#1 and compare to ICF#2 and #3. 
 
 ## Table 6
 
@@ -1461,7 +1531,7 @@ n_randomized <- nrow(master_log_randomized)
 
 ```{r}
 # Use participants randomized to a L2C group only.
-table_6 <- master_log_randomized %>%
+table_06 <- master_log_randomized %>%
   # Order groups in the same order they appear in the table
   mutate(
     group_ordered = factor(
@@ -1479,8 +1549,8 @@ table_6 <- master_log_randomized %>%
 Create flextable
 
 ```{r}
-table_6_ft <- flextable(table_6) %>% 
-  my_ft_theme()
+table_06_ft <- flextable(table_06) %>% 
+  my_ft_theme() 
 ```
 
 Output Word document for easy copy paste into template (DELETE)
@@ -1488,8 +1558,15 @@ Output Word document for easy copy paste into template (DELETE)
 
 ```{r}
 read_docx() %>%
-  body_add_flextable(table_6_ft) %>% 
-  print("table_6_ft.docx")
+  body_add_flextable(table_06_ft) %>% 
+  print("table_06_ft.docx")
+```
+
+### 📄 Add n randomized to title of Table 6
+
+```{r}
+doc <- doc %>% 
+  body_replace_text_at_bkm("n_randomized", as.character(n_randomized))
 ```
 
 ## Table 7
@@ -1497,7 +1574,7 @@ read_docx() %>%
 Table 7. Number and percent of participants who completed visits 1 through 5.
 
 ```{r}
-table_7_overall <- master_log_screened_in %>% 
+table_07_overall <- master_log_screened_in %>% 
   select(v1:v5) %>% 
   pivot_longer(
     cols = v1:v5,
@@ -1521,7 +1598,7 @@ table_7_overall <- master_log_screened_in %>%
 Add visit compliance Excluding No Show V2 PTs
 
 ```{r}
-table_7_w_v2 <- master_log_screened_in %>%
+table_07_w_v2 <- master_log_screened_in %>%
   filter(v2 == "Yes") %>% 
   pivot_longer(
     cols = v1:v5,
@@ -1564,10 +1641,14 @@ doc <- body_replace_text_at_bkm(
 Merged 7 overall and 7 with V2 together and make flextable.
 
 ```{r}
-table_7_ft <- table_7_overall %>% 
-  left_join(table_7_w_v2, by = "visit") %>% 
+table_07_ft <- table_07_overall %>% 
+  left_join(table_07_w_v2, by = "visit") %>% 
+  rename(
+    Overall = formatted_stats.x,
+    `Participants Who Attended Visit 2` = formatted_stats.y
+  ) |> 
   flextable() %>% 
-  my_ft_theme()
+  my_ft_theme() 
 ```
 
 Output Word document for easy copy paste
@@ -1576,8 +1657,8 @@ NOTES: Delete all these separate Word documents with tables after you make the b
 
 ```{r}
 read_docx() %>%
-  body_add_flextable(table_7_ft) %>% 
-  print("table_7_ft.docx")
+  body_add_flextable(table_07_ft) %>% 
+  print("table_07_ft.docx")
 ```
 
 ## Table 8
@@ -1623,141 +1704,121 @@ remote_interviews <- screened_in |>
   filter(!is.na(mode_f))
 ```
 
-Total
+```{r}
+table_08 <- tibble(
+  categories = "Overall",
+  n = nrow(remote_interviews)
+)
+```
+
+By remote interview modality (REDCap, Phone, Both)
 
 ```{r}
-remote_interviews %>% 
-  summarise(
-    n = n(), # 152
-    n_unique = length(unique(id)) # 102
-  )
+table_08_by_mode <- remote_interviews |>
+  count(mode_f) |> 
+  mutate(total = sum(n)) |> 
+  mutate(unique_id = length(unique(remote_interviews$id))) |> 
+  select(categories = mode_f, n)
+```
+
+```{r}
+table_08 <- table_08 |> 
+  add_row(categories = "Modality") |> 
+  bind_rows(table_08_by_mode)
 ```
 
 By group
 
 ```{r}
-count(remote_interviews, group_f) %>% 
-  add_row(group_f = "Total", n = sum(.$n))
+table_08_by_group <- remote_interviews |> 
+  count(group_f) %>% 
+  mutate(total = sum(n)) |> 
+  select(categories = group_f, n)
+```
+
+```{r}
+table_08 <- table_08 |> 
+  add_row(categories = "L2C Groups") |> 
+  bind_rows(table_08_by_group)
 ```
 
 By visit
 
 ```{r}
-count(remote_interviews, visit)
+table_08_by_visit <- remote_interviews |> 
+  count(visit) |> 
+  mutate(total = sum(n)) |> 
+  mutate(visit = paste("Visit", visit)) |> 
+  select(categories = visit, n)
 ```
-
-## Table 9
-
-Table 9. Ecological Momentary Assessment (EMA) completion metrics by 15-day cycle and payment approach.
-
-NOTES: Rather than do this analysis this way, it might be interesting to graph the median completed by period. According to Jenn (2020-12-14), the important thing to show here is that: 1.) How many EMAs are being completed, 2.) Important piece is to show old payment approach vs. new payment approach, and 3.) Show the bimodal distribution.
-
-Table of emas completed by cycle and payment approach
-
-```{r rows.print=12}
-table_9_medians <- ema_combined_long %>% 
-  group_by(cycle_f, pay_approach) %>% 
-  summarise(
-    median = median(n_completed) %>% format(nsmall = 1),
-    .groups = "drop"
-  ) %>% 
-  pivot_wider(
-    names_from = "pay_approach",
-    values_from = "median"
-  )
-```
-
-Percent who completed zero emas by cycle and payment approach
-
-```{r rows.print=12}
-table_9_percents <- ema_combined_long %>% 
-  group_by(cycle_f, pay_approach) %>% 
-  summarise(
-    rows = n(),
-    zeros = sum(n_completed == 0),
-    seven_plus = sum(n_completed == 7),
-    .groups = "drop"
-  ) %>% 
-  mutate(
-    percent_zero = round(zeros / rows * 100, 1) %>% format(nsmall = 1),
-    percent_seven_plus = round(seven_plus / rows * 100, 1) %>% format(nsmall = 1),
-    n_percent_zero = paste0(zeros, " (", percent_zero, ")"),
-    n_percent_seven_plus = paste0(seven_plus, " (", percent_seven_plus, ")")
-  ) %>% 
-  select(cycle_f, pay_approach, n_percent_zero, n_percent_seven_plus) %>% 
-  pivot_wider(
-    names_from = "pay_approach",
-    values_from = c("n_percent_zero", "n_percent_seven_plus")
-  )
-```
-
-Merge medians and percentges together into a single table, and create flextable object.
 
 ```{r}
-table_9_ft <- table_9_medians %>% 
-  left_join(table_9_percents, by = "cycle_f") %>% 
-  flextable() %>% 
-   my_ft_theme()
+table_08 <- table_08 |> 
+  add_row(categories = "L2C Visits") |>
+  bind_rows(table_08_by_visit)
 ```
 
-Totals
+Create flextable
 
 ```{r}
-ema_combined_long %>% 
-  group_by(pay_approach) %>% 
-  summarise(
-    median = median(n_completed) %>% format(nsmall = 1),
-    .groups = "drop"
-  ) %>% 
-  pivot_wider(
-    names_from = "pay_approach",
-    values_from = "median"
-  )
+table_08_ft <- flextable(table_08) %>% 
+  my_ft_theme() 
 ```
 
-```{r rows.print=12}
-ema_combined_long %>% 
-  group_by(pay_approach) %>% 
-  summarise(
-    rows = n(),
-    zeros = sum(n_completed == 0),
-    seven_plus = sum(n_completed == 7),
-    .groups = "drop"
-  ) %>% 
-  mutate(
-    percent_zero = round(zeros / rows * 100, 1) %>% format(nsmall = 1),
-    percent_seven_plus = round(seven_plus / rows * 100, 1) %>% format(nsmall = 1),
-    n_percent_zero = paste0(zeros, " (", percent_zero, ")"),
-    n_percent_seven_plus = paste0(seven_plus, " (", percent_seven_plus, ")")
-  ) %>% 
-  select(pay_approach, n_percent_zero, n_percent_seven_plus) %>% 
-  pivot_wider(
-    names_from = "pay_approach",
-    values_from = c("n_percent_zero", "n_percent_seven_plus")
-  )
-```
-
-Output Word document for easy copy paste
-
-NOTES: Delete all these separate Word documents with tables after you make the big automated report.
+Output Word document for easy copy paste into template (DELETE)
+* Bold total manually.
 
 ```{r}
 read_docx() %>%
-  body_add_flextable(table_9_ft) %>%
-  print("table_9_ft.docx")
-```
-
-Footnote 1: "IPA = Initial payment approach. Includes PTs 2001-2073 and included payments at study visits only (n = 47)." This doesn't change.
-
-Footnote 2: "Revised payment approach. Includes PTs 2074 and above (n = XXX). The protocol change became effective on 11/21/2018."
-
-```{r}
-ema %>% filter(id > 2074) %>% nrow()
+  body_add_flextable(table_08_ft) %>% 
+  print("table_08_ft.docx")
 ```
 
 ## Replace table 9
 
 For the December 2022 quarterly report, James and Michael decided to replace table 9. They wanted the same information, but they want it in a different form. Instead of using a table, we are now using 3 charts.
+
+For the March 2023 quarterly report: There are actually two different revised payment approaches. Michael wants to plot them separately.
+
+2023-03-20, From James:
+I want to mention that there was some bleed over from the 1nd RPA into the 2st RPA for 2 participants (2147 & 2148) when we switched over to the 2nd RPA. The PIs wanted us to get all the participants who were on the 1st RPA consented on the 2nd RPA asap. I don’t think this changes your analysis procedure, but wanted to advise.  
+
+There are 2 RPA and the original payment structure for EMA Comp:
+* 1st 2001-2073 Participants. Compensated on their V3-v5. 10, 15, 25 for EMA Completion. 
+* 1st RPA 2074-2152 Frequency of payment was changed to every 15 days. Comp was the same as original 10, 15, 25 for EMA Completion. 
+* 2nd RPA 2153-2442. Frequency of payment was every 15 days and doubled comp. 20, 30, 50.
+ 
+6/24/2019: EMA compensation change. New payment structure for surveys 
+* 13-15 = $50 
+* 11-12 = $30 
+* 7-10 = $20 
+* 0-6 = $0 
+
+Old payment structure for EMAs 
+* 13-15 = $25 
+* 11-12 = $15 
+* 7-10 = $10 
+* 0-6 = $0 
+
+How many people are in each group?
+
+```{r eval=FALSE}
+# Data check
+ema_combined_long |> 
+  group_by(id) |> 
+  filter(row_number() == 1) |> 
+  group_by(pay_approach) |> 
+  count()
+```
+
+```{r eval=FALSE}
+# Data check
+ema_combined_long |> 
+  group_by(id) |> 
+  filter(row_number() == 1) |> 
+  group_by(pay_approach_3cat_f) |> 
+  count()
+```
 
 ### Figure 2
 
@@ -1766,7 +1827,7 @@ Number of Ecological Momentary Assessments (EMA) completed by 15-day cycle and p
 ```{r}
 # Medians for the plot
 median_emas_completed <- ema_combined_long %>%
-  group_by(cycle_f, pay_approach) %>% 
+  group_by(cycle_f, pay_approach_3cat_f) %>% 
   summarise(
     median = median(n_completed),
     .groups = "drop"
@@ -1775,16 +1836,16 @@ median_emas_completed <- ema_combined_long %>%
 
 ```{r}
 ggplot(ema_combined_long) +
-  geom_jitter(aes(x = pay_approach, y = n_completed, col = pay_approach), height = 0.05, alpha = .1) +
+  geom_jitter(aes(x = pay_approach_3cat_f, y = n_completed, col = pay_approach_3cat_f), height = 0.05, alpha = .1) +
   facet_wrap(vars(cycle_f), nrow = 1) + 
   geom_segment(
-    aes(x = rep(c(0.5, 1.5), 12), y = median, xend = rep(c(1.5, 2.5), 12), yend = median), 
+    aes(x = rep(c(0.5, 1.5, 2.5), 12), y = median, xend = rep(c(1.5, 2.5, 3.5), 12), yend = median), 
     size = 0.75, col = "red", data = median_emas_completed
   ) +
   labs(subtitle = "15-Day Cycle (1-12)") +
   xlab("Cycles") +
   ylab("Number of EMA's Completed") +
-  scale_color_manual("Payment Approach", values = c("#BC581A", "#00519B")) +
+  scale_color_manual("Payment Approach", values = c("#BC581A", "#00519B", "#5D3FD3")) +
   theme_classic() +
   theme(
     legend.position = "bottom", 
@@ -1800,6 +1861,8 @@ Save figure for copy and paste into report
 ggsave("fig_emas_by_cycle.jpeg", width = 7, height = 4)
 ```
 
+### 📄 Add Figure 2 to Word
+
 ```{r}
 doc <- doc %>% 
   body_replace_img_at_bkm(
@@ -1814,7 +1877,7 @@ Percentage of participants who completed zero Ecological Momentary Assessments (
 
 ```{r}
 ema_zero_seven <- ema_combined_long %>% 
-  group_by(cycle_f, pay_approach) %>% 
+  group_by(cycle_f, pay_approach_3cat_f) %>% 
   summarise(
     rows = n(),
     zeros = sum(n_completed == 0),
@@ -1830,13 +1893,13 @@ ema_zero_seven <- ema_combined_long %>%
 ```
 
 ```{r}
-ggplot(ema_zero_seven, aes(x = cycle_f, y = percent_zero, col = pay_approach, group = pay_approach)) + 
+ggplot(ema_zero_seven, aes(x = cycle_f, y = percent_zero, col = pay_approach_3cat_f, group = pay_approach_3cat_f)) + 
   geom_point() +
   geom_line() +
   geom_text(aes(label = percent_zero_formatted), nudge_y = 2.5) +
   xlab("15-Day EMA Cycle") +
   ylab("Percent of Participants") +
-  scale_color_manual("Payment Approach", values = c("#BC581A", "#00519B")) +
+  scale_color_manual("Payment Approach", values = c("#BC581A", "#00519B", "#5D3FD3")) +
   theme_classic() +
   theme(
     legend.position = "bottom"
@@ -1862,13 +1925,13 @@ doc <- doc %>%
 Percentage of participants who completed seven or more Ecological Momentary Assessments (EMA) by 15-day cycle and payment approach.
 
 ```{r}
-ggplot(ema_zero_seven, aes(x = cycle_f, y = percent_seven_plus, col = pay_approach, group = pay_approach)) + 
+ggplot(ema_zero_seven, aes(x = cycle_f, y = percent_seven_plus, col = pay_approach_3cat_f, group = pay_approach_3cat_f)) + 
   geom_point() +
   geom_line() +
   geom_text(aes(label = percent_seven_plus_formatted), nudge_y = 2.5) +
   xlab("15-Day EMA Cycle") +
   ylab("Percent of Participants") +
-  scale_color_manual("Payment Approach", values = c("#BC581A", "#00519B")) +
+  scale_color_manual("Payment Approach", values = c("#BC581A", "#00519B", "#5D3FD3")) +
   theme_classic() +
   theme(
     legend.position = "bottom"
@@ -1895,24 +1958,65 @@ Table 10. Arrests by treatment arm 12 months after enrollment.
 
 2021-05-11: Filled in manually.
 
+How many people are in each group?
+
+```{r eval=FALSE}
+# Data check
+master_log_screened_in |> 
+  group_by(group) |> 
+  count() |> 
+  ungroup() |> 
+  mutate(total = sum(n))
+```
+
 Overall
 
 ```{r}
-arrest %>% 
+table_10 <- arrest %>% 
   freq_table(arrested) %>% 
-  freq_format("n (percent)", digits = 2) %>% 
-  select(var, cat, formatted_stats, n_total)
+  freq_format("n (percent)", digits = 1) %>% 
+  select(var, cat, formatted_stats, n_total) |> 
+  
+  # Format for easier binding and conversion to flextable
+  filter(cat == "Yes") |> 
+  mutate(cat = "Overall") |> 
+  select(cat, n = n_total, formatted_stats)
 ```
 
 By L2C group
 
 ```{r}
-arrest %>% 
-  freq_table(group, arrested) %>% 
+table_10_by_group <- arrest %>% 
+  freq_table(group_f, arrested) %>% 
   filter(col_cat == "Yes") %>% 
-  arrange(desc(n)) %>% 
   freq_format("n (percent_row)", digits = 1) %>% 
-  select(row_cat, formatted_stats, n_row)
+  
+  # Format for easier binding and conversion to flextable
+  mutate(row_cat = if_else(is.na(row_cat), "NS V2", row_cat)) |> 
+  select(cat = row_cat, n = n_row, formatted_stats)
+```
+
+Bind overall and by group
+
+```{r}
+table_10 <- table_10 |> 
+  bind_rows(table_10_by_group) |> 
+  rename(Arrested = formatted_stats)
+```
+
+Create flextable
+
+```{r}
+table_10_ft <- flextable(table_10) %>% 
+  my_ft_theme() 
+```
+
+Output Word document for easy copy paste into template (DELETE)
+
+```{r}
+read_docx() %>%
+  body_add_flextable(table_10_ft) %>% 
+  print("table_10_ft.docx")
 ```
 
 ## Table 11
@@ -1924,10 +2028,28 @@ Table 11. Number and percent of participants who used Bridge case management.
 Column totals
 
 ```{r}
-bridge %>% 
+bridge_col_totals <- bridge %>% 
   filter(row == 1) %>% 
   count(group_f) %>% 
   mutate(cum = cumsum(n))
+```
+
+```{r}
+# To make it easier to add values to the Word document
+n_bridge_overall <- bridge_col_totals |> pull(cum) |> max() |> as.character()
+n_bridge_ucm <- bridge_col_totals |> filter(group_f == "UCM") |> pull(n) |> as.character()
+n_bridge_ucm_sp <- bridge_col_totals |> filter(group_f == "UCM+SP") |> pull(n) |> as.character()
+n_bridge_l2c <- bridge_col_totals |> filter(group_f == "L2C") |> pull(n) |> as.character()
+```
+
+### 📄 Add bridge column tolals to Table 11
+
+```{r}
+doc <- doc %>% 
+  body_replace_text_at_bkm("n_bridge_overall_11", n_bridge_overall) |> 
+  body_replace_text_at_bkm("n_bridge_ucm_11", n_bridge_ucm) |>
+  body_replace_text_at_bkm("n_bridge_ucm_sp_11", n_bridge_ucm_sp) |>
+  body_replace_text_at_bkm("n_bridge_l2c_11", n_bridge_l2c)
 ```
 
 This table only needs one row per id.
@@ -1950,7 +2072,7 @@ table_11_overall <- map_df(
       freq_table({{ x }}) %>% 
       filter(cat == TRUE) %>% 
       freq_format("n (percent)", digits = 1) %>% 
-      select(var, formatted_stats)
+      select(var, Overall = formatted_stats)
   }
 )
 ```
@@ -2000,239 +2122,147 @@ Table 12. Number and duration of case management sessions used.
 
 2021-05-11: Filled in manually.
 
-Case management of any type
+### 📄 Add bridge column tolals to Table 11
 
-Overall
+NOTE: Calculated in the Table 11 code above.
 
 ```{r}
+doc <- doc %>% 
+  body_replace_text_at_bkm("n_bridge_overall_12", n_bridge_overall) |> 
+  body_replace_text_at_bkm("n_bridge_ucm_12", n_bridge_ucm) |>
+  body_replace_text_at_bkm("n_bridge_ucm_sp_12", n_bridge_ucm_sp) |>
+  body_replace_text_at_bkm("n_bridge_l2c_12", n_bridge_l2c)
+```
+
+### Case management of any type
+
+```{r eval=FALSE}
+# For testing
 bridge_wide %>% 
-  summarise(
-    sessions_median = median(total_sessions),
-    sessions_min = min(total_sessions),
-    sessions_max = max(total_sessions),
-    minutes_median = median(total_minutes),
-    minutes_min = min(total_minutes),
-    minutes_max = max(total_minutes)
-  ) %>%
-  pivot_longer(
-    everything(),
-    names_to = c(".value", "measure"),
-    names_sep = "_",
-    values_to = "stat"
-  )
+  med_sesssions_minutes_fn("UCM") |> 
+  med_sesssions_minutes_format_fn()
 ```
 
-UCM
+Iterate over all study groups
 
 ```{r}
-bridge_wide %>% 
-  filter(group_f == "UCM") %>% 
-  summarise(
-    sessions_median = median(total_sessions),
-    sessions_min = min(total_sessions),
-    sessions_max = max(total_sessions),
-    minutes_median = median(total_minutes),
-    minutes_min = min(total_minutes),
-    minutes_max = max(total_minutes)
-  ) %>%
-  pivot_longer(
-    everything(),
-    names_to = c(".value", "measure"),
-    names_sep = "_",
-    values_to = "stat"
-  )
+sessions_minutes_any_type <- map(
+  c("Overall", "UCM", "UCM+SP", "L2C"),
+  ~ bridge_wide %>% 
+     med_sesssions_minutes_fn(.x) |> 
+     med_sesssions_minutes_format_fn()
+) |> 
+  # Use reduce to join them all together
+  reduce(left_join, by = "measure")
 ```
 
-UCM+SP
+### Case management of by type
+
+Remove type "none" because we don't have a section for it in Table 12.
 
 ```{r}
-bridge_wide %>% 
-  filter(group_f == "UCM+SP") %>% 
-  summarise(
-    sessions_median = median(total_sessions),
-    sessions_min = min(total_sessions),
-    sessions_max = max(total_sessions),
-    minutes_median = median(total_minutes),
-    minutes_min = min(total_minutes),
-    minutes_max = max(total_minutes)
-  ) %>%
-  pivot_longer(
-    everything(),
-    names_to = c(".value", "measure"),
-    names_sep = "_",
-    values_to = "stat"
-  )
+bridge_3type <- bridge |> 
+  filter(type_f != "none")
 ```
 
-L2C
+Calculate the total number of sessions and total duration in minutes by case management session type for each participant.
 
 ```{r}
-bridge_wide %>% 
-  filter(group_f == "L2C") %>% 
-  summarise(
-    sessions_median = median(total_sessions),
-    sessions_min = min(total_sessions),
-    sessions_max = max(total_sessions),
-    minutes_median = median(total_minutes),
-    minutes_min = min(total_minutes),
-    minutes_max = max(total_minutes)
-  ) %>%
-  pivot_longer(
-    everything(),
-    names_to = c(".value", "measure"),
-    names_sep = "_",
-    values_to = "stat"
-  )
-```
-
-```{r}
-bridge %>% 
-  filter(type_f == "case_management") %>% 
-  group_by(id) %>% 
+bridge_sessions_mins_by_type_id <- bridge_3type %>%
+  select(id, group_f, type_f, duration) |> 
+  group_by(type_f, id) %>% 
+  # Use mutate instead of summarise so that we can retain group.
   mutate(
-    row = row_number(),
     total_sessions = n(),
-    total_minutes = sum(duration)
-  ) %>% 
-  ungroup() %>% 
-  filter(row == 1) %>% 
-  summarise(
-    sessions_median = median(total_sessions),
-    sessions_min = min(total_sessions),
-    sessions_max = max(total_sessions),
-    minutes_median = median(total_minutes),
-    minutes_min = min(total_minutes),
-    minutes_max = max(total_minutes)
-  ) %>% 
-  pivot_longer(
-    everything(),
-    names_to = c(".value", "measure"),
-    names_sep = "_",
-    values_to = "stat"
-  )
+    total_minutes = sum(duration),
+    row = row_number()
+  ) |> 
+  arrange(type_f, id) |> 
+  select(type_f, id, group_f, total_sessions, total_minutes) |> 
+  # Keep 1 row per combination of case management type and id
+  filter(row_number() == 1) |> 
+  ungroup()
 ```
 
-```{r}
-bridge %>% 
-  filter(type_f == "case_management") %>% 
-  group_by(id) %>% 
-  mutate(
-    row = row_number(),
-    total_sessions = n(),
-    total_minutes = sum(duration)
-  ) %>% 
-  ungroup() %>% 
-  filter(row == 1) %>% 
-  group_by(group_f) %>% 
-  summarise(
-    sessions_median = median(total_sessions),
-    sessions_min = min(total_sessions),
-    sessions_max = max(total_sessions),
-    minutes_median = median(total_minutes),
-    minutes_min = min(total_minutes),
-    minutes_max = max(total_minutes),
-    .groups = "drop"
-  ) 
+```{r eval=FALSE}
+# For testing
+bridge_sessions_mins_by_type_id %>% 
+  filter(type_f == "case_management") |> 
+  med_sesssions_minutes_fn("UCM") |> 
+  med_sesssions_minutes_format_fn()
 ```
 
-```{r}
-bridge %>% 
-  filter(type_f == "crisis_management") %>% 
-  group_by(id) %>% 
-  mutate(
-    row = row_number(),
-    total_sessions = n(),
-    total_minutes = sum(duration)
-  ) %>% 
-  ungroup() %>% 
-  filter(row == 1) %>% 
-  summarise(
-    sessions_median = median(total_sessions),
-    sessions_min = min(total_sessions),
-    sessions_max = max(total_sessions),
-    minutes_median = median(total_minutes, na.rm = TRUE),
-    minutes_min = min(total_minutes, na.rm = TRUE),
-    minutes_max = max(total_minutes, na.rm = TRUE)
-  ) %>% 
-  pivot_longer(
-    everything(),
-    names_to = c(".value", "measure"),
-    names_sep = "_",
-    values_to = "stat"
-  )
-```
+#### Regular case management only
 
 ```{r}
-bridge %>% 
-  filter(type_f == "crisis_management") %>% 
-  group_by(id) %>% 
-  mutate(
-    row = row_number(),
-    total_sessions = n(),
-    total_minutes = sum(duration)
-  ) %>% 
-  ungroup() %>% 
-  filter(row == 1) %>% 
-  group_by(group_f) %>% 
-  summarise(
-    sessions_median = median(total_sessions),
-    sessions_min = min(total_sessions),
-    sessions_max = max(total_sessions),
-    minutes_median = median(total_minutes, na.rm = TRUE),
-    minutes_min = min(total_minutes, na.rm = TRUE),
-    minutes_max = max(total_minutes, na.rm = TRUE),
-    .groups = "drop"
-  ) 
+# Iterate over all study groups
+sessions_minutes_type_regular <- map(
+  c("Overall", "UCM", "UCM+SP", "L2C"),
+  ~ bridge_sessions_mins_by_type_id %>% 
+      filter(type_f == "case_management") |> 
+      med_sesssions_minutes_fn(.x) |> 
+      med_sesssions_minutes_format_fn()
+) |> 
+  # Use reduce to join them all together
+  reduce(left_join, by = "measure")
 ```
 
-```{r}
-bridge %>% 
-  filter(type_f == "other") %>% 
-  group_by(id) %>% 
-  mutate(
-    row = row_number(),
-    total_sessions = n(),
-    total_minutes = sum(duration)
-  ) %>% 
-  ungroup() %>% 
-  filter(row == 1) %>% 
-  summarise(
-    sessions_median = median(total_sessions),
-    sessions_min = min(total_sessions),
-    sessions_max = max(total_sessions),
-    minutes_median = median(total_minutes, na.rm = TRUE),
-    minutes_min = min(total_minutes, na.rm = TRUE),
-    minutes_max = max(total_minutes, na.rm = TRUE)
-  ) %>% 
-  pivot_longer(
-    everything(),
-    names_to = c(".value", "measure"),
-    names_sep = "_",
-    values_to = "stat"
-  )
-```
+#### Crisis case management only
 
 ```{r}
-bridge %>% 
-  filter(type_f == "other") %>% 
-  group_by(id) %>% 
-  mutate(
-    row = row_number(),
-    total_sessions = n(),
-    total_minutes = sum(duration)
-  ) %>% 
-  ungroup() %>% 
-  filter(row == 1) %>% 
-  group_by(group_f) %>% 
-  summarise(
-    sessions_median = median(total_sessions),
-    sessions_min = min(total_sessions),
-    sessions_max = max(total_sessions),
-    minutes_median = median(total_minutes, na.rm = TRUE),
-    minutes_min = min(total_minutes, na.rm = TRUE),
-    minutes_max = max(total_minutes, na.rm = TRUE),
-    .groups = "drop"
-  ) 
+# Iterate over all study groups
+sessions_minutes_type_crisis <- map(
+  c("Overall", "UCM", "UCM+SP", "L2C"),
+  ~ bridge_sessions_mins_by_type_id %>% 
+      filter(type_f == "crisis_management") |> 
+      med_sesssions_minutes_fn(.x) |> 
+      med_sesssions_minutes_format_fn()
+) |> 
+  # Use reduce to join them all together
+  reduce(left_join, by = "measure")
+```
+
+#### Other case management only
+
+```{r}
+# Iterate over all study groups
+sessions_minutes_type_other <- map(
+  c("Overall", "UCM", "UCM+SP", "L2C"),
+  ~ bridge_sessions_mins_by_type_id %>% 
+      filter(type_f == "other") |> 
+      med_sesssions_minutes_fn(.x) |> 
+      med_sesssions_minutes_format_fn()
+) |> 
+  # Use reduce to join them all together
+  reduce(left_join, by = "measure")
+```
+
+### Bind tables together
+
+```{r}
+table_12 <- tibble(measure = "Case management of any type") |> 
+  bind_rows(sessions_minutes_any_type) |> 
+  add_row(measure = "Regular Case Management") |> 
+  bind_rows(sessions_minutes_type_regular) |> 
+  add_row(measure = "Crisis Case Management") |> 
+  bind_rows(sessions_minutes_type_crisis) |> 
+  add_row(measure = "Other Case Management") |> 
+  bind_rows(sessions_minutes_type_other)
+```
+
+### Create flextable
+
+```{r}
+table_12_ft <- flextable(table_12) %>% 
+  my_ft_theme()
+```
+
+Output Word document for easy copy paste into template (DELETE)
+
+```{r}
+read_docx() %>%
+  body_add_flextable(table_12_ft) %>% 
+  print("table_12_ft.docx")
 ```
 
 ## Figure 5
@@ -2292,35 +2322,55 @@ Average recruitment by month
 Overall
 
 ```{r}
-recruitment %>% 
+recruitment_mean_overall <- recruitment %>% 
   mutate(year_month = format(date_baseline, "%Y-%b")) %>% 
   count(year_month) %>% 
   mutate(date = ymd(year_month, truncated = 1)) %>% 
-  summarise(mean = mean(n))
+  summarise(mean = mean(n)) |> 
+  round(1) |> 
+  as.character()
 ```
 
 Pre-covid
 
 ```{r}
-recruitment %>% 
+recruitment_mean_pre_covid <- recruitment %>% 
   filter(covid == "pre") %>% 
   mutate(year_month = format(date_baseline, "%Y-%b")) %>% 
   count(year_month) %>% 
   mutate(date = ymd(year_month, truncated = 1)) %>% 
   arrange(date) %>% 
-  summarise(mean = mean(n))
+  summarise(mean = mean(n)) |> 
+  round(1) |> 
+  as.character()
 ```
 
 Post-covid
 
 ```{r}
-recruitment %>% 
+recruitment_mean_post_covid <- recruitment %>% 
   filter(covid == "post") %>% 
   mutate(year_month = format(date_baseline, "%Y-%b")) %>% 
   count(year_month) %>% 
   mutate(date = ymd(year_month, truncated = 1)) %>% 
   arrange(date) %>% 
-  summarise(mean = mean(n))
+  summarise(mean = mean(n)) |> 
+  round(1) |> 
+  as.character()
+```
+
+### 📄 Add Figure 5 to Word
+
+```{r}
+# Add Figure 5. Recruitment by month.
+doc <- doc %>% 
+  body_replace_img_at_bkm(
+    "fig_recruitment_by_month", 
+    external_img("fig_recruitment_by_month.jpeg", width = 7, height = 4)
+  ) |> 
+  body_replace_text_at_bkm("recruitment_mean_overall", recruitment_mean_overall) |> 
+  body_replace_text_at_bkm("recruitment_mean_pre_covid", recruitment_mean_pre_covid) |> 
+  body_replace_text_at_bkm("recruitment_mean_post_covid", recruitment_mean_post_covid)
 ```
 
 ## Figure 6
@@ -2365,58 +2415,19 @@ Save figure for copy and paste into report
 ggsave("fig_recruitment_by_year.jpeg", width = 7, height = 4)
 ```
 
-
-# 📄Compile into Word Report
-
-* Make adjustments to page 1 (i.e., quarter, date, action items) directly in the Word template.   
-* Make adjustments to page 2 (i.e., TOC) directly in the Word template.  
-* Make table and figure titles and footnotes directly in the Word template.   
+### 📄 Add Figure 6 to Word
 
 ```{r}
-# Read in template
-# 2022-08-16: Read in above and already added tables 1-3
-# doc <- read_docx("template_l2c_quarterly_report.docx")
-
-# Pg. 3
-## Add number of participants screened-in and the date
-# doc <- doc %>% 
-#   body_replace_text_at_bkm("n_participants", as.character(n_screened_in)) %>% 
-#   body_replace_text_at_bkm("date", format(Sys.Date(), "%B %d, %Y"))
-
-## Add Table 1. Demographic characteristics of all people screened-in.
-# doc <- body_replace_flextable_at_bkm(doc, "table_demographics", table_1_ft)
-
-## Add Table 2. Distribution of reasons for screen-out.
-# doc <- body_replace_flextable_at_bkm(doc, "table_screen_out", table_2_ft)
-
-## Add Figure 1. Reasons for phone terminations overall.
-doc <- doc %>% 
-  body_replace_text_at_bkm("n_phone_terminations", as.character(n_phone_terminations)) %>% 
+# Add Figure 6. Recruitment by year.
+doc <- doc %>%
   body_replace_img_at_bkm(
-    "fig_phone_terminations", 
-    external_img("fig_1.jpeg", width = 7, height = 4)
-  )
-
-## Add n randomized to title of Table 6
-doc <- doc %>% 
-  body_replace_text_at_bkm("n_randomized", as.character(n_randomized))
-
-## Add Figure 5. Recruitment by month.
-doc <- doc %>% 
-  body_replace_img_at_bkm(
-    "fig_recruitment_by_month", 
-    external_img("fig_recruitment_by_month.jpeg", width = 7, height = 4)
-  )
-
-## Add Figure 6. Recruitment by year.
-doc <- doc %>% 
-  body_replace_img_at_bkm(
-    "fig_recruitment_by_year", 
+    "fig_recruitment_by_year",
     external_img("fig_recruitment_by_year.jpeg", width = 7, height = 4)
   )
 ```
 
-## 🖨Output Word document
+
+# 🖨Output Word document
 
 Update the year and month in the file name dynamically
 

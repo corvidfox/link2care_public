@@ -37,4 +37,9 @@ my_ft_theme <- function(ft, ...) {
   # Change font to TNR 11
   ft <- font(ft, fontname = "Times New Roman", part = "all")
   ft <- fontsize(ft, part = "all", size = 11)
+  
+  # Column width
+  # Set initial width to be the equivalent of opening word and clicking
+  # "fit to window", which is 6.3 divided by the number of columns.
+  ft <- width(ft, width = (6.30 / ncol_keys(ft)))
 }
