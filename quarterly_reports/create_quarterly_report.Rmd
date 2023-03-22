@@ -630,6 +630,13 @@ arrest <- arrest |>
   filter(!is.na(id))
 ```
 
+Drop people who are missing arrested
+
+```{r}
+arrest <- arrest |> 
+  filter(!is.na(arrested))
+```
+
 Are there any id's missing from the arrest data?
 
 ```{r eval=FALSE}
@@ -1672,6 +1679,18 @@ Table 8. COVID-19 phone interviews (N={see below}) since protocol change on 3/17
 Total interviews by mode (phone vs. redcap)
 
 ```{r}
+# Data check
+screened_in |> 
+  select(id, group_f, v3_r_completed, v4_r_completed, v5_r_completed) |> 
+  summarise(
+    v3 = sum(v3_r_completed == "Yes"),
+    v4 = sum(v4_r_completed == "Yes"),
+    v5 = sum(v5_r_completed == "Yes", na.rm = TRUE)
+  )
+```
+
+
+```{r}
 remote_interviews <- screened_in |> 
   # Use completed, not distributed
   select(id, group_f, v3_r_completed, v4_r_completed, v5_r_completed, v2_phone:v5_phone) |> 
@@ -1723,7 +1742,6 @@ table_08_by_mode <- remote_interviews |>
 
 ```{r}
 table_08 <- table_08 |> 
-  add_row(categories = "Modality") |> 
   bind_rows(table_08_by_mode)
 ```
 
