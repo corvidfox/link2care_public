@@ -7,12 +7,12 @@ date: "2021-04-28 <br> Updated: `r Sys.Date()`"
 
 We previously imported and did some initial cleaning of the following data sets:
 
-* QDS (data_survey_01_qds_import.Rmd)   
-* REDCap (data_survey_02_redcap_import.Rmd)    
+* QDS (data_survey_01_qds_import.Rmd) 
+* Redcap (data_survey_02_redcap_import.Rmd) 
 * Master log (data_survey_03_master_log_import.Rmd)   
 * Timeline followback (data_survey_04_tlfb_import.Rmd)   
 * Arrest data (data_survey_05_arrests_import.Rmd)   
-* Bridge sessions data (data_survey_06_bridge_sessions_import.Rmd)   
+* Bridge sessions data (data_survey_06_bridge_sessions_import.Rmd)
 * DDT data (data_survey_07_ddt_import.Rmd)   
 
 This file is used to merged together all of those individual data sets into a single survey data analysis data set.
@@ -35,17 +35,17 @@ library(haven, warn.conflicts = FALSE)
 
 We previously imported and did some initial cleaning of the following data sets:
 
-* QDS (data_survey_01_qds_import.Rmd)   
-* REDCap (data_survey_02_redcap_import.Rmd)    
+* QDS (data_survey_01_qds_import.Rmd)
+* Redcap (data_survey_02_redcap_import.Rmd)    
 * Master log (data_survey_03_master_log_import.Rmd)   
 * Timeline followback (data_survey_04_tlfb_import.Rmd)   
 * Arrest data (data_survey_05_arrests_import.Rmd)   
-* Bridge sessions data (data_survey_06_bridge_sessions_import.Rmd)   
+* Bridge sessions data (data_survey_06_bridge_sessions_import.Rmd)
 * DDT data (data_survey_07_ddt_import.Rmd)   
 
 Most of the data cleaning that was done was to standardize column names. [Click here](https://github.com/brad-cannell/link2care_public/blob/master/data/notes_cleaning_individual_data_sets_for_merge.md) for notes on column naming conventions. 
 
-After doing this initial cleaning, the individual files were saved in RDS format on the U drive.
+After doing this initial cleaning, the individual files were saved in RDS format on Teams.
 
 ```{r}
 path <- "../Participant Data/R data/"
@@ -119,9 +119,18 @@ for (i in seq_along(data_frames)) {
     df <- rename(df, "id" = "subject")
   }
   
+  # If there is a column named "GROUP", change the name to "group"
+  if ("GROUP" %in% names(df)) {
+    df <- rename(df, "group" = "GROUP")
+  }
+  
   # Coerce id to character type
   df <- mutate(df, id = as.character(id))
   
+  x <- c("id", "group")
+  x <- gsub("NULL", "0", x)
+  suppressWarnings(x_num <- as.numeric(x))
+
   # Save updated data frames back to the global environment
   assign(data_frames[[i]], df, envir = .GlobalEnv)
 }
@@ -139,9 +148,9 @@ Group assignment values from across visits can be conflicting. Additionally, gro
 First, gather all of the group information from the QDS data.
 
 ```{r}
-group_qds_long <- qds %>%
+group_qds <- qds %>%
   select(id, group, visit) %>% 
-  arrange(id, visit) %>% 
+  arrange(id, group, visit) %>% 
   
   # Fill values of group down within id
   group_by(id) %>% 
@@ -155,7 +164,7 @@ group_qds_long <- qds %>%
 Manually review id's with multiple group values
 
 ```{r}
-group_qds_long %>% 
+group_qds %>% 
   filter(mult_group == TRUE)
 ```
 
@@ -164,10 +173,13 @@ Manually fix group value and let James know that they need to be fixed in QDS. A
 
 2021-01-11, From James: 
 * P2057: V3 grouping entered incorrectly on QDS. Entered 'UCM' (1) instead of 'L2C' (3) 
+2023-01-31, From Sangeeta:
+* P2356: V3 grouping entered incorrectly on QDS. Entered 'L2C' (3) instead of 'UCM+SP' (2) 
 
 ```{r}
 # Do it this way instead of with dplyr, so you don't have to mess with class
-group_qds_long[group_qds_long$id == 2057, "group"] <- 3
+group_qds$group[group_qds$id == 2057] <- 3
+group_qds$group[group_qds$id == 2356] <- 2
 ```
 
 Do one more check for multiple group values
@@ -176,7 +188,7 @@ Adding a stop function for when this file is sourced.
 
 ```{r}
 # For data checks
-check_qds_group_values <- group_qds_long %>% 
+check_qds_group_values <- group_qds %>% 
   group_by(id) %>% 
   # Now check for multiple group values within id
   filter(unique(group) %>% length() > 1)
@@ -189,52 +201,17 @@ if (nrow(check_qds_group_values) > 0) {
 Now, the value of group is the same in every row for each id. So, just use the first row for each id.
 
 ```{r}
-group_qds <- group_qds_long %>% 
+# Manually fill in data values in the QDS data because there was no group assigned at visit 1 and we filtered for the first row only in the code chunk above.
+group_qds$group[group_qds$id == 2252] <- 2
+group_qds$group[group_qds$id == 2253] <- 3
+
+qds_id_group <- group_qds %>% 
   group_by(id) %>% 
   filter(row_number() == 1) %>% 
   select(id, group) %>% 
   ungroup()
 ```
 
-### REDCap group values
-
-Are the group values consistent in REDCap?
-
-Adding a stop function for when this file is sourced.
-
-```{r}
-# For data checks
-check_redcap_group_values <- rc %>% 
-  group_by(id) %>% 
-  filter(unique(group) %>% length() > 1)
-
-if (nrow(check_redcap_group_values) > 0) {
-  stop("At least one participant in the REDCap data is assigned to more than one group. Please investigate further in data_survey_21_merge.Rmd.")
-}
-```
-
-Yes, so now we don't need to worry about visit number. We can just keep one row per id, and check to make sure that group in REDCap matches group in the QDS data.
-
-```{r}
-rc_id_group <- rc %>% 
-  select(id, group) %>% 
-  distinct(id, group)
-```
-
-Manually check for differences between group assignment in QDS and REDCap.
-
-```{r}
-# Join RedCap id and group with QDS id and group by id
-left_join(
-  rc_id_group,
-  group_qds,
-  by = "id",
-  suffix = c("_rc", "_qds")
-) %>% 
-  # Check for differences in group for each id
-  rowwise() %>% 
-  filter(length(unique(c_across(group_rc:group_qds))) > 1)
-```
 
 Manually fill in data values in the QDS data.
 
@@ -243,40 +220,135 @@ group_qds$group[group_qds$id == 2252] <- 2
 group_qds$group[group_qds$id == 2253] <- 3
 ```
 
-Adding a stop function for when this file is sourced.
+### REDCap group values
+
+Are the group values consistent in REDCap?
+
+First, gather all of the group information from the Redcap data.
 
 ```{r}
-# For data checks
-check_qds_redcap_group_diffs <- left_join(
-  rc_id_group,
-  group_qds,
-  by = "id",
-  suffix = c("_rc", "_qds")
-) %>% 
-  # Check for differences in group for each id
-  rowwise() %>% 
-  filter(length(unique(c_across(group_rc:group_qds))) > 1)
-
-if (nrow(check_qds_redcap_group_diffs) > 0) {
-  stop("At least one participant is assigned to different groups in the QDS and REDCap data. Please investigate further in data_survey_21_merge.Rmd.")
-}
+group_rc <- rc %>%
+  select(id, group) %>% 
+  arrange(id, group) %>% 
+  
+  # Fill values of group down within id
+  group_by(id) %>% 
+  tidyr::fill(group, .direction = "downup") %>% 
+  
+  # Now check for multiple group values within id
+  mutate(mult_group = unique(group) %>% length() > 1) %>% 
+  ungroup()
 ```
+
+Manually review id's with multiple group values
+
+```{r}
+group_rc %>% 
+  filter(mult_group == TRUE)
+```
+
+**NOTE on multiple groups per id:**
+Manually fix group value and let James know that they need to be fixed in REDCap. After they are fixed, they will no longer show up here. Still, use these notes to keep a record.
+
+2023-03-20, From Sangeeta: 
+* 2331: Should be in group 3 instead of group 2.
+* 2398: Should be in group 3 instead of group 2.
+
+```{r}
+# Do it this way instead of with dplyr, so you don't have to mess with class
+group_rc$group[group_rc$id == 2331] <- 3
+group_rc$group[group_rc$id == 2398] <- 3
+```
+
+Do one more check for multiple group values
+
+Adding a  stop function for when this file is sourced.
+```{r}
+# For data checks
+check_redcap_group_values <- group_rc %>%
+  group_by(id) %>%
+  filter(unique(id, group) %>% length() > 1)
+# Manually review id's with multiple group values
+group_rc %>% 
+  filter(mult_group == TRUE)
+
+if (nrow(check_redcap_group_values) > 0) (
+  stop("At least one participant in the REDCap data is assigned to more than one group. Please investigate further in data_survey_21_merge.Rmd.")
+)
+
+```
+Yes, so now we don't need to worry about visit number. We can just keep one row per id, and check to make sure that group in REDCap matches group in the QDS data.
+
+```{r}
+rc_id_group <- group_rc %>% 
+  group_by(id) %>% 
+  select(id, group) %>% 
+  distinct(id, group) %>% 
+  ungroup()
+```
+
+Adding a stop function for when this file is sourced.
+
+Manually check for differences in QDS and Redcap.
+
+```{r}
+# Join REDCap id and group with QDS id and group by id
+
+# For data checks
+left_join(
+  rc_id_group, qds_id_group,
+  by = "id", "group",
+  suffix = c("_rc","_qds")
+) %>%
+  
+  # Check for differences in group for each id
+  rowwise() %>%
+  # mutate(diff = group_rc - group_qds) %>% 
+  mutate(diff = length(unique(c_across(group_rc:group_qds))) > 1) %>% 
+  filter(diff)
+```
+
+2023-03-20: When participants complete visit 3 via REDCap, they don't get a group value in QDS. Therefore, there are multiple missing group values in QDS for group.
 
 ### Master log group values
 
 Supplement with Excel master log data.
 
+First, gather all of the group information from the Master log data.
+
+```{r}
+group_ml <- ml %>%
+  select(id, group) %>% 
+  arrange(id, group) %>% 
+  
+  # Fill values of group down within id
+  group_by(id) %>% 
+  tidyr::fill(group, .direction = "downup") %>% 
+  
+  # Now check for multiple group values within id
+  mutate(mult_group = unique(group) %>% length() > 1) %>% 
+  ungroup()
+```
+
+Manually review id's with multiple group values
+
+```{r}
+group_ml %>% 
+  filter(mult_group == TRUE)
+```
+
 Manually check for differences between group assignment in QDS and master log.
 
 ```{r}
 check_qds_ml_group_diffs <- left_join(
-  ml %>% select(id, group),
-  group_qds,
+  select(group_ml, -mult_group),
+  qds_id_group, 
   by = "id",
   suffix = c("_ml", "_qds")
-) %>% 
+) %>%
   rowwise() %>% 
-  filter(length(unique(c_across(group_ml:group_qds))) > 1)
+  mutate(diff = length(unique(c_across(c(group_ml, group_qds)))) > 1) %>% 
+  print()
 ```
 
 There are a bunch of id's with group membership data in master log, but not in QDS. Mostly, because these people haven't completed a v3 in QDS yet. We will go ahead and fill in the missing group data from the master log.
@@ -286,7 +358,7 @@ Below, we will formally check to see if there are any conflicting group values a
 ```{r}
 # For data checks
 check_qds_ml_group_diffs_not_na <- check_qds_ml_group_diffs %>% 
-  filter(!is.na(group_qds))
+  filter(!is.na(group_qds) & diff == TRUE)
 
 if (nrow(check_qds_ml_group_diffs_not_na) > 0) {
   stop("At least one participant is assigned to different groups in the QDS and master log data. This not simply due to a missing group value in master log. Please investigate further in data_survey_21_merge.Rmd.")
@@ -296,12 +368,13 @@ if (nrow(check_qds_ml_group_diffs_not_na) > 0) {
 Now there are no "conflicts" between group in the QDS data and group in the master log. The differences were all simply due to the fact that there is no group membership information at all in QDS for these participants. Therefore, we can just go ahead and row bind. In the future, if there are conflicts between group_diffs\$group_diffs and group_diffs\$group_qds, we will need to manage them.
 
 ```{r}
-group_membership_key <- group_qds %>%
+group_membership_key <- qds_id_group %>%
   full_join(
     check_qds_ml_group_diffs %>% 
-      select(id, group_ml),
-    by = "id"
+      select(id, group_ml), 
+    by = "id",
   ) %>% 
+  
   # Change class of group_ml to prevent error:
   # `false` must have class `numeric`, not class `haven_labelled/vctrs_vctr/double`
   mutate(group_ml = haven::labelled(group_ml)) %>% 
@@ -323,7 +396,7 @@ if (length(unique(group_membership_key$id)) != nrow(group_membership_key)) {
 # Clean up the data checking objects
 rm(
   check_qds_group_values, check_qds_ml_group_diffs, check_qds_ml_group_diffs_not_na,
-  check_qds_redcap_group_diffs, check_redcap_group_values, group_qds, group_qds_long
+  check_rc_group_values, group_rc, group_qds
 )
 ```
 
@@ -333,19 +406,19 @@ At this point, `group_membership_key` contains the final group value we will use
 
 ## QDS and REDCap
 
-Coerce af_drinks to numeric to prevent the following error: Error: Can't combine `..1$af_drinks` <character> and `..2$af_drinks` <double>.
+Coerce af_drinks to numeric to prevent the following error: Error: Can't combine '..1$af_drinks' <character> and '..2$af_drinks <double>.
 
 ```{r}
-qds <- qds %>% 
+qds <- qds %>%
   mutate(
     af_drinks = as.numeric(af_drinks)
   )
 ```
 
 ```{r}
-l2c_survey <- qds %>% 
-  bind_rows(rc) %>% 
-  arrange(id, visit) 
+l2c_survey <- qds %>%
+  bind_rows(rc) %>%
+  arrange(id,visit)
 ```
 
 ## Master log
@@ -375,7 +448,7 @@ There are also more people in the Master log than there are in the QDS/REDCap da
 Put in a check for this. If it fails, you probably need to update the Master Log import.
 
 ```{r}
-if (length(unique(l2c_survey$id)) >= length(unique(ml_sub$ml_id))) {
+if (length(unique(l2c_survey$id)) > length(unique(ml_sub$ml_id))) {
   stop(
     "There are more people in the Master log than there are in the QDS/REDCap data. If it fails, you probably need to update the Master Log import. Investigate in data_survey_21_merge.Rmd"
   )
@@ -400,6 +473,13 @@ l2c_survey <- l2c_survey %>%
 It looks like there is only one row per id. Check to make sure this is always the case. The join below will expect this condition. 
 
 ```{r}
+arrest %>%
+  group_by(id) %>% 
+  filter(max(row_number()) > 1)
+```
+
+
+```{r}
 arrest_one_row_per_id <- arrest %>% 
   summarise(one_row_per_id = nrow(.) == length(unique(id))) %>% 
   pull() 
@@ -409,7 +489,6 @@ if (!arrest_one_row_per_id) {
     "The arrest data has more than one row per id. Investigate in data_survey_21_merge.Rmd"
   )
 }
-
 rm(arrest_one_row_per_id)
 ```
 
@@ -474,7 +553,7 @@ l2c_survey <- l2c_survey %>%
 Make sure we get a warning if the number of columns in `l2c_survey` changes.
 
 ```{r}
-if (ncol(l2c_survey) != 1205) {
+if (ncol(l2c_survey) != 1184) {
   stop(
     "The number of columns in l2c_survey is different than expected.",
     " The expected number was 1,200.",
@@ -482,6 +561,13 @@ if (ncol(l2c_survey) != 1205) {
     " Investigate in data_survey_21_merge.Rmd"
   )
 }
+
+# 2023-03-20 Error: The number of columns in l2c_survey is different than expected. The expected number was 1,200. The actual number was 1184. Investigate in data_survey_21_merge.Rmd
+
+# 2023-03-20 Column Number Discrepancies
+  # 13 columns in REDCap are not used anymore for data collection, so reason why there's a 21 column      difference includes these 13. 
+  # There are 4 accounted variables for phone interviews not included.
+  # There are 4 unaccounted variables that have not been identified.
 ```
 
 # 🖨Print a message for when this file is being sourced
@@ -492,8 +578,8 @@ cat(
   "Combined Participant data cleaned with", nrow(l2c_survey), 
   "rows and", ncol(l2c_survey), "columns.\n"
 )
-
 # 2022-07-11: Combined Participant data cleaned with 1157 rows and 1202 columns.
+# 2023-03-20: Combined Participant data cleaned with 1601 rows and 1184 columns.
 ```
 
 

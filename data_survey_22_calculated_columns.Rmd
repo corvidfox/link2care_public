@@ -1,0 +1,1749 @@
+---
+title: "Import and manage Link2Care Survey Data"
+date: "2020-12-23"
+---
+
+This file is used to import the Link2Care follow-up visit survey data and do some initial data cleaning (e.g., create calculated variables). 
+
+**NOTE on data sources:**
+* Initially, I tried to separate importing the data from QDS, REDCap, and the Excel master log. However, that doesn't work very well because the three different data sources are so intertwined. For example, some people have visit 1 in QDS and visit 2 in REDCap. Further, the QDS data often doesn't contain every participant's group membership information (i.e., which study arm the participants were randomly assigned to). Therefore, we kind of need to import all three data sources and combine them to create complete follow-up visit survey data.
+
+* The QDS data is exported from QDS in SPSS data format. The data has to be exported by visit (i.e., v1, v2, ... v5). The SPSS data is then added to the UTHealth servers.
+
+* Some of the v3-v5 visits are also done using REDCap. That data is exported from REDCap and added to the UTHealth servers. Because I'm only creating tables of statistics from baseline visit right now, I'm not currently importing and cleaning the REDCap data. Correction, I still need the REDCap data for group membership at v3-v5.
+
+**NOTE on Kiteworks:**
+Currently, I'm importing all of this data from the UTHealth server. The data should also be available on Kiteworks if you are unable to connect to the server for some reason.
+
+# 📦Load packages
+
+```{r}
+library(dplyr, warn.conflicts = FALSE)
+library(haven, warn.conflicts = FALSE)
+library(readr, warn.conflicts = FALSE)
+library(readxl, warn.conflicts = FALSE)
+library(purrr, warn.conflicts = FALSE)
+library(tidyr, warn.conflicts = FALSE)
+library(stringr, warn.conflicts = FALSE)
+library(forcats, warn.conflicts = FALSE)
+```
+
+```{r}
+path <- "../Participant Data/R data/"
+```
+
+```{r}
+combo_data_frames <- c(
+  qds    = "qds_all_visits_import.rds",
+  combined_participant_data = "combined_participant_data.rds"
+)
+```
+
+```{r}
+for (i in seq_along(combo_data_frames)) {
+  full_path <- paste0(path, combo_data_frames[[i]])
+  df_nm     <- names(combo_data_frames)[[i]]
+  df        <- readRDS(full_path)
+  assign(df_nm, df, envir = .GlobalEnv)
+  
+  # Print a message for when this file is being sourced
+  cat(
+    paste0(Sys.Date(), ":"),
+    data_frames[[i]], "imported as", df_nm, "with", nrow(df), "rows and", 
+    ncol(df), "columns.\n"
+  )
+}
+
+rm(df_nm, full_path, i, path)
+```
+
+# 🚧Data management 
+
+**NOTE on converting to lowercase:** 
+* Don't convert all variable names to lowercase. Leaving the column names in uppercase makes it easier to use the Word code book and the SPSS code that Michael wrote. 
+* Make all calculated/created variables that will be used for analysis using lowercase names.
+
+## Create a single group variable
+
+Instead of group_v3, group_v4, and group_v5 (which can be conflicting). 
+
+First, gather all of the group information from the v3-v5 QDS data. We aren't using v1 and v2 because group membership isn't in the QDS survey at v1 and v2 (which is part of the problem).
+
+As of 2023-03-20 the combined dataset accounts for the group membership issue. This has been fixed and will include v1 and v2 for long dataset.
+
+## 🧮Recode/calculate variables by section
+
+1. Make variable names more descriptive
+2. Change skip values (e.g., 9, 99, etc.) to missing
+3. Make factor versions of categorical variables
+
+**NOTE:** Can't put this section higher because we need to do the steps above first.
+
+**NOTE on changing variable names:** The variable names aren't very descriptive. At first, my plan was to resist the urge to change them in this file. My thought was that I wanted the data that comes out of this file to have variable names that match the variables names in the codebook files. Then I realized, however, that none of the calculated variables will be in the codebook files anyway. Also, there isn't a codebook file for the combined survey data set. So, we can go ahead and rename variables in this file. We will either have to create a new codebook for the combined data or just live without one. 
+
+**NOTE on calculating over multiple visits:** Right now (2021-01-26), I'm only using this data to calculate baseline descriptive stats. Meaning, I'm only concerned with values at visit 1 and visit 2 (i.e., for some questions that weren't asked at visit 1). In the future, we will probably need to rewrite this code to iterate over multiple visits as well. For now, I'm not worrying about it.
+
+### Helper functions
+
+#### Convert 9's (or 7's, or 8's) to NA's and then add attributes back to vector.
+
+First, I have to remove the "have_labelled" and "vctrs_vctr" class from each variable for if_else() to work.
+
+But, I also need to keep the label attributes. They are erased when I convert the 9's to NA.
+
+```{r}
+nines_to_na <- function(x, nines) {
+  # Store the attributes
+  x_attr <- attributes(x)
+  # Remove "haven_labelled" and "vctrs_vctr" from class list so that if_else()
+  # will work.
+  # Set class of column to whatever is remaining in the class list.
+  classes <- class(x)
+  class(x) <- classes[!class(x) %in% c("haven_labelled", "vctrs_vctr")]
+  # Convert 9's to NA's
+  x <- if_else(x %in% nines, NA_real_, x)
+  # Add attributes back to the vector
+  attributes(x) <- x_attr
+  # Return x
+  x
+}
+
+# For testing
+# test <- combined_participant_data
+# test$SQ_13[1] <- 7
+# test$SQ_13[3] <- 9
+# test$SQ_13[4] <- 99
+# test %>% 
+#   select(SQ_13) %>% 
+#   mutate(SQ_13_test = nines_to_na(SQ_13, c(7, 9, 99))) %>% 
+#   pull(SQ_13_test) %>% 
+#   attributes()
+# rm(test)
+```
+
+#### Use SPSS labels as factor levels for categorical variables
+
+```{r}
+# For use inside across()
+spss_to_fs <- function(x) {
+  levs <- attr(x, "labels")
+  labs <- names(levs)
+  x_f <- factor(x, levs, labs)
+  x_f
+}
+
+# For testing
+# combined_participant_data %>%
+#   select(SQ_2, SQ_3) %>%
+#   mutate(
+#     across(
+#       everything(),
+#       spss_to_fs,
+#       .names = "{col}_f"
+#     )
+#   )
+```
+
+### 📄Template
+
+Save for cleaning additional variables below.
+
+```{r}
+# combined_participant_data %>%
+#   # For data checks
+#   select() %>%
+#   # X:Y doesn't immediately follow Z
+#   # Make variable names more descriptive
+#   rename(
+# 
+#   ) %>%
+# 
+#   # Change skip values (e.g., 9, 99, etc.) to missing
+#   mutate(
+#     across(
+#       c(),
+#       ~ nines_to_na(.x, )
+#     )
+#   ) %>%
+# 
+#   # Make factor versions of categorical variables
+#   mutate(
+#     across(
+#       c(),
+#       spss_to_fs,
+#       .names = "{col}_f"
+#     )
+#   )
+```
+
+### 1. Administrative and Exclusion Criteria
+
+### 2. Screening Questions (SQ)
+
+* Visit 1, Section 2, Q20-Q30
+
+**NOTE on SQ_18, Which of the following forms of media do you use?**
+We may eventually want to combine these into a "multiple forms" category.
+
+```{r}
+combined_participant_data <- df %>%
+  # For data checks
+  # select(SQ_12:SQ_21, SQ_18A:SQ_18I) %>% 
+  # SQ_18A:SQ_18I doesn't immediately follow SQ_18
+  # Make variable names more descriptive
+  rename(
+    cell_have = sq_12, 
+    cell_pays = sq_13, #9
+    cell_talk_minutes = sq_14, #9
+    cell_smart = sq_15, #9
+    cell_data_plan = sq_16, #9
+    cell_number_change = sq_17, #999
+    media_use_email = sq_18a,
+    media_use_facebook = sq_18b,
+    media_use_google_plus = sq_18c,
+    media_use_twitter = sq_18d,
+    media_use_blogs = sq_18e,
+    media_use_instagram = sq_18f,
+    media_use_snapchat = sq_18g,
+    media_use_linkedin = sq_18h,
+    media_use_none = sq_18i,
+    access_internet = sq_19,
+    facebook_active = sq_20,
+    facebook_check = sq_21, #9
+  ) %>%
+  # Change skip values (e.g., 9, 99, etc.) to missing
+  mutate(
+    across(
+      c(cell_pays:cell_data_plan, facebook_check),
+      ~ nines_to_na(.x, 9)
+    ),
+    across(
+      cell_number_change,
+      ~ nines_to_na(.x, 999)
+    )
+  ) %>% 
+  
+  # Make factor versions of categorical variables
+  mutate(
+    across(
+      c(
+        cell_have:cell_number_change, media_use_email:media_use_none,
+        access_internet:facebook_check
+      ),
+      spss_to_fs,
+      .names = "{col}_f"
+    )
+  )
+```
+
+### 3. Mini Mental Status Exam Score (MMS)
+
+* Visit 1, Section 3, Q31-Q50
+
+```{r}
+# Imported from Visit 1.sps
+combined_participant_data <- df %>% 
+  mutate(
+    mms_severity = case_when(
+      mms_s <= 17 ~ 2,
+      mms_s <= 23 ~ 1,
+      mms_s >  23 ~ 0
+    ),
+    mms_severity_f = factor(
+      mms_severity, 0:2, 
+      c(
+        "No cognitive impairment", "Mild cognitive impairment", 
+        "Severe cognitive impairment"
+      )
+    )
+  )
+
+# VARIABLE LABELS 
+attr(combined_participant_data$mms_count, "label") <- "MINI Mental State Exam score when participant is unable to count backwards from 100 by 7s and  are asked to spell (world) backwards"
+attr(combined_participant_data$mms_s, "label") <- "MINI Mental State Exam total score"
+attr(combined_participant_data$mms_severity, "label") <- "What is the liklihood of cognitive impairment?"
+
+# VALUE LABELS
+attr(combined_participant_data$mms_severity, "labels") <- c(
+  "No cognitive impairment" = 0, "Mild cognitive impairment" = 1,
+  "Severe cognitive impairment" = 2
+)
+```
+
+### 4. Realm
+
+* Visit 1, Section 4, Q51-Q53
+
+### 5. Biological/Anthropometric Measures
+
+* Visit 1, Section 5, Q54-Q60
+
+```{r}
+# Imported from Visit 1.sps
+combined_participant_data <- df %>%
+  mutate(
+    weight_kg_V1 = weight * 0.453592,
+    height_meter_V1 = height * 0.01,
+    height_meter_sq_V1 = height_meter_V1 * height_meter_V1,
+    BMI_V1= weight_kg_V1 / height_meter_sq_V1,
+    weight_status_V1 = case_when(
+      BMI_V1 < 18.5 ~ 0,
+      BMI_V1 >= 18.5 & BMI_V1 <= 24.99 ~ 1,
+      BMI_V1 >= 25 & BMI_V1 <= 29.99 ~ 2,
+      BMI_V1 >= 30 ~ 3
+    ),
+    obese_V1 = case_when(
+      weight_status_V1 == 0 | weight_status_V1 == 1 | weight_status_V1 == 2 ~ 0,
+      weight_status_V1 == 3 ~ 1
+    ),
+    ovrwt_obese_V1 = case_when(
+      weight_status_V1 == 0 | weight_status_V1 == 1 ~ 0,
+      weight_status_V1 == 2 | weight_status_V1 == 3 ~ 1
+    )
+  )
+
+# VARIABLE LABELS
+attr(combined_participant_data$weight_kg_V1, "label") <- "Weight in kilograms"
+attr(combined_participant_data$height_meter_V1, "label") <- "Height in meters"
+attr(combined_participant_data$height_meter_sq_V1, "label") <- "Height in meters squared"
+attr(combined_participant_data$BMI_V1, "label") <- "Body mass index"
+attr(combined_participant_data$weight_status_V1, "label") <- "Weight categorized into underweight, normal, overweight, and obese"
+attr(combined_participant_data$obese_V1, "label") <- "Obese"
+attr(combined_participant_data$ovrwt_obese_V1, "label") <- "Overweight or obese"
+
+# VALUE LABELS 
+attr(combined_participant_data$weight_status_V1, "labels") <- c(
+  "underweight" = 0, "normal" = 1, "overweight" = 2, "obese" = 3
+)
+attr(combined_participant_data$obese_V1, "labels") <- c("not obese" = 0, "obese" = 1)
+attr(combined_participant_data$ovrwt_obese_V1, "labels") <- c(
+  "not overweight or obese" = 0, "overweight or obese" = 1
+)
+```
+
+### 6. Socioeconomic Status/Demographic Questionnaires
+
+* Visit 1, Section 6, No questions
+
+### 7. Demographic/Background Information Questionnaire (DEM)
+
+### 8. The Brief Homelessness Questionnaire (bh)
+
+* Visit 1, Section 8, Q97-Q122
+
+2020-12-24, from Michael: Use bh15V1 for number of times arrested.
+
+```{r}
+  # For data checks
+  # select(bh1V1:bh4V1, bh4V1Y:bh4V1D, bh12AV1A:bh12AV1L, bh15V1) %>%
+  # bh4V1Y:bh4V1D doesn't immediately follow bh4V1D
+  # bh12AV1A:bh12AV1L doesn't immediately follow bh12AV1
+  # Make variable names more descriptive
+combined_participant_data <- df %>%
+  rename(
+    homeless_time_total = bh_1, #9999
+    homeless_periods = bh_2, #9
+    homeless_age_first_time = bh_3, #999
+    homeless_current_total = bh_4, #9999
+    homeless_mental_treatment = bh_5, #9
+    homeless_reason_total = bh_12, #9999
+    homeless_reason_not_homeless = bh_12a, #9
+    homeless_reason_lost_job = bh_12b, #9
+    homeless_reason_evicted = bh_12c, #9
+    homeless_reason_substance = bh_12d, #9
+    homeless_reason_mental_illness =bh_12e, #9
+    homeless_reason_medical_bills = bh_12f, #9
+    homeless_reason_family = bh_12g, #9
+    homeless_reason_legal = bh_12h, #9
+    homeless_reason_jail = bh_12i, #9
+    homeless_reason_natural_disaster = bh_12j, #9
+    homeless_reason_domestic_violence = bh_12k, #9
+    homeless_reason_other = bh_12l, #9
+    jail_lifetime_n = bh_15 #99
+  ) %>%
+
+  # Change skip values (e.g., 9, 99, etc.) to missing
+  mutate(
+    across(
+      c(
+        homeless_periods, homeless_mental_treatment,
+        homeless_reason_not_homeless:homeless_reason_other
+      ),
+      ~ nines_to_na(.x, 9)
+    ),
+    across(
+      c(jail_lifetime_n),
+      ~ nines_to_na(.x, 99)
+    ),
+    across(
+      c(
+        homeless_age_first_time
+      ),
+      ~ nines_to_na(.x, 999)
+    ),
+    across(
+      c(homeless_time_total, homeless_current_total),
+     ~ nines_to_na(.x, 9999)
+    )
+  ) %>%
+
+  # Make factor versions of categorical variables
+  mutate(
+    across(
+      c(homeless_periods, homeless_mental_treatment, jail_lifetime_n),
+      spss_to_fs,
+      .names = "{col}_f"
+    )
+  )
+
+# VARIABLE LABELS
+attr(combined_participant_data$homeless_time_total, "label") <- "What is the total amount of time you have been homeless in your lifetime? (Months)"
+attr(combined_participant_data$homeless_periods_f, "label") <- "How many separate periods of homelessness have you had in your lifetime?"
+attr(combined_participant_data$homeless_age_first_time, "label") <- "How old were you the first time you became homeless?"
+attr(combined_participant_data$homeless_current_total, "label") <- "How long ago did the current period of homelessness begin? (Months)"
+attr(combined_participant_data$homeless_reason_total, "label") <- "What are the reasons for your current homelessness?"
+attr(combined_participant_data$homeless_mental_treatment_f, "label") <- "Are you currently receiving treatment for mental health problems (For example: Depression, Bipolar Disorder, Anxiety)?"
+attr(combined_participant_data$jail_lifetime_n_f, "label") <- "During your lifetime, how many separate times have you been to jail or prison?"
+```
+
+Calculate jail time
+
+2020-12-24, from Michael: "You will have to calculate total time in jail because the current variable does not include decimals – here is the syntax to calculate the lifetime period in jail variable: bh17V1Y + bh17v1M/12 + bh17v1w/52."
+
+Just out of curiosity, I checked for differences between jail_time_total and jail_time_total_c. They are almost identical.
+
+```{r}
+combined_participant_data <- df %>%
+  rename(
+    jail_time_total = bh_17)
+# VARIABLE LABELS
+attr(combined_participant_data$jail_time_total, "label") <- "During your lifetime, how much time have you spent in jail or prison? (Years)"
+```
+
+### 9. MacArthur Scale of Subjective Social Status (SSS)
+
+* Visit 1, Section 9, Q123-Q124
+
+### 10. Health, Mental Health, and Health Behavior 
+
+* Visit 1, Section 10, No questions
+* Visit 2, Section 1, No questions
+
+### 11. Patient Health Questionnaire (PHQ)
+
+* Visit 1, Section 11, Q125-Q139
+
+#### 11.1 PHQ 8
+
+* Visit 1, Q125-Q132
+
+```{r}
+phq_8_vars <- paste0("phq_", 1:8)
+phq_8_var_labs <- c(
+  'Little interest or pleasure in doing things dichotomized',
+  'Felling down, depressed, or hopeless dichotomized',
+  'Trouble falling or staying asleep, or sleeping too much dichotomized',
+  'Feeling tired or having little energy dichotomized',
+  'Poor appetite or overeating dichotomized',
+  'Failure or have let yourself or your family down dichotomized',
+  'Reading the newspaper or watching television dichotomized',
+  'Fidgety or restless dichotomized'
+)
+phq_8_val_labs <- c(
+  'Not at all and several days' = 0, 
+  'More than half the days and nearly every day' = 1
+)
+```
+
+Dichotomize the values
+
+```{r}
+# Imported from Visit 1.sps
+combined_participant_data <- combined_participant_data %>%
+  mutate(
+    across(
+      .cols = all_of(phq_8_vars),
+      .fns  = ~ case_when(
+        .x  < 2 ~ 0,
+        .x >= 2 & .x < 9 ~ 1 # 9 = skipped
+      ),
+      .names = "{col}_dichot"
+    )
+  )
+
+# Add column and value labels
+for(i in seq_along(phq_8_vars)) {
+  d <- paste0(phq_8_vars[[i]], "_dichot")
+  attr(combined_participant_data[[d]], "label") <- phq_8_var_labs[[i]]
+  attr(combined_participant_data[[d]],"labels") <- phq_8_val_labs
+}
+```
+
+PHQ depression dichotomized total score.
+
+```{r}
+# Imported from Visit 1.sps
+combined_participant_data <- combined_participant_data %>% 
+  mutate(
+    phq_dep_dichot_total = phq_1_dichot + phq_2_dichot + phq_3_dichot + 
+      phq_4_dichot + phq_5_dichot + phq_6_dichot + phq_7_dichot + 
+      phq_8_dichot
+  )
+
+# VARIABLE LABELS 
+attr(combined_participant_data$phq_dep_dichot_total, "label") <- 'PHQ depression dichotomized total'
+```
+
+PHQ 8 score greater than 10
+Requested by Michael 2020-12-11
+
+```{r}
+# Imported from Visit 1.sps
+combined_participant_data <- combined_participant_data %>% 
+  mutate(
+    phq_8_total = phq_1 + phq_2 + phq_3 + 
+      phq_4 + phq_5 + phq_6 + phq_7 + 
+      phq_8,
+    phq_8_gt_10 = as.numeric(phq_8_total > 10),
+    phq_8_gt_10_f = factor(phq_8_gt_10, 0:1, c("No", "Yes"))
+  )
+
+# VARIABLE LABELS 
+attr(combined_participant_data$phq_8_total, "label") <- "Sum of phq_1-phq_8"
+attr(combined_participant_data$phq_8_gt_10, "label") <- "PHQ 8 total score greater than 10"
+
+# VALUE LABELS 
+attr(combined_participant_data$phq_8_gt_10, "labels") <-  c('No' = 0, 'Yes' = 1) 
+```
+
+Does PHQ1 or PHQ2 have more than half the days and nearly every day selected?
+
+```{r}
+# Imported from Visit 1.sps
+combined_participant_data <- combined_participant_data %>% 
+  mutate(
+    phq_symp = case_when(
+      phq_1_dichot == 1 | phq_2_dichot == 1 ~ 1,
+      phq_1_dichot == 0 & phq_2_dichot == 0 ~ 0
+    )
+  )
+
+# VARIABLE LABELS 
+attr(combined_participant_data$phq_symp, "label") <- 'Does PHQ1 or PHQ2 have more than half the days and nearly every day selected?'
+
+# VALUE LABELS 
+attr(combined_participant_data$phq_symp, "labels") <- c('No' = 0, 'Yes' = 1)
+```
+
+Is there probable major depressive disorder?
+
+```{r}
+# Imported from Visit 1.sps
+combined_participant_data <- combined_participant_data %>% 
+  mutate(
+    phq_mdd = case_when(
+      phq_symp == 1 & phq_dep_dichot_total > 4 ~ 1,
+      phq_symp == 0 ~ 0,
+      phq_dep_dichot_total < 5 ~ 0
+    )
+  ) 
+
+# VARIABLE LABELS 
+attr(combined_participant_data$phq_mdd, "label") <- 'Is there probable major depressive disorder?'
+
+# VALUE LABELS 
+attr(combined_participant_data$phq_mdd, "labels") <-  c('No' = 0, 'Yes' = 1) 
+```
+
+```{r}
+# Clean up
+rm(d, i, phq_8_val_labs, phq_8_var_labs, phq_8_vars)
+```
+
+#### 11.2 PHQ GAD-7
+
+### 12. SF-12 Health Survey (HS)
+
+* Visit 1, Section 12, Q140-Q151
+
+General health question
+
+```{r}
+# Imported from Visit 1.sps
+combined_participant_data <- combined_participant_data %>%
+  mutate(
+    gen_health = nines_to_na(hs_1, 9),
+    gen_health_dichot = case_when(
+      hs_1 == 1 | hs_1 == 2 | hs_1 == 3 ~ 0,
+      hs_1 == 4 | hs_1 == 5 ~ 1
+    )
+  )
+
+# VARIABLE LABELS
+attr(combined_participant_data$gen_health_dichot, "label") <- "Self rated health fair or poor"
+
+# VALUE LABELS 
+attr(combined_participant_data$gen_health_dichot, "labels") <- c(
+  "excellent to good health" = 0,
+  "fair or poor health" = 1
+)
+
+combined_participant_data <- combined_participant_data %>%
+  # For data checks
+  # select(gen_health_v1, gen_health_dichot_v1) %>%
+  # Make factor versions of categorical variables
+  mutate(
+    across(
+      c(gen_health, gen_health_dichot),
+      spss_to_fs,
+      .names = "{col}_f"
+    )
+  )
+```
+
+Helpful scoring documentation: https://www.researchgate.net/profile/John_Ware/publication/291994160_How_to_score_SF-12_items/links/58dfc467a6fdcc41bf920748/How-to-score-SF-12-items.pdf
+
+Pull out the SF-12 items
+
+```{r}
+sf12 <- select(combined_participant_data, hs_1:hs_12)
+names(sf12) <- c(
+  "gh1", "pf02", "pf04", "rp2", "rp3", "re2", "re3", "bp2", "mh3", "vt2", "mh4", 
+  "sf2"
+)
+sf12 <- mutate(sf12, across(everything(), as.numeric))
+```
+
+#### Step 1. Data cleaning and item recoding
+
+```{r}
+sf12 <- sf12 %>% 
+  mutate(
+    # Recode 7, 8, 9 to NA
+    across(
+      everything(),
+      .fns = function(x) {
+        x[x == 7] <- NA
+        x[x == 8] <- NA
+        x[x == 9] <- NA
+        x
+      }
+    )
+  )
+```
+
+Make sure all items are within range.
+
+```{r rows.print=12}
+sf12 %>% 
+  summarise(
+    across(
+      .cols = everything(),
+      .fns = list(min = ~min(.x, na.rm = TRUE), max = ~max(.x, na.rm = TRUE))
+    )
+  ) %>% 
+  pivot_longer(
+    everything(),
+    names_to = c("column", ".value"),
+    names_sep = "_"
+  )
+```
+
+They are all in range, now reverse scoring for GH1 (item #1), BP2 (item #8), MH3 (item #9), and VT2 (item #10). These directions come from https://www.researchgate.net/profile/John_Ware/publication/291994160_How_to_score_SF-12_items/links/58dfc467a6fdcc41bf920748/How-to-score-SF-12-items.pdf, pg. 22.
+
+Poor health should be low score, and good health should be high score.
+
+```{r}
+sf12 <- sf12 %>% 
+  mutate(
+    across(
+      .cols = c(gh1, bp2),
+      .fns  = ~ case_when(
+        .x == 1 ~ 5,
+        .x == 2 ~ 4,
+        .x == 3 ~ 3,
+        .x == 4 ~ 2,
+        .x == 5 ~ 1
+      ),
+      .names = "r{col}"
+    ),
+    across(
+      .cols = c(mh3, vt2),
+      .fns  = ~ case_when(
+        .x == 1 ~ 6,
+        .x == 2 ~ 5,
+        .x == 3 ~ 4,
+        .x == 4 ~ 3,
+        .x == 5 ~ 2,
+        .x == 6 ~ 1
+      ),
+      .names = "r{col}"
+    )
+  )
+```
+
+#### Step 2: Create indicator variables from item response choices
+
+```{r}
+sf12$pf02_1 <- as.numeric(sf12$pf02 == 1L) 
+sf12$pf02_2 <- as.numeric(sf12$pf02 == 2L) 
+
+sf12$pf04_1 <- as.numeric(sf12$pf04 == 1L) 
+sf12$pf04_2 <- as.numeric(sf12$pf04 == 2L)
+
+sf12$rp2_1 <- as.numeric(sf12$rp2 == 1L) 
+
+sf12$rp3_1 <- as.numeric(sf12$rp3 == 1L) 
+
+sf12$bp2_1 <- as.numeric(sf12$rbp2 == 1L) 
+sf12$bp2_2 <- as.numeric(sf12$rbp2 == 2L) 
+sf12$bp2_3 <- as.numeric(sf12$rbp2 == 3L) 
+sf12$bp2_4 <- as.numeric(sf12$rbp2 == 4L) 
+
+sf12$gh1_1 <- as.numeric(sf12$rgh1 == 1L) 
+sf12$gh1_2 <- as.numeric(sf12$rgh1 == 2L) 
+sf12$gh1_3 <- as.numeric(sf12$rgh1 == 3L) 
+sf12$gh1_4 <- as.numeric(sf12$rgh1 == 4L) 
+
+sf12$vt2_1 <- as.numeric(sf12$rvt2 == 1L) 
+sf12$vt2_2 <- as.numeric(sf12$rvt2 == 2L) 
+sf12$vt2_3 <- as.numeric(sf12$rvt2 == 3L) 
+sf12$vt2_4 <- as.numeric(sf12$rvt2 == 4L) 
+sf12$vt2_5 <- as.numeric(sf12$rvt2 == 5L) 
+
+sf12$sf2_1 <- as.numeric(sf12$sf2 == 1L) 
+sf12$sf2_2 <- as.numeric(sf12$sf2 == 2L) 
+sf12$sf2_3 <- as.numeric(sf12$sf2 == 3L) 
+sf12$sf2_4 <- as.numeric(sf12$sf2 == 4L) 
+
+sf12$re2_1 <- as.numeric(sf12$re2 == 1L) 
+
+sf12$re3_1 <- as.numeric(sf12$re3 == 1L) 
+
+sf12$mh3_1 <- as.numeric(sf12$rmh3 == 1L) 
+sf12$mh3_2 <- as.numeric(sf12$rmh3 == 2L) 
+sf12$mh3_3 <- as.numeric(sf12$rmh3 == 3L) 
+sf12$mh3_4 <- as.numeric(sf12$rmh3 == 4L) 
+sf12$mh3_5 <- as.numeric(sf12$rmh3 == 5L) 
+
+sf12$mh4_1 <- as.numeric(sf12$mh4 == 1L) 
+sf12$mh4_2 <- as.numeric(sf12$mh4 == 2L) 
+sf12$mh4_3 <- as.numeric(sf12$mh4 == 3L) 
+sf12$mh4_4 <- as.numeric(sf12$mh4 == 4L) 
+sf12$mh4_5 <- as.numeric(sf12$mh4 == 5L) 
+```
+
+#### Step 3. Weighting and aggregation of indicator variables using physical and mental regression weights
+
+```{r}
+raw_pcs_12 <- with(sf12,
+  (-7.23216*pf02_1) + (-3.45555*pf02_2) +
+  (-6.24397*pf04_1) + (-2.73557*pf04_2) +
+  (-4.61617*rp2_1) + 
+  (-5.51747*rp3_1) +
+  (-11.25544*bp2_1) + (-8.38063*bp2_2) +
+  (-6.50522*bp2_3) + (-3.80130*bp2_4) + (-8.37399*gh1_1) +
+  (-5.56461*gh1_2) + (-3.02396*gh1_3) + (-1.31872*gh1_4) +
+  (-2.44706*vt2_1) + (-2.02168*vt2_2) + (-1.6185*vt2_3) +
+  (-1.14387*vt2_4) + (-0.42251*vt2_5) + (-0.33682*sf2_1) +
+  (-0.94342*sf2_2) + (-0.18043*sf2_3) + (0.11038*sf2_4) +
+  (3.04365*re2_1) + (2.32091*re3_1) + (3.46638*mh3_1) +
+  (2.90426*mh3_2) + (2.37241*mh3_3) + (1.36689*mh3_4) +
+  (0.66514*mh3_5) + (4.61446*mh4_1) + (3.41593*mh4_2) +
+  (2.34247*mh4_3) + (1.28044*mh4_4) + (0.41188*mh4_5)
+)
+  
+raw_mcs_12 <- with(sf12,
+  (3.93115*pf02_1) + (1.8684*pf02_2) +
+  (2.68282*pf04_1) + (1.43103*pf04_2) + (1.4406*rp2_1) +
+  (1.66968*rp3_1) + (1.48619*bp2_1) + (1.76691*bp2_2) +
+  (1.49384*bp2_3) + (0.90384*bp2_4) + (-1.71175*gh1_1) +
+  (-0.16891*gh1_2) + (0.03482*gh1_3) + (-0.06064*gh1_4) +
+  (-6.02409*vt2_1) + (-4.88962*vt2_2) + (-3.29805*vt2_3) +
+  (-1.65178*vt2_4) + (-0.92057*vt2_5) + (-6.29724*sf2_1) +
+  (-8.26066*sf2_2) + (-5.63286*sf2_3) + (-3.13896*sf2_4) +
+  (-6.82672*re2_1) + (-5.69921*re3_1) + (-10.19085*mh3_1) +
+  (-7.92717*mh3_2) + (-6.31121*mh3_3) + (-4.09842*mh3_4) +
+  (-1.94949*mh3_5) + (-16.15395*mh4_1) + (-10.77911*mh4_2) +
+  (-8.09914*mh4_3) + (-4.59055*mh4_4) + (-1.95934*mh4_5)
+)
+```
+
+#### Step 4. Norm-based standardization of scale scores
+
+And add the Physical Component Summary (pcs) and Mental Component Summary (mcs) scores to the full data frame.
+
+```{r}
+combined_participant_data <- combined_participant_data %>% 
+  mutate(
+    pcs_12 = raw_pcs_12 + 56.57706,
+    mcs_12 = raw_mcs_12 + 60.75781
+  )
+
+# VARIABLE LABELS 
+attr(combined_participant_data$pcs_12, "label") <- 'SF-12 Physical Component Summary Score'
+attr(combined_participant_data$mcs_12, "label") <- 'SF-12 Physical Component Summary Score'
+```
+
+```{r}
+rm(sf12, raw_mcs_12, raw_pcs_12)
+```
+
+### 13. Health Related Quality of Life (HRQ)
+
+* Visit 1, Section 13, Q152-Q154
+
+```{r}
+combined_participant_data <- combined_participant_data %>%
+  # For data checks
+  # select(HRQ1_V1:HRQ3_V1) %>%
+  # Make variable names more descriptive
+  rename(
+    hrq_physical_30	= hrq_1,
+    hrq_mental_30 =	hrq_2,
+    hrq_limit_activities_30 =	hrq_3
+  ) %>%
+
+  # Change skip values (e.g., 9, 99, etc.) to missing
+  mutate(
+    across(
+      c(hrq_physical_30:hrq_limit_activities_30),
+      ~ nines_to_na(.x, 99)
+    )
+  )
+```
+
+### 14. Self-Rated Health Questionnaire (S)
+
+* Visit 1, Section 14, Q155-Q211
+
+#### 14.1 History of Mental illnesses
+
+```{r}
+# Imported from Visit 1.sps
+combined_participant_data <- combined_participant_data %>% 
+  mutate(
+    Mental_Health_dx = case_when(
+      srh_19 == 1 | srh_20 == 1 | srh_21 == 1 | srh_22 == 1 | srh_23 == 1 ~ 1,
+      srh_19 == 0 & srh_20 == 0 & srh_21 == 0 & srh_22 == 0 & srh_23 == 0 ~ 0
+    )
+  )
+
+# VARIABLE LABELS
+attr(combined_participant_data$Mental_Health_dx, "label") <- "If history of depression, anxiety, ptsd, bipolar, or schizo present"
+# VALUE LABELS 
+attr(combined_participant_data$Mental_Health_dx, "labels") <- c(
+  "has no history of mental illness" = 0, 
+  "has a history of at least one mental illness" = 1
+)
+```
+
+#### 14.2 History of Substance abuse
+
+2021-01-25: Before I can do this part, I need to figure out what the line below that says "IF (S29_V1 =0) Substance_abuse_hs = 0" does. More specifically, what is the value of Substance_abuse_hs when S29_V1 does not equal 0? Is Substance_abuse_hs just missing? Don't need this right now for the big descriptive table though.
+
+#### 14.3 Pain
+
+```{r}
+# Imported from Visit 1.sps
+combined_participant_data <- combined_participant_data %>% 
+  mutate(
+    pain = case_when(
+      srh_49 <= 2 ~ 0,
+      srh_49 >= 3 ~ 1
+    )
+  )
+
+# VARIABLE LABELS
+attr(combined_participant_data$pain, "label") <- "Pain level in last 4 weeks categorized into none-mild and mod-severe"
+# VALUE LABELS 
+attr(combined_participant_data$pain, "labels") <- c(
+  "none to mild pain" = 0, "moderate or severe pain" = 1
+)
+```
+
+#### 14.4 Smartphone app
+
+```{r}
+combined_participant_data <- combined_participant_data %>%
+  # For data checks
+  # select(S41_V1:S43_V1) %>%
+  # X:Y doesn't immediately follow Z
+  # Make variable names more descriptive
+  rename(
+    sp_app_change_behavior = srh_50,
+    sp_app_manage_health = srh_51
+  ) %>%
+
+  # Change skip values (e.g., 9, 99, etc.) to missing
+  mutate(
+    across(
+      c(sp_app_change_behavior, sp_app_manage_health),
+      ~ nines_to_na(.x, c(7, 8, 9))
+    )
+  ) %>%
+
+  # Make factor versions of categorical variables
+  mutate(
+    across(
+      c(sp_app_change_behavior, sp_app_manage_health),
+      spss_to_fs,
+      .names = "{col}_f"
+    )
+  ) %>% 
+  
+  # Drop Don't Know/Refuse to Answer/Not Applicable factor levels. 
+  # We don't want them showing up on categorical analysis.
+  mutate(
+    across(
+      c(sp_app_change_behavior_f, sp_app_manage_health_f),
+      ~ fct_drop(.x, only = c("Don't Know", "Refuse to Answer", "Not Applicable"))
+    )
+  )
+```
+
+Create a combined What type of health related issue variable. This has been created as of 2023-03-27 for "srh_52."
+
+### 15. PTSD Screen (PTSD)
+
+* Visit 1, Section 15, Q212-Q215
+
+```{r}
+# Imported from Visit 1.sps
+combined_participant_data <- combined_participant_data %>% 
+  mutate(
+    ptsd_total = ptsd_1 + ptsd_2 + ptsd_3 + ptsd_4,
+    ptsd_positive = case_when(
+      ptsd_total >= 3 ~ 1,
+      ptsd_total <  3 ~ 0
+    ))
+
+# VARIABLE LABELS
+attr(combined_participant_data$ptsd_total, "label") <- "Sum PTSD Total"
+attr(combined_participant_data$ptsd_positive, "label") <- "Probable PTSD"
+
+# VALUE LABELS 
+attr(combined_participant_data$ptsd_positive, "labels") <- c("no PTSD" = 0, "probable PTSD" = 1)
+```
+
+### 16. Tobacco History Questionnaire (T)
+
+* Visit 1, Section 16, Q216-Q271
+
+```{r}
+# Imported from Visit 1.sps
+combined_participant_data <- combined_participant_data %>% 
+  mutate(
+    # Ratio of close friends who smoke
+    # Excludes cases where close friends = 0
+    friends_smoke = case_when(
+      t_40 > 0 ~ t_41 / t_40
+    ),
+    # Spouse who smokes
+    spouse_smoke = case_when(
+      t_36 == 1 & t_37 == 1 ~ 1,
+      t_36 == 1 & t_37 == 0 ~ 0
+    )
+  )
+
+# VARIABLE LABELS
+attr(combined_participant_data$friends_smoke, "label") <- "Ratio of close friends who smoke for baseline"
+attr(combined_participant_data$spouse_smoke, "label") <- "if a participant has a spouse or partner that smokes"
+
+# VALUE LABELS 
+attr(combined_participant_data$spouse_smoke, "labels") <- c(
+  "participant does not have spouse or partner who smokes" = 0,
+  "participant has spouse or partner who smokes" =1
+)
+```
+
+### 17. Heaviness of Smoking Index (HSI)
+
+* Visit 1, Section 17, Q272-Q273
+
+Heaviness of Smoking Index for each visit + heaviness of smoking index recoded into categories
+
+```{r}
+# Imported from Visit 1.sps
+combined_participant_data <- combined_participant_data %>%
+  mutate(
+    hsi_bl = hsi_1 + hsi_2,
+    hsi_bl_cat = case_when(
+      hsi_bl <= 2 ~ 0,
+      hsi_bl == 3 ~ 1,
+      hsi_bl == 4 ~ 2,
+      hsi_bl >= 5 ~ 3
+    )
+  )
+
+# VARIABLE LABELS 
+attr(combined_participant_data$hsi_bl, "label") <- 'HSI_BL score'
+attr(combined_participant_data$hsi_bl_cat, "label") <- 'HSI recoded into categories'
+
+# VALUE LABELS 
+attr(combined_participant_data$hsi_bl_cat, "labels") <- c(
+  'very low dependence' = 0, 'low to moderate dependence' = 1,
+  'moderate dependence' = 2, 'high dependence' = 3
+)
+```
+
+### 18. BRFSS - Inadequate Sleep (BRS)
+
+* Visit 1, Section 18, Q274-Q278
+As of 2023-03-28, variables "bris2_qd_dichot" and "unintent_slp" have been created in the combined dataset and don't need to be calculated.
+
+### 19. Alcohol Quantity, Frequency and Binge Drinking Questionnaire (AF)
+
+* Visit 1, Section 19, Q279-Q290
+
+```{r}
+# Imported from Visit 1.sps
+combined_participant_data <- combined_participant_data %>%
+  # For data checks
+  # select(gender_v1, starts_with("af") & ends_with("V1")) %>%
+  
+  # Change skip values (e.g., 9, 99, etc.) to missing
+  mutate(
+    across(
+      c(af_1,af_9),
+      ~ nines_to_na(.x, 9)
+    ),
+    across(
+      c(af_2m:af_8su, af_9a:af_9c),
+      ~ nines_to_na(.x, 99)
+    )
+  ) %>%
+  
+  # Calculated variables
+  rowwise() %>% 
+  mutate(
+    drink_avg_per_week = case_when(
+      af_1 == 0 ~ 0,
+      TRUE ~ sum(c_across(af_2m:af_8su))
+    ),
+    binge_drinker = case_when(
+      af_9a >= 1 | af_9b >= 11 | af_9c >= 21 ~ 1,
+      af_9a == 0 ~ 0,
+      af_1  == 0 ~ 0
+    ),
+    heavy_drinker_bl = case_when(
+      gender == 0 & drink_avg_per_week <= 14 ~ 0,
+      gender == 0 & drink_avg_per_week >  14 ~ 1,
+      gender == 1 & drink_avg_per_week <= 7  ~ 0,
+      gender == 1 & drink_avg_per_week >  7  ~ 1
+    )
+  ) %>% 
+  ungroup() %>% 
+  # Number binge drinking days in past 30 days 
+  # Not in Visit 1.sps
+  mutate(
+    binge_drink_days = case_when(
+      # Have to do as.numeric because of the SPSS labels
+      is.na(af_9) ~ NA_real_,
+      as.numeric(af_9) == 0 & is.na(af_9a) ~ 0,
+      as.numeric(af_9) == 0 & as.numeric(af_9a) == 0 ~ 0,
+      as.numeric(af_9) == 0 ~ as.numeric(af_9a),
+      as.numeric(af_9) == 1 ~ as.numeric(af_9b),
+      as.numeric(af_9) == 2 ~ as.numeric(af_9c),
+    )
+  )
+  
+
+# VARIABLE LABELS
+attr(combined_participant_data$drink_avg_per_week, "label") <- "Total drinks avg week"
+attr(combined_participant_data$binge_drinker, "label") <- "Binge drinking in the past 30 days"
+attr(combined_participant_data$heavy_drinker_bl, "label") <- "Heavy drinker = 1 if women >7 drinks per week or men > 14 drinks per week"
+attr(combined_participant_data$binge_drink_days, "label") <- "N Binge drinking days in past 30 days"
+
+# VALUE LABELS
+attr(combined_participant_data$binge_drinker, "labels") <- c(
+  "no binge drinking in the past 30 days" = 0,
+  "yes binge drinking in the past 30 days" = 1
+)
+attr(combined_participant_data$heavy_drinker_bl, "labels") <- c(
+  "not a heavy drinker" = 0, "heavy drinker" = 1
+)
+```
+
+### 20. Meal Survey (MS)
+
+* Visit 1, Section 20, Q291-Q294
+
+```{r}
+combined_participant_data <- combined_participant_data %>%
+  # For data checks
+  # select(starts_with("MS") & ends_with("V1")) %>%
+  # X:Y doesn't immediately follow Z
+  # Make variable names more descriptive
+  rename(
+    meals_eaten_yesterday = ms_1,
+    meals_cafeteria_24_hours = ms_2,
+    meals_fruit_veg_yesterday = ms_3,
+    meals_missed_week = ms_4
+  ) %>%
+
+  # Change skip values (e.g., 9, 99, etc.) to missing
+  mutate(
+    across(
+      c(meals_eaten_yesterday:meals_missed_week),
+      ~ nines_to_na(.x, 9)
+    )
+  ) %>%
+
+  # Make factor versions of categorical variables
+  mutate(
+    across(
+      c(meals_eaten_yesterday:meals_missed_week),
+      spss_to_fs,
+      .names = "{col}_f"
+    )
+  )
+```
+
+### 21. Sexual Behaviors (SB)
+
+* Visit 1, Section 21, Q295-Q303
+
+### 22. Stress
+
+* Visit 1, Section 22, No questions
+* Visit 2, Section 7, No questions
+
+### 23. Detroit Day Discrimination (DD)
+
+* Visit 1, Section 23, Q304-Q313
+
+```{r}
+# Ported from Visit 1.sps
+combined_participant_data <- combined_participant_data %>%
+  mutate(
+    ddd_total = dd_1 + dd_2 + dd_3 + dd_4 + dd_5 + dd_6 +
+      dd_7  + dd_8 + dd_9
+  )
+```
+
+```{r}
+combined_participant_data <- combined_participant_data %>%
+  # For data checks
+  # select(DD1_V1:DD10_V1) %>%
+  # Make variable names more descriptive
+  rename(
+    ddd_less_courtesy = dd_1,
+    ddd_less_respect = dd_2,
+    ddd_poorer_service = dd_3,
+    ddd_not_smart = dd_4,
+    ddd_afraid = dd_5,
+    ddd_dishonest = dd_6,
+    ddd_better = dd_7,
+    ddd_insulted = dd_8,
+    ddd_threatened = dd_9,
+    ddd_main_reason = dd_10
+  ) %>%
+
+  # Change skip values (e.g., 9, 99, etc.) to missing
+  mutate(
+    across(
+      c(ddd_less_courtesy:ddd_threatened),
+      ~ nines_to_na(.x, 9)
+    ),
+    ddd_main_reason = nines_to_na(ddd_main_reason, c(97, 98, 99))
+  ) %>% 
+
+  # Make factor versions of categorical variables
+  mutate(
+    across(
+      c(ddd_less_courtesy:ddd_main_reason),
+      spss_to_fs,
+      .names = "{col}_f"
+    )
+  ) %>% 
+  
+  # Drop Don't Know/Refuse to Answer/Not Applicable factor levels. 
+  # We don't want them showing up on categorical analysis.
+  mutate(
+    across(
+      c(ddd_main_reason_f),
+      ~ fct_drop(.x, only = c("Don't Know", "Refuse to Answer", "Not Applicable"))
+    )
+  ) 
+
+# VARIABLE LABELS
+attr(combined_participant_data$ddd_less_courtesy_f, "label") <- "In your day-to-day life how often are you treated with less courtesy?"
+attr(combined_participant_data$ddd_less_respect_f, "label") <- "In your day-to-day life how often are you treated with less respect?"
+attr(combined_participant_data$ddd_poorer_service_f, "label") <- "In your day-to-day life how often do you receive poorer service than other people at restaurants or stores?"
+attr(combined_participant_data$ddd_not_smart_f, "label") <- "In your day-to-day life how often do people act as if they think you are not smart?"
+attr(combined_participant_data$ddd_afraid_f, "label") <- "In your day-to-day life how often do people act as if they are afraid of you?"
+attr(combined_participant_data$ddd_dishonest_f, "label") <- "In your day-to-day life how often do people act as if they think you are dishonest?"
+attr(combined_participant_data$ddd_better_f, "label") <- "In your day-to-day life how often do people act as if they're better than you ?"
+attr(combined_participant_data$ddd_insulted_f, "label") <- "In your day-to-day life how often are you called names or insulted?"
+attr(combined_participant_data$ddd_threatened_f, "label") <- "In your day-to-day life how often are you threatened or harassed?"
+attr(combined_participant_data$ddd_main_reason_f, "label") <- "What was the main reason for the discrimination you experienced?"
+attr(combined_participant_data$ddd_total, "label") <- "Sum DD1_V1 + DD2_V1 + DD3_V1 + DD4_V1 + DD5_V1 + DD6_V1 + DD7_V1 + DD8_V1 + DD9_V1"
+```
+
+### 24. Negative/Positive Affect
+
+* Visit 1, Section 24, No questions
+
+### 25. Agression Questionniare (AQ)
+
+* Visit 1, Section 25, Q314-Q325
+
+```{r}
+# Imported from Visit 1.sps
+combined_participant_data <- combined_participant_data %>%
+  # For data checking
+  # select(starts_with("AQ") & ends_with("V1")) %>% 
+  mutate(
+    # Physical aggression subscale
+    PA = aq_1 + aq_2 + aq_3,
+    # Verbal aggression subscale
+    VA = aq_4 + aq_5 + aq_6,
+    # Anger subscale
+    A = aq_7 + aq_8 + aq_9,
+    # hostility subscale
+    HA = aq_10 + aq_11 + aq_12,
+    # Total
+    AQ = PA + VA + A + HA,
+    # More descriptive name
+    agression_total = AQ
+  )
+
+# VARIABLE LABELS 
+attr(combined_participant_data$PA, "label") <- 'Physical agreesion subscale'
+attr(combined_participant_data$VA, "label") <- 'Verbal agreesion subscale'
+attr(combined_participant_data$A, "label")  <- 'Anger subscale'
+attr(combined_participant_data$HA, "label") <- 'Hostility subscale'
+attr(combined_participant_data$AQ, "label") <- 'Aggression questionnaire total'
+attr(combined_participant_data$agression_total, "label") <- 'Aggression questionnaire total'
+```
+
+### 26. CES-D (CES)
+
+* Visit 1, Section 26, Q326-Q335
+
+```{r}
+# Imported from Visit 1.sps
+combined_participant_data <- combined_participant_data %>% 
+  mutate(
+    across(
+      .cols = c(ces_5, ces_8),
+      .fns  = ~ case_when(
+        .x == 0 ~ 3,
+        .x == 1 ~ 2, 
+        .x == 2 ~ 1,
+        .x == 3 ~ 0
+      ),
+      .names = "{col}r"
+    ),
+    ces_total = ces_1 + ces_2 + ces_3 + ces_4 + ces_5 + ces_6 +
+      ces_7 + ces_8 + ces_9 + ces_10,
+    ces_total_labelled = case_when(
+      ces_total >= 10 ~ 1,
+      ces_total <  10 ~ 0
+    )
+  )
+  
+# VARIABLE LABELS
+attr(combined_participant_data$ces_5, "label") <- "I felt hopeful reverse scored"
+attr(combined_participant_data$ces_8, "label") <- "I was happy reverse scored"
+attr(combined_participant_data$ces_total, "label") <- "Sum CES-D_V1 1-10 (10 or greater is considered depressed)"
+attr(combined_participant_data$ces_total_labelled, "label") <- "Sum CES-D_V1 1-1 categorized into depressed/not depressed"
+
+# VALUE LABELS 
+attr(combined_participant_data$ces_total_labelled, "labels") <- c('not depressed' = 0, 'depressed' = 1)
+```
+
+CES-D (Dichotomized)
+
+uses the reverse scoring from above for CES5 and CES8.
+
+```{r}
+# Ported from Visit 1.sps
+cesd_dichot_vars <- c(
+  "ces_1", "ces_2", "ces_3", "ces_4", "ces_5", "ces_6", "ces_7", 
+  "ces_8", "ces_9", "ces_10"  
+)
+
+combined_participant_data <- combined_participant_data %>% 
+  mutate(
+    across(
+      .cols = all_of(cesd_dichot_vars),
+      .fns = ~ case_when(
+        .x == 0 ~ 0,
+        .x == 1 ~ 0,
+        .x == 2 ~ 1,
+        .x == 3 ~ 1
+      ),
+      .names = "{col}_dichot"
+    )
+  )
+
+combined_participant_data <- combined_participant_data %>% 
+  mutate(
+    ces_dichot_total = ces_1_dichot + ces_2_dichot + ces_3_dichot + ces_4_dichot + ces_5_dichot + ces_6_dichot + ces_7_dichot + ces_8_dichot + ces_9_dichot + ces_10_dichot,
+    ces_dichot_labelled = case_when(
+      ces_dichot_total >= 4 ~ 1,
+      ces_dichot_total <  4 ~ 0
+    )
+  )
+
+# VARIABLE LABELS
+for(i in seq_along(cesd_dichot_vars)) {
+  d <- paste0(cesd_dichot_vars[[i]], "_dichot")
+  l <- paste(cesd_dichot_vars[[i]], "Dichotomized")
+  attr(combined_participant_data[[d]], "label") <- l
+}
+attr(combined_participant_data$ces_dichot_total, "label") <- "Sum CESV1_dichot1-10 (4 or greater is considered depressed)"
+attr(combined_participant_data$ces_dichot_labelled, "label") <- "Sum CES_V1_dichot1-10 categorized into depressed/ not depressed"
+
+# VALUE LABELS 
+attr(combined_participant_data$ces_dichot_labelled, "labels") <- c("not depressed" = 0, "depressed" = 1)
+```
+
+```{r}
+rm(cesd_dichot_vars, d, i, l)
+```
+
+### 27. Inter/Intrapersonal Resources 
+
+* Visit 1, Section 27, No questions
+
+### 28. Interpersonal Support Evaluation List (IS)
+
+* Visit 1, Section 28, Q336-Q347
+
+```{r}
+# Ported from Visit 1.sps
+combined_participant_data <- combined_participant_data %>% 
+  mutate(
+    across(
+      .cols = c(is_1, is_2, is_7, is_8, is_11, is_12),
+      .fns  = ~ case_when(
+        .x == 1 ~ 4,
+        .x == 2 ~ 3,
+        .x == 3 ~ 2,
+        .x == 4 ~ 1
+      ),
+      .names = "{col}r"
+    ),
+    ise_appraisal = is_2r + is_4 + is_6 + is_11r,
+    ise_belonging = is_1r + is_5 + is_7r + is_9,
+    ise_tangable = is_3 + is_8r + is_10 + is_12r
+  )
+
+# VARIABLE LABELS
+attr(combined_participant_data$is_1r, "label")   <- "reverse trip for a day"
+attr(combined_participant_data$is_2r, "label")   <- "reverse no one to share worries"
+attr(combined_participant_data$is_7r, "label")   <- "reverse don't often get invited"
+attr(combined_participant_data$is_8r, "label")   <- "reverse difficult to find home sitter"
+attr(combined_participant_data$is_11r, "label")  <- "reverse difficult to find good advice"
+attr(combined_participant_data$is_12r, "label")  <- "reverse no help moving"
+attr(combined_participant_data$ise_appraisal, "label") <- "ISE appraisal"
+attr(combined_participant_data$ise_belonging, "label") <- "ISE belonging"
+attr(combined_participant_data$ise_tangable, "label")  <- "ISE tangable"
+```
+
+### 29. Religious Participation (RP)
+
+* Visit 1, Section 29, Q348-Q349
+
+### 30. Lubben Social Network Scale (LSN)
+
+* Visit 1, Section 30, Q350-Q355
+
+```{r}
+# Imported from Visit 1.sps
+combined_participant_data <- combined_participant_data %>% 
+  mutate(
+    # Family Score
+    lsn_family = lsn_1 + lsn_2 + lsn_3,
+    # Friends Score
+    lsn_friends =  lsn_4 + lsn_5 + lsn_6,
+    # Total
+    lsn_total = lsn_1 + lsn_2 + lsn_3 + lsn_4 + lsn_5 + lsn_6
+  )
+
+# VARIABLE LABELS
+attr(combined_participant_data$lsn_family, "label") <- "Sum LSN_V1_family 0-15 (scores of less than 6 are considered to have marginal family ties)"
+attr(combined_participant_data$lsn_friends, "label") <- "Sum LSN_V1_total 0-30 ((scores of less than 6 are considered to have marginal friendship ties)"
+attr(combined_participant_data$lsn_total, "label") <- "Sum LSN_V1_total 0-30 (a score of 12 and lower delineates “at-risk” for social isolation and higher scores indicate more social engagement)"
+```
+
+### 31. Resource Utilization (R)
+
+* Visit 1, Section 31, Q356-Q371
+
+### 32. Barriers to Phone Based Case Management (BPM)
+
+* Visit 1, Section 32, Q372-Q376
+
+### 33. TCU Drug Screen 5 (DS)
+
+* Visit 2, Section 2, Q8-Q20
+
+### 34. BRFSS Adverse Childhood Experience (ACE) Model (BRAC)
+
+* Visit 2, Section 3, Q21-Q31
+
+### 35. Personality Beliefs Questionaire-Short Form- Antisocial Beliefs (PBQ)
+
+* Visit 2, Section 4, Q32-Q38
+
+### 36. Food Security (FSS)
+
+* Visit 2, Section 5, Q39-Q44
+
+### 37. TCU CJ Client Evaluation of Self and Treatment (CJ)
+
+* Visit 2, Section 6, Q45-Q84
+
+```{r}
+# Imported from Visit 2.sps
+# Desire for help subscale
+combined_participant_data <- combined_participant_data %>%
+  mutate(
+    tcu_desire_v2_total = 
+      ((cj_2 + cj_3 + cj_4 + cj_5 + cj_6 +cj_7) * 10) / 6,
+    tcu_desire_v2_total = if_else(cj_1 == 0, 888, tcu_desire_v2_total)
+  )
+
+# Treatment needs subscale
+combined_participant_data <- combined_participant_data %>% 
+  mutate(
+    tcu_tn_v2_total = ((cj_8 + cj_9 + cj_10 + cj_11 + cj_12) * 10) / 5
+  )
+
+# Treatment Satisfaction
+combined_participant_data <- combined_participant_data %>% 
+  mutate(
+    tcu_treatment_sat_v2 = 
+      ((cj_13 + cj_14 + cj_15 + cj_16 + cj_17 + cj_18 + cj_19) * 
+      10) / 7
+  )
+
+# Self-esteem
+combined_participant_data <- combined_participant_data %>%
+  mutate(
+    across(
+      .cols = c(cj_21, cj_22, cj_23, cj_25),
+      .fns  = ~ case_when(
+        .x == 1 ~ 5,
+        .x == 2 ~ 4,
+        .x == 3 ~ 3,
+        .x == 4 ~ 2,
+        .x == 5 ~ 1
+      ),
+      .names = "{col}_r"
+    )
+  ) %>% 
+  mutate(
+    tcu_se_v2_total = 
+      ((cj_21r + cj_22r + cj_20 + cj_23r + cj_24 +cj_25r) * 10) / 6
+  )
+
+# Hostility
+combined_participant_data <- combined_participant_data %>% 
+  mutate(
+    tcu_hs_v2_total = 
+      ((cj_26 + cj_27 + cj_28 + cj_29 + cj_30 + cj_31 + cj_32 + 
+      cj_33) * 10) / 8
+  )
+
+# Risk taking
+combined_participant_data <- combined_participant_data %>% 
+  mutate(
+    across(
+      .cols = c(cj_34, cj_35, cj_36),
+      .fns  = ~ case_when(
+        .x == 1 ~ 5,
+        .x == 2 ~ 4,
+        .x == 3 ~ 3,
+        .x == 4 ~ 2,
+        .x == 5 ~ 1
+      ),
+      .names = "{col}_r"
+    )
+  ) %>% 
+  mutate(
+    tcu_rt_v2_total = 
+      ((cj_34r + cj_35r + cj_36 + cj_37 + cj_38 +cj_39 + cj_40) * 
+      10) / 7
+  )
+
+
+
+# VARIABLE LABELS
+attr(combined_participant_data$tcu_desire_v2_total, "label") <- "Sum, TCU Desire for help subscale (888 indicates they have not used drugs in past 12 months)"
+attr(combined_participant_data$tcu_tn_v2_total, "label") <- "Sum, TCU Treatment needs subscale"
+attr(combined_participant_data$tcu_treatment_sat_v2, "label") <- "Sum, TCU treatment satisfaction subscale"
+attr(combined_participant_data$cj_21r, "label") <- "You feel like a failure recoded"
+attr(combined_participant_data$cj_22r, "label") <- "You wish you had more respect for yourself recoded"
+attr(combined_participant_data$cj_23r, "label") <- "You feel you are basically no good recoded"
+attr(combined_participant_data$cj_25r, "label") <- "You feel you are unimportant to others recoded"
+attr(combined_participant_data$tcu_se_v2_total, "label") <- "Sum, TCU self esteem subscale"
+attr(combined_participant_data$tcu_hs_v2_total, "label") <- "Sum, TCU hostility subscale"
+attr(combined_participant_data$cj_34r, "label") <- "You only do things that feel safe recoded"
+attr(combined_participant_data$cj_35r, "label") <- "You avoid anything dangerous recoded"
+attr(combined_participant_data$cj_36r, "label") <- "You are very careful and cautious recoded"
+attr(combined_participant_data$tcu_rt_v2_total, "label") <- "Sum, TCU risk taking subscale"
+```
+
+### 38. MacArthur Major Discrimination (MMD)
+
+* Visit 2, Section 8, Q85-Q98
+
+```{r}
+combined_participant_data <- combined_participant_data %>%
+  # For data checks
+  # select(MMD2:MMD4) %>%
+  # Make variable names more descriptive
+  rename(
+    macarthur_main_reason = mmd_2,
+    macarthur_interfere = mmd_3,
+    macarthur_harder_life = mmd_4,
+  ) %>%
+
+  # Change skip values (e.g., 9, 99, etc.) to missing
+  mutate(
+    macarthur_main_reason = nines_to_na(macarthur_main_reason, 99),
+    across(
+      c(macarthur_interfere:macarthur_harder_life),
+      ~ nines_to_na(.x, 9)
+    )
+  ) %>%
+
+  # Make factor versions of categorical variables
+  mutate(
+    across(
+      c(macarthur_main_reason:macarthur_harder_life),
+      spss_to_fs,
+      .names = "{col}_f"
+    )
+  )
+
+# Imported from Visit 2.sps
+combined_participant_data <- combined_participant_data %>%
+  rowwise() %>%
+  mutate(
+    macarthur_total = sum(c_across(mmd_1a:mmd_1k))
+  ) %>%
+  ungroup() %>%
+  mutate(
+
+  )
+
+# VARIABLE LABELS
+attr(combined_participant_data$macarthur_main_reason_f, "label") <- "MacArthur: What was the main reason for the discrimination you experienced?"
+attr(combined_participant_data$macarthur_interfere_f, "label") <- "MacArthur: Overall, how much has discrimination interfered with you having a full and productive life?"
+attr(combined_participant_data$macarthur_harder_life_f, "label") <- "MacArthur: Overall, how much harder has your life been because of discrimination?"
+attr(combined_participant_data$macarthur_total, "label") <- "MacArthur Major Discrimination total score"
+```
+
+### 39. Urban life stress scale (ULS)
+
+* Visit 2, Section 9, Q99-Q84
+
+```{r}
+# Imported from Visit 2.sps
+combined_participant_data <- combined_participant_data %>% 
+  mutate(
+    uls_v2_total = uls_1 + uls_2 + uls_3 + uls_4 + uls_5 + uls_6 +
+      uls_7 + uls_8 + uls_9 + uls_10 + uls_11 + uls_12 + uls_13 + 
+      uls_14 + uls_15 + uls_16 + uls_17 + uls_18 + uls_19 + 
+      uls_20 + uls_21
+  )
+
+# VARIABLE LABELS
+attr(combined_participant_data$uls_v2_total, "label") <- "urban life stress total score"
+```
+
+### 40. Personal Victimization (PV)
+
+* Visit 2, Section 10, Q120-Q122
+
+```{r}
+combined_participant_data <- combined_participant_data %>%
+  # For data checks
+  # select(PV1_V2:PV3_V2) %>%
+  # Make variable names more descriptive
+  rename(
+    pv_violence_victim_30 = pv_1,
+    pv_witness_violence_30 = pv_2,
+    pv_witness_violence_6 = pv_3
+  ) %>%
+
+  # Make factor versions of categorical variables
+  mutate(
+    across(
+      c(pv_violence_victim_30:pv_witness_violence_6),
+      spss_to_fs,
+      .names = "{col}_f"
+    )
+  )
+
+# VARIABLE LABELS
+attr(combined_participant_data$pv_violence_victim_30_f, "label") <- "In the past 30 days, has anyone used violence, such as in a mugging, fight, or sexual assault, against you?"
+attr(combined_participant_data$pv_witness_violence_30_f, "label") <- "In the past 30 days, how many times have you been a witness to acts of violence?"
+attr(combined_participant_data$pv_witness_violence_6_f, "label") <- "In the past 6 months, how many times have you been a witness to acts of violence?"
+```
+
+### 41. Perceived Stress Scale (PS)
+
+* Visit 2, Section 11, Q123-Q126
+
+```{r}
+# Imported from Visit 2.sps
+combined_participant_data <- combined_participant_data %>% 
+  mutate(
+    across(
+      .cols = c(ps_2, ps_3),
+      .fns  = ~ case_when(
+        .x == 0 ~ 4,
+        .x == 1 ~ 3,
+        .x == 2 ~ 2,
+        .x == 3 ~ 1,
+        .x == 4 ~ 0
+      ),
+      .names = "{col}_r"
+    )
+  ) %>% 
+  mutate(
+    ps_v2_total = ps_1 + ps_2r + ps_3r + ps_4
+  )
+
+# VARIABLE LABELS
+attr(combined_participant_data$ps_2r, "label") <- "Perceived Stress Scale Item 2 Reverse Code"
+attr(combined_participant_data$ps_3r, "label") <- "Perceived Stress Scale Item 3 Reverse Code"
+attr(combined_participant_data$ps_v2_total, "label") <- "Perceived Stress Scale total score'"
+```
+
+### 42. Distress Tolerance Scale (DTS)
+
+* Visit 2, Section 12, Q127-Q142
+
+All the questions in QDS were reversed coded. Each question was recoded to the correct score, except question DTS7_V2 because that question should be reversed coded. Question DTS8_V2 is not included in any subscale or the total score. See appendix for paper citation.
+
+```{r}
+# Imported from Visit 2.sps
+combined_participant_data <- combined_participant_data %>% 
+  mutate(
+    across(
+      .cols = c(dts_1:dts_6, dts_8:dts_16),
+      .fns  = ~ case_when(
+        .x == 1 ~ 5,
+        .x == 2 ~ 4,
+        .x == 3 ~ 3,
+        .x == 4 ~ 2,
+        .x == 5 ~ 1
+      ),
+      .names = "{col}_r"
+    )
+  ) %>% 
+  mutate(
+    # Tolerance subscale
+    dts_tolerance_v2 = (dts_1r + dts_3r + dts_5r) / 3,
+    # Absorption subscale
+    dts_absorption_v2 = (dts_4r + dts_2r + dts_16r) / 3,
+    # Appraisal subscale
+    dts_appraisal_v2 = 
+      (dts_7 + dts_8r + dts_10r + dts_11r + dts_12r + dts_13r) / 6,
+    # Regulation subscale
+    dts_regulation_v2 = (dts_9r + dts_14r + dts_15r) / 3,
+    # Total score
+    dts_total_v2 = 
+      (dts_tolerance_v2 + dts_absorption_v2 + dts_appraisal_v2 + 
+      dts_regulation_v2) / 4
+  )
+
+# VARIABLE LABELS
+attr(combined_participant_data$dts_1r, "label") <- "Feeling distressed or upset is unbearable to me - Reverse coded"
+attr(combined_participant_data$dts_2r, "label") <- "When I feel distressed or upset, all I can think about is how bad I feel - Reverse coded"
+attr(combined_participant_data$dts_3r, "label") <- "I can’t handle feeling distressed or upset - Reverse coded"
+attr(combined_participant_data$dts_4r, "label") <- "My feelings of distress are so intense that they completely take over - Reverse coded"
+attr(combined_participant_data$dts_5r, "label") <- "There’s nothing worse than feeling distressed or upset - Reverse coded"
+attr(combined_participant_data$dts_6r, "label") <- "My feelings of distress or being upset are just an acceptable part of life - Reverse coded"
+attr(combined_participant_data$dts_8r, "label") <- "My feelings of distress or being upset are not acceptable - Reverse coded"
+attr(combined_participant_data$dts_9r, "label") <- "I’ll do anything to avoid feeling distressed or upset - Reverse coded"
+attr(combined_participant_data$dts_10r, "label") <- "Other people seem to be able to tolerate feeling distressed or upset better than I can - Reverse coded"
+attr(combined_participant_data$dts_11r, "label") <- "Being distressed or upset is always a major ordeal for me - Reverse coded"
+attr(combined_participant_data$dts_12r, "label") <- "I am ashamed of myself when I feel distressed or upset - Reverse coded"
+attr(combined_participant_data$dts_13r, "label") <- "My feelings of distress or being upset scare me - Reverse coded"
+attr(combined_participant_data$dts_14r, "label") <- "I’ll do anything to stop feeling distressed or upset - Reverse coded"
+attr(combined_participant_data$dts_15r, "label") <- "When I feel distressed or upset, I must do something about it immediately - Reverse coded"
+attr(combined_participant_data$dts_16r, "label") <- "When I feel distressed or upset, I cannot help but concentrate on how bad the distress actually feels - Reverse coded"
+attr(combined_participant_data$dts_tolerance_v2, "label") <- "DTS Tolerance  subscale mean total"
+attr(combined_participant_data$dts_absorption_v2, "label") <- "DTS absorption subscale mean total"
+attr(combined_participant_data$dts_appraisal_v2, "label") <- "DTS appraisal subscale mean total"
+attr(combined_participant_data$dts_regulation_v2, "label") <- "DTS regulation subscale mean total"
+attr(combined_participant_data$dts_total_v2, "label") <- "Distress Tolerance Scale total score"
+```
+
+Print a message for when this file is being sourced
+
+```{r}
+# The number of rows will change over time as we recruit people.
+# However, we should never end up with more rows in the combined data than
+# exist in the v1 data.
+# Also, any changes to the number of columns should initiate an investigation
+# into why.
+cat(
+  paste0(Sys.Date(), ":"),
+  "The combined_participant_data data frame was cleaned with calculated variables in data_survey_39_long_calc_import.Rds with",
+  nrow(combined_participant_data), "rows and", ncol(combined_participant_data), "columns.\n\n"
+)
+cat("The number of rows will change over time as we recruit people. However, we should never end up with more rows in the combined data than exist in the v1 data.\n\n")
+cat("Also, any changes to the number of columns should initiate an investigation into why.")
+
+# 2021-01-28: The combined_participant_data data frame was created and cleaned in data_survey_01_import.Rds with 263 rows and 2850 columns.
+# 2023-03-28: The combined_participant_data data frame was cleaned with calculated variables in data_survey_39_long_calc_import.Rds with 1601 rows and 1280 columns.
+```
+# 💾Save the data frame
+
+```{r}
+path <- "../Participant Data/SPSS Data/combined_participant_data.sav"
+```
+
+```{r}
+write_sav(l2c_survey, path)
+```
+
+Print a message for when this file is being sourced
+
+```{r}
+cat(
+  paste0(Sys.Date(), ":"),
+  "Combined Participant data saved to", path, "\n"
+)
+```
+
+```{r}
+path <- "../Participant Data/R Data/combined_participant_data.rds"
+```
+
+```{r}
+write_rds(combined_participant_data, path)
+```
+
+Print a message for when this file is being sourced
+
+```{r}
+cat(
+  paste0(Sys.Date(), ":"),
+  "Combined Participant data saved to", path, "\n"
+)
+```
+
+# 🗑Clean up
+
+```{r}
+rm(list = ls()[ls() != "source_rmd"])
+```
+
+
+
+
+
+
+
+

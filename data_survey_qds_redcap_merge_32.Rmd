@@ -1,0 +1,18 @@
+```{r}
+
+library(dplyr, warn.conflicts = FALSE)
+library(purrr, warn.conflicts = FALSE)
+library(haven, warn.conflicts = FALSE)
+library(officer, warn.conflicts = FALSE)
+library(readr, warn.conflicts = FALSE)
+library(tidyr, warn.conflicts = FALSE)
+library(stringr, warn.conflicts = FALSE)
+library(testthat, warn.conflicts = FALSE)
+
+qds_redcap_merge_data <- read_sav("~/OneDrive - The University of Texas Health Science Center at Houston/General/Participant Data/SPSS Data/qds_redcap_merge_data.SAV")
+
+View(qds_redcap_merge_data)
+
+
+```
+
