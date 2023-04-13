@@ -40,26 +40,32 @@ cat(
 ```
 
 ```{r}
-arrest <- read_excel(
+arrest <- read_excel( 
   path,
   sheet = "Sheet1",
   col_names = c(
-    "subject", "arrested", "arrested_date_baseline", paste("arrested_date", 1:5, sep = "_")
+    "subject", "arrested", "arrested_date_baseline", paste("arrested_date",1:12, sep = "_"),  paste("arrested_num_summary",sep = "_")
   ),
   col_types = c(
-    "numeric", "text", rep("date", 6)
+    "numeric", "text", "date", "date", "date", "date", "date", "date", "date", "date", "date", "date", "date", "date", "date", "numeric"
   ),
   na = c("", "None"),
   skip = 1
-)
+) %>%
+filter(!is.na(subject))
+
+# 2023-01-25: Arrest data has new summary measure "arrestednum_summary," to identify total number of arrests per participant.
 
 # Print a message for when this file is being sourced
+
 cat(
-  paste0(Sys.Date(), ":"),
+  paste(Sys.Date(), ":"),
   "Arrest data", nrow(arrest), "rows and", ncol(arrest), "columns.\n"
 )
 
 # 2022-07-11: Arrest data 274 rows and 8 columns.
+# 2023-03-15: Arrest data 499 rows and 16 columns.
+
 ```
 
 
@@ -82,6 +88,11 @@ cat(
 )
 
 # 2021-06-30: Arrest data saved to /Volumes/Link2Care/Participant Data/R Data/arrest.rds
+
+# 2023-01-25: Arrest data with summary measure of total arrests saved to /Volumes/Link2Care/Participant Data/R Data/arrest.rds
+
+# 2023-03-13: Arrest data with summary measure of total arrests saved to /Volumes/Link2Care/Participant Data/R Data/arrest.rds
+
 ```
 
 
@@ -94,6 +105,8 @@ cat(
 )
 
 # 2021-06-30: Arrest data cleaned with 234 rows and 8 columns.
+# 2021-06-30: Arrest data cleaned with 499 rows and 16 columns.
+
 ```
 
 

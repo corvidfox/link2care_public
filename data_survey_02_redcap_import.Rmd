@@ -1,13 +1,13 @@
 ---
-title: "Import Link2Care Survey Data - REDCap"
+title: "Import Link2Care Survey redcap - REDCap"
 date: "2021-04-23 <br> Updated: `r Sys.Date()`"
 ---
 
 # ⭐️Overview
 
-This file is used to import the Link2Care follow-up visit survey data and do some initial data cleaning.
+This file is used to import the Link2Care follow-up visit survey redcap and do some initial redcap cleaning.
 
-[Notes on cleaning individual L2C data sets for merging](https://github.com/brad-cannell/link2care_public/wiki/Notes-on-cleaning-individual-L2C-data-sets-for-merging)
+[Notes on cleaning individual L2C redcap sets for merging](https://github.com/brad-cannell/link2care_public/wiki/Notes-on-cleaning-individual-L2C-redcap-sets-for-merging)
 
 
 # 📦Load packages
@@ -20,14 +20,21 @@ library(readxl, warn.conflicts = FALSE)
 ```
 
 
-# 📥Import data 
+# 📥Import redcap 
 
 ```{r}
-path <- "../Participant Data/SPSS Data/REDCap/All_Visits_Redcap.sav"
+path <- "../Participant Data/SPSS Data/Redcap/All_Visits_Redcap.sav"
+<<<<<<< HEAD
 ```
 
-Check the most recent file modification dates on the UTHealth servers and print for user when this file is being sourced.
+# Check the most recent file modification dates on the UTHealth servers and print for user when this file is being sourced. 
 
+=======
+
+
+```
+# Check the most recent file modification dates on the UTHealth servers and print for user when this file is being sourced. 
+>>>>>>> master
 ```{r}
 cat(
   stringr::str_extract(path, "([^/]+$)"),
@@ -35,42 +42,68 @@ cat(
   as.character(file.info(path)$mtime), "\n"
 )
 ```
+# Print a message for when this file is being sourced
+<<<<<<< HEAD
 
+=======
+>>>>>>> master
 ```{r}
 redcap <- read_sav(path)
 
-# Print a message for when this file is being sourced
 cat(
   paste0(Sys.Date(), ":"),
   "REDCap imported with", nrow(redcap), "rows and", ncol(redcap), "columns.\n"
 )
 
+<<<<<<< HEAD
+# 2023-03-15: REDCap imported with 112 rows and 882 columns.
+=======
 # 2022-07-11: REDCap imported with 24 rows and 914 columns.
+# 2023-03-15: REDCap imported with 112 rows and 882 columns.
+
+>>>>>>> master
 ```
 
+# Remove fake redcap rows
 
-# Remove fake data rows
-
-Joe created some fake data rows in REDCap that need to be removed.
+Joe created some fake redcap rows in REDCap that need to be removed.
 
 ```{r}
-redcap <- redcap %>% filter(record_id > 2000)
+<<<<<<< HEAD
+redcap <- redcap %>%
+  mutate(record_id = as.numeric(record_id)) %>% 
+  # Warnings are from converting character strings (e.g., -948_TEST) to
+  # numeric. R is forced to set them to NA. This is what we want to happen.
+  filter(!is.na(record_id))
+=======
+redcap <- redcap %>% filter("record_id" > 2000)
+remove_list <- paste(c("TEST", "-948_TEST", "test2"), collapse = '|')
+removed <-  redcap[grep(remove_list, redcap$record_id, invert = TRUE), ]
+removed <- redcap %>% filter(!grepl(remove_list, redcap$record_id ))
+rm(removed)
+>>>>>>> master
 ```
 
 ```{r}
 # Print a message for when this file is being sourced
 cat(
   paste0(Sys.Date(), ":"),
-  "After dropping fake participant rows, REDCap data contains", nrow(redcap), "rows and", ncol(redcap), "columns.\n"
+  "After dropping fake participant rows, REDCap Data contains", nrow(redcap), "rows and", ncol(redcap), "columns.\n"
 )
 
-# 2022-07-11: After dropping fake participant rows, REDCap data contains 21 rows and 914 columns.
+<<<<<<< HEAD
+# 2023-03-15: After dropping fake participant rows, REDCap Data contains 101 rows and 882 columns.
+=======
+# 2022-07-11: After dropping fake participant rows, REDCap Data contains 112 rows and 882 columns.
+
+# 2023-03-15: After dropping fake participant rows, REDCap Data contains 112 rows and 882 columns.
+>>>>>>> master
 ```
 
 
 # Clean variable names
 
-See [Notes on cleaning individual L2C data sets for merging](https://github.com/brad-cannell/link2care_public/wiki/Notes-on-cleaning-individual-L2C-data-sets-for-merging) for the rationale, style guidelines, and instructions for this section._
+See [Notes on cleaning individual L2C redcap sets for merging](https://github.com/brad-cannell/link2care_public/wiki/Notes-on-cleaning-individual-L2C-redcap-sets-for-merging) for the rationale, style guidelines, and instructions for this section._
 
 # 🔴After you get this to work, move this section. I want all of the variable naming to exist in the Rmd code. 
 
@@ -88,13 +121,13 @@ rc_col_key <- read_excel(
 )
 ```
 
-Put current REDCap column names into a data frame so that we can use `left_join()` below.
+Put current REDCap column names into a redcap frame so that we can use `left_join()` below.
 
 ```{r}
 current_col_names <- tibble(current_name = names(redcap))
 ```
 
-Review column names that don't have a match in the QDS data.
+Review column names that don't have a match in the QDS redcap.
 
 ```{r eval=FALSE}
 current_col_names %>% 
@@ -112,20 +145,23 @@ Some exceptions:
 
 * There is a visit_gender column, which does have a matching variable in QDS, but there is also a gender column. It doesn't contain any values. we will just drop it.   
 
-* sq_7b2 says, "You selected that you received a flyer about the study from the Dallas County Jail. Please enter the study flyer number." This variable doesn't exist in QDS. We will leave it and it will have a missing value for all QDS rows in the combined data.
+* sq_7b2 says, "You selected that you received a flyer about the study from the Dallas County Jail. Please enter the study flyer number." This variable doesn't exist in QDS. We will leave it and it will have a missing value for all QDS rows in the combined redcap.
+<<<<<<< HEAD
 
+=======
+>>>>>>> master
 ```{r}
-redcap <- redcap %>% 
-  select(-ii_v1, -visit_v1, -gender)
+redcap <- redcap %>%
+  select(-ii, -visit, -gender)
 ```
 
-Put current REDCap column names into a data frame so that we can use `left_join()` below. We have to do this step again because we dropped variables above.
+Put current REDCap column names into a redcap frame so that we can use `left_join()` below. We have to do this step again because we dropped variables above.
 
 ## Rename REDCap columns to match QDS
 
-Create a final new set of column names. The new name will be equal to qds_name unless qds_name is missing (i.e., that variable doesn't appear in the QDS data). When qds_name is missing, then the column will keep its current column name.
+Create a final new set of column names. The new name will be equal to qds_name unless qds_name is missing (i.e., that variable doesn't appear in the QDS redcap). When qds_name is missing, then the column will keep its current column name.
 
-Rename and reorder column names using `select()` like we did with the QDS data.
+Rename and reorder column names using `select()` like we did with the QDS redcap.
 
 ```{r eval=FALSE}
 
@@ -147,8 +183,7 @@ redcap <- redcap %>%
     id = record_id, 
     redcap_event_name, 
     date_visit = visit_date, 
-    group = group, 
-    visit = visit, 
+    group = group,
     sq_hispanic = sq_2, 
     sq_race = sq_3, 
     sq_age = sq_4, 
@@ -377,7 +412,6 @@ redcap <- redcap %>%
     bh_25 = bh19v1, 
     bh_26 = bh20v, 
     brief_homelessness_questionnaire_complete, 
-    macarthur_scale_timestamp, 
     sss_1 = sss1_v1, 
     sss_2 = sss2_v1, 
     macarthur_scale_complete, 
@@ -397,7 +431,6 @@ redcap <- redcap %>%
     phq_14 = phq14_v1, 
     phq_15 = phq15_v1, 
     patient_health_questionnaire_complete, 
-    sf12_health_survey_timestamp, 
     hs_1 = hs1_v1, 
     hs_2 = hs2_v1, 
     hs_3 = hs3_v1, 
@@ -738,7 +771,6 @@ redcap <- redcap %>%
     af_9b = af9b_v1, 
     af_9c = af9c_v1, 
     alcohol_quantity_and_frequency_complete, 
-    personality_beliefs_questionnaire_timestamp, 
     pbq_1 = pbq1, 
     pbq_2 = pbq2, 
     pbq_3 = pbq3, 
@@ -747,7 +779,6 @@ redcap <- redcap %>%
     pbq_6 = pbq6, 
     pbq_7 = pbq7, 
     personality_beliefs_questionnaire_complete, 
-    usda_food_insecurity_survey_timestamp, 
     fss_1 = fss1_v2, 
     fss_2 = fss2_v2, 
     fss_3 = fss3_v2, 
@@ -908,7 +939,6 @@ redcap <- redcap %>%
     aq_11 = aq11_v1, 
     aq_12 = aq12_v1, 
     negative_affect_aggression_aq12_complete, 
-    cesd_timestamp, 
     ces_1 = ces1_v1, 
     ces_2 = ces2_v1, 
     ces_3 = ces3_v1, 
@@ -1019,23 +1049,41 @@ redcap <- redcap %>%
   )
 ```
 
+<<<<<<< HEAD
+# Change group number
 
+2023-03-20 PTs 2336 and 2349 have incorrect grouping in REDCap. Manually fix grouping errors for both PTs to match QDS and Master Log.
+
+```{r}
+redcap$group[redcap$id == 2336] <- 3
+redcap$group[redcap$id == 2349] <- 2
+```
+
+=======
+>>>>>>> master
 # 🖨Print a message for when this file is being sourced
 
 ```{r}
 cat(
   paste0(Sys.Date(), ":"),
-  "REDCap data cleaned with", nrow(redcap), "rows and", ncol(redcap), "columns.\n"
+<<<<<<< HEAD
+  "REDCap cleaned with", nrow(redcap), "rows and", ncol(redcap), "columns.\n"
 )
 
-# 2022-07-11: REDCap data cleaned with 21 rows and 911 columns.
+# 2023-03-20: REDCap cleaned with 101 rows and 879 columns.
+=======
+  "REDCap redcap cleaned with", nrow(redcap), "rows and", ncol(redcap), "columns.\n"
+)
+
+# 2022-07-11: REDCap redcap cleaned with 21 rows and 911 columns.
+>>>>>>> master
 ```
 
 
-# 💾Save the data frame
+# 💾Save the redcap frame
 
 ```{r}
-path <- "../Participant Data/R Data/redcap_import.rds"
+path <- "../Participant Data/R data/redcap_import.rds"
 ```
 
 ```{r}
@@ -1047,14 +1095,14 @@ Print a message for when this file is being sourced
 ```{r}
 cat(
   paste0(Sys.Date(), ":"),
-  "REDCap data saved to", path
+  "REDCap Data saved to", path
 )
 ```
 
 
 # 🗑Clean up
 
-Don't use `rm(list = ls())` because is causes R to drop the helper functions in data_survey_21_update_all_data.Rmd
+Don't use `rm(list = ls())` because is causes R to drop the helper functions in redcap_survey_21_update_all_redcap.Rmd
 
 ```{r}
 rm(list = ls()[ls() != "source_rmd"])

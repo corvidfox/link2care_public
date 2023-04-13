@@ -180,7 +180,7 @@ bridge_wide <- bridge %>%
 # 💾Save the data frames
 
 ```{r}
-path <- "../Participant Data/R Data/bridge.rds"
+path <- "../Participant Data/R data/bridge.rds"
 ```
 
 ```{r}
@@ -197,7 +197,7 @@ cat(
 ```
 
 ```{r}
-path <- "../Participant Data/R Data/bridge_wide.rds"
+path <- "../Participant Data/R data/bridge_wide.rds"
 ```
 
 ```{r}

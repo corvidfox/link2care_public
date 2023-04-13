@@ -85,7 +85,7 @@ tlfb <- tlfb %>%
       everything(),
       function(x) {
         x[x == "."] <- NA
-        x <- as.numeric(x)
+        x <- suppressWarnings(x_num <- as.numeric(x))
       }
     )
   )
@@ -95,7 +95,7 @@ tlfb <- tlfb %>%
 # 💾Save the data frame
 
 ```{r}
-path <- "../Participant Data/R Data/tlfb.rds"
+path <- "../Participant Data/R data/tlfb.rds"
 ```
 
 ```{r}
