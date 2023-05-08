@@ -19,22 +19,14 @@ library(readr, warn.conflicts = FALSE)
 library(readxl, warn.conflicts = FALSE)
 ```
 
-
 # 📥Import redcap 
 
 ```{r}
 path <- "../Participant Data/SPSS Data/Redcap/All_Visits_Redcap.sav"
-<<<<<<< HEAD
 ```
 
 # Check the most recent file modification dates on the UTHealth servers and print for user when this file is being sourced. 
 
-=======
-
-
-```
-# Check the most recent file modification dates on the UTHealth servers and print for user when this file is being sourced. 
->>>>>>> master
 ```{r}
 cat(
   stringr::str_extract(path, "([^/]+$)"),
@@ -43,10 +35,7 @@ cat(
 )
 ```
 # Print a message for when this file is being sourced
-<<<<<<< HEAD
 
-=======
->>>>>>> master
 ```{r}
 redcap <- read_sav(path)
 
@@ -55,13 +44,10 @@ cat(
   "REDCap imported with", nrow(redcap), "rows and", ncol(redcap), "columns.\n"
 )
 
-<<<<<<< HEAD
 # 2023-03-15: REDCap imported with 112 rows and 882 columns.
-=======
 # 2022-07-11: REDCap imported with 24 rows and 914 columns.
 # 2023-03-15: REDCap imported with 112 rows and 882 columns.
-
->>>>>>> master
+# 2023-04-18: REDCap imported with 115 rows and 920 columns.
 ```
 
 # Remove fake redcap rows
@@ -69,38 +55,12 @@ cat(
 Joe created some fake redcap rows in REDCap that need to be removed.
 
 ```{r}
-<<<<<<< HEAD
 redcap <- redcap %>%
   mutate(record_id = as.numeric(record_id)) %>% 
   # Warnings are from converting character strings (e.g., -948_TEST) to
   # numeric. R is forced to set them to NA. This is what we want to happen.
   filter(!is.na(record_id))
-=======
-redcap <- redcap %>% filter("record_id" > 2000)
-remove_list <- paste(c("TEST", "-948_TEST", "test2"), collapse = '|')
-removed <-  redcap[grep(remove_list, redcap$record_id, invert = TRUE), ]
-removed <- redcap %>% filter(!grepl(remove_list, redcap$record_id ))
-rm(removed)
->>>>>>> master
 ```
-
-```{r}
-# Print a message for when this file is being sourced
-cat(
-  paste0(Sys.Date(), ":"),
-  "After dropping fake participant rows, REDCap Data contains", nrow(redcap), "rows and", ncol(redcap), "columns.\n"
-)
-
-<<<<<<< HEAD
-# 2023-03-15: After dropping fake participant rows, REDCap Data contains 101 rows and 882 columns.
-=======
-# 2022-07-11: After dropping fake participant rows, REDCap Data contains 112 rows and 882 columns.
-
-# 2023-03-15: After dropping fake participant rows, REDCap Data contains 112 rows and 882 columns.
->>>>>>> master
-```
-
-
 # Clean variable names
 
 See [Notes on cleaning individual L2C redcap sets for merging](https://github.com/brad-cannell/link2care_public/wiki/Notes-on-cleaning-individual-L2C-redcap-sets-for-merging) for the rationale, style guidelines, and instructions for this section._
@@ -146,10 +106,7 @@ Some exceptions:
 * There is a visit_gender column, which does have a matching variable in QDS, but there is also a gender column. It doesn't contain any values. we will just drop it.   
 
 * sq_7b2 says, "You selected that you received a flyer about the study from the Dallas County Jail. Please enter the study flyer number." This variable doesn't exist in QDS. We will leave it and it will have a missing value for all QDS rows in the combined redcap.
-<<<<<<< HEAD
 
-=======
->>>>>>> master
 ```{r}
 redcap <- redcap %>%
   select(-ii, -visit, -gender)
@@ -163,8 +120,7 @@ Create a final new set of column names. The new name will be equal to qds_name u
 
 Rename and reorder column names using `select()` like we did with the QDS redcap.
 
-```{r eval=FALSE}
-
+```{r}
 # Move this to another file after you get everything working.
 
 current_col_names %>% 
@@ -280,7 +236,6 @@ redcap <- redcap %>%
     read_1 = read1_v1, 
     read_2 = read2_v1, 
     read_3 = read3_v5, 
-    screening_complete, 
     dem_marital_status = dem1v1, 
     dem_children = dem2v1, 
     dem_race = dem3v1, 
@@ -337,7 +292,6 @@ redcap <- redcap %>%
     dem_16 = dem16v1, 
     dem_sexual_orientation = dem17v1, 
     dem_transgender = dem18v1, 
-    demographic_information_complete, 
     bh_1y = bh1v1y, 
     bh_1m = bh1v1m, 
     bh_1d = bh1v1d, 
@@ -411,10 +365,8 @@ redcap <- redcap %>%
     bh_24i = bh18b1v1, 
     bh_25 = bh19v1, 
     bh_26 = bh20v, 
-    brief_homelessness_questionnaire_complete, 
     sss_1 = sss1_v1, 
     sss_2 = sss2_v1, 
-    macarthur_scale_complete, 
     phq_1 = phq1_v1, 
     phq_2 = phq2_v1, 
     phq_3 = phq3_v1, 
@@ -430,7 +382,6 @@ redcap <- redcap %>%
     phq_13 = phq13_v1, 
     phq_14 = phq14_v1, 
     phq_15 = phq15_v1, 
-    patient_health_questionnaire_complete, 
     hs_1 = hs1_v1, 
     hs_2 = hs2_v1, 
     hs_3 = hs3_v1, 
@@ -443,11 +394,9 @@ redcap <- redcap %>%
     hs_10 = hs10_v1, 
     hs_11 = hs11_v1, 
     hs_12 = hs12_v1, 
-    sf12_health_survey_complete, 
     hrq_1 = hrq1_v1, 
     hrq_2 = hrq2_v1, 
     hrq_3 = hrq3_v1, 
-    health_related_quality_of_life_complete, 
     srh_1a = s2_v1___1, 
     srh_1b = s2_v1___2, 
     srh_1c = s2_v1___3, 
@@ -619,7 +568,6 @@ redcap <- redcap %>%
     srh_52g = s43_v1___7, 
     srh_52h = s43_v1___8, 
     srh_52i = s43_v1___9, 
-    selfrated_health_questionnaire_complete, 
     ds_1 = ds1_v2, 
     ds_2 = ds2_v2, 
     ds_3 = ds3_v2, 
@@ -633,12 +581,10 @@ redcap <- redcap %>%
     ds_10b = ds10b_v2, 
     ds_11a = ds11a_v2, 
     ds_11b = ds11b_v2, 
-    tcu_drug_screen_5_complete, 
     ptsd_1 = ptsd1_v1, 
     ptsd_2 = ptsd2_v1, 
     ptsd_3 = ptsd3_v1, 
     ptsd_4 = ptsd4_v1, 
-    pcptsd_screen_complete, 
     brac_1 = brac1, 
     brac_2 = brac2, 
     brac_3 = brac3, 
@@ -650,7 +596,6 @@ redcap <- redcap %>%
     brac_9 = brac9, 
     brac_10 = brac10, 
     brac_11 = brac11, 
-    brfs_ace_module_complete, 
     t_1 = t1_v1, 
     t_2 = t2_v1, 
     t_3y = t3a_v1y, 
@@ -750,13 +695,11 @@ redcap <- redcap %>%
     t_42 = t40_v1, 
     hsi_1 = hsi1_v1, 
     hsi_2 = hsi2_v13, 
-    tobacco_history_complete, 
     brs_1 = brs1_v1, 
     brs_2 = brs2_v1, 
     brs_3 = brs3_v1, 
     brs_4 = brs4_v1, 
     brs_5 = brs5_v1, 
-    brfss_inadequate_sleep_complete, 
     af_1 = af1_v1, 
     af_2m = af2m_v1, 
     af_3tu = af3tu_v1, 
@@ -770,7 +713,6 @@ redcap <- redcap %>%
     af_9a = af9a_v1, 
     af_9b = af9b_v1, 
     af_9c = af9c_v1, 
-    alcohol_quantity_and_frequency_complete, 
     pbq_1 = pbq1, 
     pbq_2 = pbq2, 
     pbq_3 = pbq3, 
@@ -778,19 +720,16 @@ redcap <- redcap %>%
     pbq_5 = pbq5, 
     pbq_6 = pbq6, 
     pbq_7 = pbq7, 
-    personality_beliefs_questionnaire_complete, 
     fss_1 = fss1_v2, 
     fss_2 = fss2_v2, 
     fss_3 = fss3_v2, 
     fss_3a = fss3a_v2, 
     fss_4 = fss4_v2, 
     fss_5 = fss5_v2, 
-    usda_food_insecurity_survey_complete, 
     ms_1 = ms1_v1, 
     ms_2 = ms2_v1, 
     ms_3 = ms3_v1, 
     ms_4 = ms8_v1, 
-    meal_survey_complete, 
     cj_1 = cj1_v2, 
     cj_2 = cj2_v2, 
     cj_3 = cj3_v2, 
@@ -831,7 +770,6 @@ redcap <- redcap %>%
     cj_38 = cj38_v2, 
     cj_39 = cj39_v2, 
     cj_40 = cj40_v2, 
-    tcu_client_evaluation_complete, 
     sb_1 = sb1_v1, 
     sb_2 = sb2_v1, 
     sb_3 = sb3_v1, 
@@ -847,11 +785,9 @@ redcap <- redcap %>%
     sb_7g = sb7_v1___7, 
     sb_8 = sb8_v1, 
     sb_9 = sb9_v1, 
-    sexual_behaviors_complete, 
     vac_1 = vac1, 
     vac_2 = vac2, 
     vac_3 = vac3, 
-    covid19_vaccine_complete, 
     dd_1 = dd1_v1, 
     dd_2 = dd2_v1, 
     dd_3 = dd3_v1, 
@@ -862,7 +798,6 @@ redcap <- redcap %>%
     dd_8 = dd8_v1, 
     dd_9 = dd9_v1, 
     dd_10 = dd10_v1, 
-    detroit_area_study_assessment_complete, 
     mmd_1a = mmd1a, 
     mmd_1b = mmd1b, 
     mmd_1c = mmd1c, 
@@ -877,7 +812,6 @@ redcap <- redcap %>%
     mmd_2 = mmd2, 
     mmd_3 = mmd3, 
     mmd_4 = mmd4, 
-    macarthur_major_discrimination_complete, 
     uls_1 = uls1_v2, 
     uls_2 = uls2_v2, 
     uls_3 = uls3_v2, 
@@ -899,16 +833,13 @@ redcap <- redcap %>%
     uls_19 = uls19_v2, 
     uls_20 = uls20_v2, 
     uls_21 = uls21_v2, 
-    urban_life_stressor_scale_complete, 
     pv_1 = pv1_v2, 
     pv_2 = pv2_v2, 
     pv_3 = pv3_v2, 
-    personal_victimization_complete, 
     ps_1 = ps1_v2, 
     ps_2 = ps2_v2, 
     ps_3 = ps3_v2, 
     ps_4 = ps4_v2, 
-    perceived_stress_scale_complete, 
     dts_1 = dts1_v2, 
     dts_2 = dts2_v2, 
     dts_3 = dts3_v2, 
@@ -925,7 +856,6 @@ redcap <- redcap %>%
     dts_14 = dts14_v2, 
     dts_15 = dts15_v2, 
     dts_16 = dts16_v2, 
-    distress_tolerance_scale_complete, 
     aq_1 = aq1_v1, 
     aq_2 = aq2_v1, 
     aq_3 = aq3_v1, 
@@ -938,7 +868,6 @@ redcap <- redcap %>%
     aq_10 = aq10_v1, 
     aq_11 = aq11_v1, 
     aq_12 = aq12_v1, 
-    negative_affect_aggression_aq12_complete, 
     ces_1 = ces1_v1, 
     ces_2 = ces2_v1, 
     ces_3 = ces3_v1, 
@@ -949,7 +878,6 @@ redcap <- redcap %>%
     ces_8 = ces8_v1, 
     ces_9 = ces9_v1, 
     ces_10 = ces10_v1, 
-    cesd_complete, 
     is_1 = is1_v1, 
     is_2 = is2_v1, 
     is_3 = is3_v1, 
@@ -962,17 +890,14 @@ redcap <- redcap %>%
     is_10 = is10_v1, 
     is_11 = is11_v1, 
     is_12 = is12_v1, 
-    interpersonal_support_evaluation_list_complete, 
     rp_1 = rp1_v1, 
     rp_2 = rp2_v1, 
-    religious_participation_complete, 
     lsn_1 = lsn1_v1, 
     lsn_2 = lsn2_v1, 
     lsn_3 = lsn3_v1, 
     lsn_4 = lsn4_v1, 
     lsn_5 = lsn5_v1, 
     lsn_6 = lsn6_v1, 
-    lubben_social_network_scale_complete, 
     r_1 = r1_v1, 
     r_2 = r2_v1, 
     r_3 = r3_v1, 
@@ -1002,7 +927,6 @@ redcap <- redcap %>%
     r_16m = r15_v1___13, 
     r_16n = r15_v1___14, 
     r_16o = r15_v1___15, 
-    resource_utilization_questionnaire_complete, 
     bpm_1 = bpm1_v1, 
     bpm_2 = bpm2_v1, 
     bpm_3 = bpm3_v1, 
@@ -1014,7 +938,6 @@ redcap <- redcap %>%
     bpm_5e = bpm5_v1___4, 
     bpm_5f = bpm5_v1___5, 
     bpm_5g = bpm5_v1___6, 
-    barriers_to_phone_based_case_management_complete, 
     tq_1_1 = tq1_1v3, 
     tq_2_1 = tq2_1v3, 
     tq_14_1 = tq14_1v3, 
@@ -1042,43 +965,18 @@ redcap <- redcap %>%
     tq_12_3 = tq12_3v3, 
     tq_13_3 = tq13_3v3, 
     tq_14_3 = tq14_3v3, 
-    treatment_and_quality_satisfaction_survey_complete, 
-    staffperc_q1, 
-    staff_perceptions_of_the_link2care_app_complete, 
     everything()
-  )
+)
 ```
 
-<<<<<<< HEAD
 # Change group number
 
-2023-03-20 PTs 2336 and 2349 have incorrect grouping in REDCap. Manually fix grouping errors for both PTs to match QDS and Master Log.
+# 2023-03-20 PTs 2336 and 2349 have incorrect grouping in REDCap. Manually fix grouping errors for both PTs to match QDS and Master Log.
 
 ```{r}
 redcap$group[redcap$id == 2336] <- 3
 redcap$group[redcap$id == 2349] <- 2
 ```
-
-=======
->>>>>>> master
-# 🖨Print a message for when this file is being sourced
-
-```{r}
-cat(
-  paste0(Sys.Date(), ":"),
-<<<<<<< HEAD
-  "REDCap cleaned with", nrow(redcap), "rows and", ncol(redcap), "columns.\n"
-)
-
-# 2023-03-20: REDCap cleaned with 101 rows and 879 columns.
-=======
-  "REDCap redcap cleaned with", nrow(redcap), "rows and", ncol(redcap), "columns.\n"
-)
-
-# 2022-07-11: REDCap redcap cleaned with 21 rows and 911 columns.
->>>>>>> master
-```
-
 
 # 💾Save the redcap frame
 
