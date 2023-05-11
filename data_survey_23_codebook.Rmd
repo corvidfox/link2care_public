@@ -13,8 +13,8 @@ This file creates a codebook for combined_participant_data.rds, which is created
 ```{r message=FALSE}
 library(dplyr, warn.conflicts = FALSE)
 library(readr, warn.conflicts = FALSE)
-library(codebookr)
-library(shiny)
+library(codebookr, warn.conflicts = FALSE)
+library(shiny, warn.conflicts = FALSE)
 ```
 
 
@@ -64,7 +64,6 @@ cb_add_col_attributes(
   ml_hispanic, 
   description = "Master log hispanic"
 )
-
 ```
 
 ```{r}
@@ -98,6 +97,7 @@ label("ml_v4_r_distributed","Redcap visit 4 distributed")
 label("ml_v4_r_completed","Redcap visit 4 completed")
 label("ml_v5_r_distributed","Redcap visit 5 distributed")
 label("ml_v5_r_completed","Redcap visit 5 completed")
+label("visit_type", "Visit Type")
 label("ii","Interviewer Initials")
 
 #screnning questions
@@ -140,12 +140,12 @@ label("dem_snap_amount","What is the amount of food stamps (SNAP) do you get eac
 label("dem_income_source","What are your sources of income? (Please check all that apply).")
 
 #The Brief Homelessness Questionnaire
-label("bh_1","What is the total amount of time you have been homeless in your lifetime? (for example 3 and a half years would be 3 years and 6 months)")
+label("homeless_time_total","What is the total amount of time you have been homeless in your lifetime? (for example 3 and a half years would be 3 years and 6 months)")
 label("bh_1y","Years: What is the total amount of time you have been homeless in your lifetime? (for example 3 and a half years would be 3 years and 6 months)")
 label("bh_1m","Months: What is the total amount of time you have been homeless in your lifetime? (for example 3 and a half years would be 3 years and 6 months)")
 label("bh_1d","Days: What is the total amount of time you have been homeless in your lifetime? (for example 3 and a half years would be 3 years and 6 months)")
-label("bh_3","How old were you the first time you became homeless?")
-label("bh_4","How long ago did the current period of homelessness begin? (for example 3 years would be 3 years and 0 months)")
+label("homeless_age_first_time","How old were you the first time you became homeless?")
+label("homeless_current_total","How long ago did the current period of homelessness begin? (for example 3 years would be 3 years and 0 months)")
 label("bh_4y","Years: How long ago did the current period of homelessness begin? (for example 3 years would be 3 years and 0 months)")
 label("bh_4m","Months: How long ago did the current period of homelessness begin? (for example 3 years would be 3 years and 0 months)")
 label("bh_4d","Days: How long ago did the current period of homelessness begin? (for example 3 years would be 3 years and 0 months)")
@@ -154,10 +154,10 @@ label("bh_7y","Years: How long have you been receiving services at the Bridge? (
 label("bh_7m","Months: How long have you been receiving services at the Bridge? (for example, 6 and a half months would be 2 weeks, 6 months, 0 years)")
 label("bh_7w","Weeks: How long have you been receiving services at the Bridge? (for example, 6 and a half months would be 2 weeks, 6 months, 0 years)")
 label("bh_11","On average, how many hours do you spend at shelters each day (counting sleep time)?")
-label("bh_12","What are the reasons for your current homelessness (check all that apply)?	")
+label("homeless_reason_total","What are the reasons for your current homelessness (check all that apply)?	")
 label("bh_13","Have you ever been arrested and booked for: (Check all that apply)")
 label("bh_14","Were you arrested or booked for breaking the law in the PAST MONTH?")
-label("bh_15","During your lifetime, how many separate times have you been to jail or prison?")
+label("jail_lifetime_n","During your lifetime, how many separate times have you been to jail or prison?")
 label("jail_time_total","During your lifetime, how much time have you spent in jail or prison?")
 label("bh_18y","Years: During your most recent incarceration, how long were you in jail?")
 label("bh_18m","Months: During your most recent incarceration, how long were you in jail?")
@@ -216,9 +216,9 @@ label("mms_score","Mini Mental Status Score")
 label("mms_total","Mini Mental Status Total")
 
 
-label("phq_dep_dicot_total","PHQ dichotomous total")
-label("phqgad","PHQ generalized anxiety disorder")
-label("hsi_bl","Heaviness of smoking index baseline")
+label("phq_dep_dichot_total","PHQ dichotomous total")
+label("phq_gad","PHQ generalized anxiety disorder")
+label("hsi","Heaviness of smoking index baseline")
 label("pa","Physical aggression subscale")
 label("va","Verbal aggression subscale")
 label("a","Anger subscale")
@@ -360,9 +360,6 @@ label("hsi","Heaviness of Smoking Index score")
 label("tcu_tn_v_4_total","Sum, TCU Treatment needs subscale Visit 4")
 label("tcu_ts_total","Sum, TCU hostility subscale")
 
-#REDcap
-label("sq_7b2","Redcap Ask individual if they have a study flyer from the Dallas County Jail? If they have a flyer insert number below, otherwise click not applicable")
-
 #TLFBs
 label("days_followed","TLFB total days followed")
 label("total_drinks","Total drinks")
@@ -422,6 +419,70 @@ label("ddt_ed50","DDT ED50")
 ```
 
 # Source variables based on dataframe that variable comes from
+
+## Administrative
+```{r}
+combined_participant_data <- combined_participant_data %>%
+  cb_add_col_attributes( 
+    source = "V1, V2, V3, V4, V5"
+) %>%
+
+cb_add_col_attributes( 
+    ii, 
+    source = "V1, V2, V3, V4, V5"
+) %>%
+  
+cb_add_col_attributes(
+    read_1, 
+    source = "V1, V2, V3, V4, V5"
+) %>%
+  
+cb_add_col_attributes(
+    read_2, 
+    source = "V1, V2, V3, V4, V5"
+) %>%
+  
+cb_add_col_attributes(
+    read_3, 
+    source = "V1, V2, V3, V4, V5"
+) %>%
+
+cb_add_col_attributes(
+    ctime, 
+    source = "V1, V2, V3, V4, V5"
+) %>%
+
+cb_add_col_attributes(
+    endtime, 
+    source = "V1, V2, V3, V4, V5"
+) %>%
+  
+cb_add_col_attributes(
+    etime, 
+    source = "V1, V2, V3, V4, V5"
+) %>%
+  
+cb_add_col_attributes(
+    time_to_complete, 
+    source = "V1, V3, V4, V5"
+) %>%
+
+cb_add_col_attributes(
+    time, 
+    source = "V1, V3, V4, V5"
+) %>%
+  
+cb_add_col_attributes(
+    timestamp, 
+    source = "V1, V3, V4, V5"
+) %>%
+
+cb_add_col_attributes(
+    flag_out_of_window, 
+    source = "V1, V3, V4, V5"
+)
+
+```
 
 ## Master Log & Screening Questionnaire
 ```{r}
@@ -582,15 +643,6 @@ cb_add_col_attributes(
 ) %>%
   
 cb_add_col_attributes( 
-    visit_type, 
-    source = "V1, V2, V3, V4, V5"
-) %>%
-
-cb_add_col_attributes( 
-    ii, 
-    source = "V1, V2, V3, V4, V5"
-) %>%
-cb_add_col_attributes( 
     gender, 
     source = "V1, V2, V3, V4, V5"
 ) %>%
@@ -634,11 +686,7 @@ cb_add_col_attributes(
     sq_7b, 
     source = "V1"
 ) %>%
-  
-cb_add_col_attributes( 
-    sq_7b2, 
-    source = "V1R"
-)
+
 cb_add_col_attributes( 
     sq_7c, 
     source = "V1"
@@ -675,12 +723,12 @@ cb_add_col_attributes(
 ) %>%
   
 cb_add_col_attributes( 
-    sq_12, 
+    cell_have_f, 
     source = "V1"
 ) %>%
   
 cb_add_col_attributes( 
-    sq_13, 
+    cell_pays_f, 
     source = "V1"
 ) %>%
   
@@ -1212,51 +1260,6 @@ cb_add_col_attributes(
   
 cb_add_col_attributes(
     co, 
-    source = "V1, V3, V4, V5"
-) %>%
-  
-cb_add_col_attributes(
-    read_1, 
-    source = "V1, V2, V3, V4, V5"
-) %>%
-  
-cb_add_col_attributes(
-    read_2, 
-    source = "V1, V2, V3, V4, V5"
-) %>%
-  
-cb_add_col_attributes(
-    read_3, 
-    source = "V1, V2, V3, V4, V5"
-) %>%
-
-cb_add_col_attributes(
-    ctime, 
-    source = "V1, V2, V3, V4, V5"
-) %>%
-
-cb_add_col_attributes(
-    endtime, 
-    source = "V1, V2, V3, V4, V5"
-) %>%
-  
-cb_add_col_attributes(
-    etime, 
-    source = "V1, V2, V3, V4, V5"
-) %>%
-  
-cb_add_col_attributes(
-    time_to_complete, 
-    source = "V1, V3, V4, V5"
-) %>%
-
-cb_add_col_attributes(
-    time, 
-    source = "V1, V3, V4, V5"
-) %>%
-  
-cb_add_col_attributes(
-    timestamp, 
     source = "V1, V3, V4, V5"
 ) %>%
   
@@ -4141,6 +4144,69 @@ cb_add_col_attributes(
 ```
 
 ## Alcohol and Drug Timeline Follow-Back (TLFB)
+```{r}
+combined_participant_data <- combined_participant_data %>% 
+cb_add_col_attributes(
+    total_drinks, 
+    source = "V1, V3, V4, V5"
+) %>%
+  
+cb_add_col_attributes(
+    num_drinking_days, 
+    source = "V1, V3, V4, V5"
+) %>%
+  
+cb_add_col_attributes(
+    ave_drinks_day, 
+    source = "V1, V3, V4, V5"
+) %>%
+  
+cb_add_col_attributes(
+    num_alc_abstinent_days, 
+    source = "V1, V3, V4, V5"
+) %>%
+  
+cb_add_col_attributes(
+    heavy_drinking_days, 
+    source = "V1, V3, V4, V5"
+) %>%
+  
+cb_add_col_attributes(
+    greatest_drinks_1_day, 
+    source = "V1, V3, V4, V5"
+) %>%
+  
+cb_add_col_attributes(
+    drinks_wk, 
+    source = "V1, V3, V4, V5"
+) %>%
+  
+cb_add_col_attributes(
+    num_days_using_drugs, 
+    source = "V1, V3, V4, V5"
+) %>%
+  
+cb_add_col_attributes(
+    per_days_using_drugs, 
+    source = "V1, V3, V4, V5"
+) %>%
+  
+cb_add_col_attributes(
+    per_drug_abstinent_days, 
+    source = "V1, V3, V4, V5"
+) %>%
+  
+cb_add_col_attributes(
+    drug_use_days_yr, 
+    source = "V1, V3, V4, V5"
+) %>%
+  
+cb_add_col_attributes(
+    drug_use_days_week, 
+    source = "V1, V3, V4, V5"
+)
+```
+
 
 ## Personality Beliefs Questionnaire
 ```{r}
@@ -4514,12 +4580,12 @@ cb_add_col_attributes(
   
 cb_add_col_attributes(
     tcu_se_v_2_total, 
-    source = "V2, V4"
+    source = "V2"
 ) %>%
   
 cb_add_col_attributes(
     tcu_hs_v_2_total, 
-    source = "V2, V4"
+    source = "V2"
 ) %>%
   
 cb_add_col_attributes(
@@ -4539,32 +4605,38 @@ cb_add_col_attributes(
   
 cb_add_col_attributes(
     tcu_rt_v_2_total, 
-    source = "V2, V4"
+    source = "V2"
 ) %>%
   
 cb_add_col_attributes(
     tcu_desire_v_2_total, 
-    source = "V2, V4"
+    source = "V2"
 ) %>%
   
 cb_add_col_attributes(
     tcu_desire_v_4_total, 
-    source = "V2, V4"
+    source = "V4"
 ) %>%
   
 cb_add_col_attributes(
+    tcu_tn_v_2_total, 
+    source = "V2"
+) %>%
+  
+  
+cb_add_col_attributes(
     tcu_tn_v_4_total, 
-    source = "V2, V4"
+    source = "V4"
 ) %>%
   
 cb_add_col_attributes(
     tcu_desire_v2_total, 
-    source = "V2, V4"
+    source = "V2"
 ) %>%
   
 cb_add_col_attributes(
-    tcu_ts_total, 
-    source = "V2, V4"
+    tcu_ts_v_2_total, 
+    source = "V2"
 )
 ```
 
@@ -4866,7 +4938,7 @@ cb_add_col_attributes(
 )
 ```
 
-## Urban Life Stress Scale *All Visits
+## Urban Life Stress Scale
 ```{r}
 combined_participant_data <- combined_participant_data %>%
 cb_add_col_attributes(
@@ -5622,6 +5694,34 @@ cb_add_col_attributes(
 ```
 
 ## Homeless Timeline Follow-Back (TLFB)
+```{r}
+combined_participant_data <- combined_participant_data %>%
+cb_add_col_attributes(
+    days_followed, 
+    source = "V1, V3, V4, V5"
+) %>%
+  
+cb_add_col_attributes(
+    num_days_homeless, 
+    source = "V1, V3, V4, V5"
+) %>%
+  
+cb_add_col_attributes(
+    per_days_homeless, 
+    source = "V1, V3, V4, V5"
+) %>%
+  
+cb_add_col_attributes(
+    num_days_home, 
+    source = "V1, V3, V4, V5"
+) %>%
+  
+cb_add_col_attributes(
+    est_days_homeless_yr, 
+    source = "V1, V3, V4, V5"
+)
+```
+
 
 ## Resource Utilization Questionnaire
 ```{r}
@@ -6002,6 +6102,19 @@ cb_add_col_attributes(
 ```
 
 ## Delay Discounting Task
+```{r}
+combined_participant_data <- combined_participant_data %>%
+cb_add_col_attributes(
+    ddt_k, 
+    source = "V1, V3, V4, V5"
+) %>%
+  
+cb_add_col_attributes(
+    ddt_ed50, 
+    source = "V1, V3, V4, V5"
+)
+```
+
 
 ## Staff Perceptions of the Link2Care App *don't include?
 
