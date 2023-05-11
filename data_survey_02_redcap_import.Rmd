@@ -17,6 +17,7 @@ library(dplyr, warn.conflicts = FALSE)
 library(haven, warn.conflicts = FALSE)
 library(readr, warn.conflicts = FALSE)
 library(readxl, warn.conflicts = FALSE)
+library(stringr, warn.conflicts = FALSE)
 ```
 
 # 📥Import redcap 
@@ -34,6 +35,7 @@ cat(
   as.character(file.info(path)$mtime), "\n"
 )
 ```
+
 # Print a message for when this file is being sourced
 
 ```{r}
@@ -48,6 +50,7 @@ cat(
 # 2022-07-11: REDCap imported with 24 rows and 914 columns.
 # 2023-03-15: REDCap imported with 112 rows and 882 columns.
 # 2023-04-18: REDCap imported with 115 rows and 920 columns.
+# 2023-05-11: REDCap imported with 119 rows and 845 columns.
 ```
 
 # Remove fake redcap rows
@@ -61,11 +64,12 @@ redcap <- redcap %>%
   # numeric. R is forced to set them to NA. This is what we want to happen.
   filter(!is.na(record_id))
 ```
+
 # Clean variable names
 
 See [Notes on cleaning individual L2C redcap sets for merging](https://github.com/brad-cannell/link2care_public/wiki/Notes-on-cleaning-individual-L2C-redcap-sets-for-merging) for the rationale, style guidelines, and instructions for this section._
 
-# 🔴After you get this to work, move this section. I want all of the variable naming to exist in the Rmd code. 
+# 🔴 After you get this to work, move this section. I want all of the variable naming to exist in the Rmd code. 
 
 ## Extract content from Excel codebook
 
@@ -87,7 +91,7 @@ Put current REDCap column names into a redcap frame so that we can use `left_joi
 current_col_names <- tibble(current_name = names(redcap))
 ```
 
-Review column names that don't have a match in the QDS redcap.
+Review column names that don't have a match in the QDS.
 
 ```{r eval=FALSE}
 current_col_names %>% 
@@ -95,21 +99,41 @@ current_col_names %>%
   filter(is.na(qds_name))
 ```
 
-Did a manual review of current REDCap names that aren't matched to a QDS column name. They all appear to be variables that truly don't exist in QDS. Many of them are time stamps marking the beginning and end of survey sections. 
+Did a manual review of current REDCap names that aren't matched to a QDS column name.
 
 Some exceptions:   
 
-* There is an ii column, which does have a matching variable in QDS, but there is also an ii_v1 column. It doesn't contain any values. we will just drop it.   
+* There is a column called redcap_event_name that contains values like a string value like, visit_4_arm_1. Thre is also a column named visit that contains only the visit number. We will drop redcap_event_name.
 
-* There is a visit column, which does have a matching variable in QDS, but there is also an visit_v1. It doesn't contain any values. we will just drop it.   
+* There is an email column that can be dropped.
 
-* There is a visit_gender column, which does have a matching variable in QDS, but there is also a gender column. It doesn't contain any values. we will just drop it.   
+* There is an ii_v1 column, which does have a matching variable in QDS. It doesn't contain any values. we will just drop it.   
+
+* There is a visit_v1 column, which does have a matching variable in QDS. It doesn't contain any values. we will just drop it.   
+
+* There is a gender column and a visit_gender column. The visit_gender column contains the values -- the gender column is all missing data, but we need to change the column name from visit_gender to gender. We do that below. 
 
 * sq_7b2 says, "You selected that you received a flyer about the study from the Dallas County Jail. Please enter the study flyer number." This variable doesn't exist in QDS. We will leave it and it will have a missing value for all QDS rows in the combined redcap.
 
+* The well_being questions do exist in QDS, they just need to be renamed to match. We do that in the "Rename REDCap columns to match QDS" section below.
+
+* macarthur_major_discrimination_timestamp, macarthur_major_discrimination_complete, perceived_stress_scale_timestamp, and perceived_stress_scale_complete don't exist in QDS. We will drop them.
+
+* staffperc_q1 isn't used in QDS or REDCap. We will drop it.
+
 ```{r}
 redcap <- redcap %>%
-  select(-ii, -visit, -gender)
+  select(
+    -redcap_event_name, -email, -ii_v1, -visit_v1, 
+    -macarthur_major_discrimination_timestamp, 
+    -macarthur_major_discrimination_complete, 
+    -perceived_stress_scale_timestamp, -perceived_stress_scale_complete,
+    -staffperc_q1
+  ) %>% 
+  mutate(
+    gender = visit_gender,
+    visit_gender = NULL
+  )
 ```
 
 Put current REDCap column names into a redcap frame so that we can use `left_join()` below. We have to do this step again because we dropped variables above.
@@ -120,24 +144,27 @@ Create a final new set of column names. The new name will be equal to qds_name u
 
 Rename and reorder column names using `select()` like we did with the QDS redcap.
 
+# 🔴 Sangeeta: Delete
+
+When the code is working, please make a note that we aren't using the Excel sheet anymore and why, that it is no longer current, and that changes to the redcap names should be made directly to the code below.
+
 ```{r}
 # Move this to another file after you get everything working.
-
-current_col_names %>% 
-  left_join(rc_col_key, by = c("current_name" = "rc_name")) %>% 
-  mutate(copy_and_paste = if_else(
-    is.na(qds_name), current_name, paste0(qds_name, " = ", current_name)
-  )) %>% 
-  pull(copy_and_paste) %>% 
-  paste(collapse = ", \n") %>% 
-  cat()
+# current_col_names %>% 
+#   left_join(rc_col_key, by = c("current_name" = "rc_name")) %>% 
+#   mutate(copy_and_paste = if_else(
+#     is.na(qds_name), current_name, paste0(qds_name, " = ", current_name)
+#   )) %>% 
+#   pull(copy_and_paste) %>% 
+#   paste(collapse = ", \n") %>% 
+#   cat()
 ```
 
 ```{r}
 redcap <- redcap %>% 
   select(
     id = record_id, 
-    redcap_event_name, 
+    visit, 
     date_visit = visit_date, 
     group = group,
     sq_hispanic = sq_2, 
@@ -148,7 +175,6 @@ redcap <- redcap %>%
     sq_7 = sq_7, 
     sq_7a = sq_7a, 
     sq_7b = sq_7b1, 
-    sq_7b2, 
     sq_7d = sq_7d, 
     sq_8 = sq_8, 
     sq_9 = sq_9, 
@@ -347,6 +373,7 @@ redcap <- redcap %>%
     bh_18y = bh14bv1y, 
     bh_18m = bh14bv1m, 
     bh_18w = bh14bv1w, 
+    bh_18d = bh14bv3d,
     bh_19 = bh15v1, 
     bh_20 = bh15av1, 
     bh_21 = bh16v1, 
@@ -788,6 +815,9 @@ redcap <- redcap %>%
     vac_1 = vac1, 
     vac_2 = vac2, 
     vac_3 = vac3, 
+    well_being_1 = well_being1,
+    well_being_2 = well_being2,
+    well_being_3 = well_being3,
     dd_1 = dd1_v1, 
     dd_2 = dd2_v1, 
     dd_3 = dd3_v1, 
@@ -947,7 +977,7 @@ redcap <- redcap %>%
     tq_4_2 = tq4_2v3, 
     tq_9_2 = tq9_2v3, 
     tq_10_2 = tq10_2v3, 
-    yq_11_2 = tq11_2v3, 
+    tq_11_2 = tq11_2v3, 
     tq_12_2 = tq12_2v3, 
     tq_13_2 = tq13_2v3, 
     tq_14_2 = tq14_2v3, 
@@ -969,14 +999,53 @@ redcap <- redcap %>%
 )
 ```
 
-# Change group number
 
-# 2023-03-20 PTs 2336 and 2349 have incorrect grouping in REDCap. Manually fix grouping errors for both PTs to match QDS and Master Log.
+# Data management 
+
+## Change group number
+
+2023-03-20 PTs 2336 and 2349 have incorrect grouping in REDCap. Manually fix grouping errors for both PTs to match QDS and Master Log.
 
 ```{r}
 redcap$group[redcap$id == 2336] <- 3
 redcap$group[redcap$id == 2349] <- 2
 ```
+
+# Remove all screening variables
+
+2023-05-11: Screening questions were built into REDCap, but it was never actually used to collect screening data. Therefore, the screening question columns all contain missing data. Will will remove those here to make the data easier to work with.
+
+First, which columns contain nothing but missing data?
+
+```{r}
+all_missing <- names(which(colSums(is.na(redcap)) == nrow(redcap))) # 176
+```
+
+There are 181 columns that contain nothing but missing data. Sangeeta reviewed them and determined that they are all screening and randomization questions or visit 2 questions. REDCap was not used to collect that data. We will drop those columns now.
+
+NOTE: The vac_2 column is dropped above because it contains only missing data. It is supposed to contain the date of the participants first COVID vaccine. There are cases where the date of the second vaccine is listed, but no first vaccine. Sangeeta and Brad thought that was weird and looked into it. Although, the vac_2 variable appears in the REDCap codebook, it wasn't actually displayed to participants when they were completing REDCap.
+
+```{r}
+redcap <- redcap %>% 
+  select(-all_of(all_missing))
+```
+
+```{r}
+dim(redcap) # 108 659
+```
+
+# Coerce variable types
+
+This will facilitate merging in QDS in data_survey_21_merge.Rmd.
+
+```{r}
+redcap <- redcap %>% 
+  mutate(
+    vac_3 = as.Date(vac_3),
+    date_visit = as.Date(date_visit)
+  )
+```
+
 
 # 💾Save the redcap frame
 
@@ -1005,4 +1074,5 @@ Don't use `rm(list = ls())` because is causes R to drop the helper functions in 
 ```{r}
 rm(list = ls()[ls() != "source_rmd"])
 ```
+
 

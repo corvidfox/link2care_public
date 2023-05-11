@@ -148,6 +148,7 @@ if (length(table(master_log_screened_in$group)) != 3) {
 # )
 # end <- lubridate::now()
 ```
+
 # 💾Save the data frames
 
 ```{r}
@@ -197,7 +198,6 @@ cat(
 
 # 2022-07-01: Master log cleaned with 378 rows and 55 columns.
 ```
-
 
 # 🗑Clean up
 

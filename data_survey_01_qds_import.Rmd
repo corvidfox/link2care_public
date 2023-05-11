@@ -2031,6 +2031,20 @@ qds_all_visits <- qds_all_visits %>%
   select(id, group, everything())
 ```
 
+## Coerce variable types
+
+This will facilitate merging with REDCAp in data_survey_21_merge.Rmd.
+
+```{r}
+qds_all_visits <- qds_all_visits %>% 
+  mutate(
+    af_drinks = as.numeric(af_drinks)
+  )
+```
+
+
+# Data check
+
 ```{r}
 # Future proof this by checking to see if the variables have changed over time.
 # If this test fails in the future, come back and make adjustments to how we 

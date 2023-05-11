@@ -82,21 +82,13 @@ for (i in seq_along(data_frames)) {
 
 rm(df_nm, full_path, i, path)
 
-# 2022-07-11: qds_all_visits_import.rds imported as qds with 1056 rows and 1046 columns.
-# 2022-07-11: redcap_import.rds imported as rc with 21 rows and 911 columns.
-# 2022-07-11: master_log_screened_in.rds imported as ml with 383 rows and 55 columns.
-# 2022-07-11: tlfb.rds imported as tlfb with 1516 rows and 21 columns.
-# 2022-07-11: arrest.rds imported as arrest with 274 rows and 8 columns.
-# 2022-07-11: bridge_wide.rds imported as bridge with 376 rows and 20 columns.
-# 2022-07-11: ddt.rds imported as ddt with 1516 rows and 4 columns.
-
-# 2023-04-19: qds_all_visits_import.rds imported as qds with 1502 rows and 1048 columns.
-# 2023-04-19: redcap_import.rds imported as rc with 107 rows and 917 columns.
-# 2023-04-19: master_log_screened_in.rds imported as ml with 442 rows and 55 columns.
-# 2023-04-19: tlfb.rds imported as tlfb with 1768 rows and 21 columns.
-# 2023-04-19: arrest.rds imported as arrest with 442 rows and 16 columns.
-# 2023-04-19: bridge_wide.rds imported as bridge with 442 rows and 20 columns.
-# 2023-04-19: ddt.rds imported as ddt with 1768 rows and 4 columns.
+# 2023-05-11: qds_all_visits_import.rds imported as qds with 1503 rows and 1048 columns.
+# 2023-05-11: redcap_import.rds imported as rc with 108 rows and 659 columns.
+# 2023-05-11: master_log_screened_in.rds imported as ml with 442 rows and 55 columns.
+# 2023-05-11: tlfb.rds imported as tlfb with 1768 rows and 21 columns.
+# 2023-05-11: arrest.rds imported as arrest with 442 rows and 16 columns.
+# 2023-05-11: bridge_wide.rds imported as bridge with 442 rows and 20 columns.
+# 2023-05-11: ddt.rds imported as ddt with 1768 rows and 4 columns.
 ```
 
 
@@ -222,7 +214,6 @@ qds_id_group <- group_qds %>%
   ungroup()
 ```
 
-
 Manually fill in data values in the QDS data.
 
 ```{r}
@@ -272,22 +263,20 @@ group_rc$group[group_rc$id == 2398] <- 3
 
 Do one more check for multiple group values
 
-Adding a  stop function for when this file is sourced.
+Adding a stop function for when this file is sourced.
+
 ```{r}
 # For data checks
 check_redcap_group_values <- group_rc %>%
   group_by(id) %>%
   filter(unique(id, group) %>% length() > 1)
-# Manually review id's with multiple group values
-group_rc %>% 
-  filter(mult_group == TRUE)
 
 if (nrow(check_redcap_group_values) > 0) (
   stop("At least one participant in the REDCap data is assigned to more than one group. Please investigate further in data_survey_21_merge.Rmd.")
 )
-
 ```
-Yes, so now we don't need to worry about visit number. We can just keep one row per id, and check to make sure that group in REDCap matches group in the QDS data.
+
+So now we don't need to worry about visit number. We can just keep one row per id, and check to make sure that group in REDCap matches group in the QDS data.
 
 ```{r}
 rc_id_group <- group_rc %>% 
@@ -358,6 +347,7 @@ check_qds_ml_group_diffs <- left_join(
 ) %>%
   rowwise() %>% 
   mutate(diff = length(unique(c_across(c(group_ml, group_qds)))) > 1) %>% 
+  filter(diff) %>% 
   print()
 ```
 
@@ -406,7 +396,7 @@ if (length(unique(group_membership_key$id)) != nrow(group_membership_key)) {
 # Clean up the data checking objects
 rm(
   check_qds_group_values, check_qds_ml_group_diffs, check_qds_ml_group_diffs_not_na,
-  check_rc_group_values, group_rc, group_qds
+  check_redcap_group_values, group_rc, group_qds, group_membership_key
 )
 ```
 
@@ -416,49 +406,39 @@ At this point, `group_membership_key` contains the final group value we will use
 
 ## QDS and REDCap
 
-Coerce af_drinks to numeric to prevent the following error: Error: Can't combine '..1$af_drinks' <character> and '..2$af_drinks <double>.
+### Checking column names
+
+We want to row bind the QDS and REDCap data frames. To do that correctly, the column names in REDCap need to match the column names in QDS identically. Below, we will check for differences in column names.
 
 ```{r}
-qds <- qds %>%
-  mutate(
-    af_drinks = as.numeric(af_drinks)
-  ) %>%
-  mutate (
-  id = as.double(id)
+qds_names <- names(qds)
+rc_names <- names(rc)
+```
+
+Run check when sourcing this file. Make sure there aren't any column names in REDCap that don't exist in QDS.
+
+```{r}
+if (length(setdiff(rc_names, qds_names)) > 0) {
+  stop(
+    "There is at least one column name in REDCap that doesn't exist in QDS. There should not be any. Investigate in data_survey_21_merge.Rmd"
   )
-rc <- rc %>%
-  mutate(
-    id = as.numeric(id)
-  ) %>%
-  mutate(
-    vac_2 = as.numeric(vac_2)
-  ) %>%
-  mutate(
-    vac_3 = as.numeric(vac_3)
-  )
+}
 ```
 
 ```{r}
+rm(qds_names, rc_names)
+```
+
+### Bind QDS and REDCap
+
+```{r}
 l2c_survey <- qds %>%
-  mutate (
-  id = as.double(id)
-  ) %>%
-  mutate(
-    sq_9l = as.numeric(sq_9l)
-  ) %>%
-  mutate(
-    bh_24i = as.numeric(bh_24i)
-  ) %>%
-  mutate(
-    vac_2 = as.numeric(vac_2)
-  ) %>%
-  mutate(
-    vac_3 = as.numeric(vac_3)
-  ) %>%
-  mutate(
-  date_visit = as.Date(date_visit)
-  ) %>%
-  rbind2(qds, rc, by("id", "visit"), all=TRUE)
+  bind_rows(rc) %>% 
+  arrange(id, visit)
+```
+
+```{r}
+dim(l2c_survey) # 1611 1048
 ```
 
 ## Master log
@@ -470,20 +450,13 @@ We will also add "ml" to the beginning of every column name in the master log. T
 ```{r}
 ml_sub <- ml %>% 
   select(id, status, group, name_first:v5_r_completed) %>% 
-  rename_with(~ paste0("ml_", .x), -id)
-ml_sub <- ml %>%
-  mutate(
-    id = as.numeric(id)
-  ) 
-ml_sub <- ml_sub %>% 
-  select(id, status, group, name_first:v5_r_completed) %>% 
-  rename_with(~ paste0("ml_", .x), -id)
+  rename_with(~ paste0("ml_", .x))
 ```
 
 Run check when sourcing this file. Make sure there is one row per id in master log before joining.
 
 ```{r}
-if (nrow(ml_sub) != length(unique(ml_sub$id))) {
+if (nrow(ml_sub) != length(unique(ml_sub$ml_id))) {
   stop(
     "Master log has more than one row per id. Investigate in data_survey_21_merge.Rmd"
   )
@@ -496,7 +469,7 @@ There are also more people in the Master log than there are in the QDS/REDCap da
 Put in a check for this. If it fails, you probably need to update the Master Log import.
 
 ```{r}
-if (length(unique(l2c_survey$id)) > length(unique(ml_sub$id))) {
+if (length(unique(l2c_survey$id)) > length(unique(ml_sub$ml_id))) {
   stop(
     "There are more people in the Master log than there are in the QDS/REDCap data. If it fails, you probably need to update the Master Log import. Investigate in data_survey_21_merge.Rmd"
   )
@@ -504,20 +477,31 @@ if (length(unique(l2c_survey$id)) > length(unique(ml_sub$id))) {
 
 ```
 
+### Join combined QDS/REDCap columns to ML
+
+Join combined QDS/REDCap columns to ML instead of joining ML to combined QDS/REDCap columns becasue ML is more complete (i.e., has data for a greater number of participants).
+
 ```{r}
 l2c_survey <- ml_sub %>%
-  left_join(l2c_survey, ml_sub, by = "id")
+  left_join(l2c_survey, by = c("ml_id" = "id")) %>% 
+  rename(id = ml_id)
+```
+
+```{r}
+dim(l2c_survey) # 1611 1075
 ```
 
 ## TLFB
 
-```{r}
-l2c_survey <- tlfb %>%
-  mutate (
-  id = as.numeric(id)
-  ) %>%
-  left_join(l2c_survey, tlfb, by = "id")
+Join TLFB to l2c_survey instead of joining l2c_survey to TLFB because TLFB does not contain a row for visit 2.
 
+```{r}
+l2c_survey <- l2c_survey %>%
+  left_join(tlfb, by = c("id", "visit"))
+```
+
+```{r}
+dim(l2c_survey) # 1611 1094
 ```
 
 ## Arrest data 
@@ -530,7 +514,6 @@ arrest %>%
   filter(max(row_number()) > 1)
 ```
 
-
 ```{r}
 arrest_one_row_per_id <- arrest %>% 
   summarise(one_row_per_id = nrow(.) == length(unique(id))) %>% 
@@ -541,17 +524,17 @@ if (!arrest_one_row_per_id) {
     "The arrest data has more than one row per id. Investigate in data_survey_21_merge.d"
   )
 }
+
 rm(arrest_one_row_per_id)
 ```
 
 ```{r}
-arrest <- arrest %>% 
- mutate(
-   id = as.numeric(id)
-   )
-l2c_survey <- arrest %>%
-  left_join(l2c_survey, arrest, by = c("id"))
+l2c_survey <- l2c_survey %>%
+  left_join(arrest, by = "id")
+```
 
+```{r}
+dim(l2c_survey) # 1611 1109
 ```
 
 ## Bridge sessions data
@@ -573,55 +556,44 @@ rm(bridge_one_row_per_id)
 ```
 
 ```{r}
-bridge <- bridge %>% 
- mutate(
-   id = as.numeric(id)
-   )
-l2c_survey <- bridge %>%
-  left_join(l2c_survey, bridge, by = c("id"))
+l2c_survey <- l2c_survey %>%
+  left_join(bridge, by = "id")
+```
 
+```{r}
+dim(l2c_survey) # 1611 1128
 ```
 
 ## DDT data
 
 ```{r}
-ddt <- ddt %>% 
- mutate(
-   id = as.numeric(id)
-   )
-l2c_survey <- ddt %>%
-  left_join(l2c_survey, ddt, by = "id")
+l2c_survey <- l2c_survey %>%
+  left_join(ddt, by = c("id", "visit"))
+```
 
+```{r}
+dim(l2c_survey) # 1611 1130
 ```
 
 
 # Set group status
 
-Use `group_membership_key` to set the final group status for each participant.
-
-There should not be more ids in `group_membership_key` than `l2c_survey`. Check to make sure.
+Use the `ml_group` to set the final group status for each participant.
 
 ```{r}
-if (nrow(group_membership_key) > length(unique(l2c_survey$id))) {
-  stop(
-    "There are more ids in `group_membership_key` than `l2c_survey`. Investigate in data_survey_21_merge.Rmd"
-  )
-}
+l2c_survey <- l2c_survey %>%
+  select(-group) %>% 
+  select(id, visit, date_visit, group = ml_group, everything())
 ```
 
 ```{r}
-
-l2c_survey <- group_membership_key %>% 
-  mutate_if(is.character,as.double) %>%
-  select(-group) %>% 
-  left_join(l2c_survey, by = "id") %>% 
-  select(id, visit, date_visit, group, everything())
+dim(l2c_survey) # 1611 1129
 ```
 
 Make sure we get a warning if the number of columns in `l2c_survey` changes.
 
 ```{r}
-if (ncol(l2c_survey) != 1132) {
+if (ncol(l2c_survey) != 1129) {
   stop(
     "The number of columns in l2c_survey is different than expected.",
     " The expected number was 1,132.",
@@ -644,7 +616,6 @@ if (ncol(l2c_survey) != 1132) {
 # 2023-04-20 Error: The number of columns in l2c_survey is different than expected. The expected number was 1,200. The actual number was 1221. Investigate in data_survey_21_merge.Rmd
 
 # 2023-05-02 Error: The number of columns in l2c_survey is different than expected. The expected number was 1,200. The actual number was 1132. Investigate in data_survey_21_merge.Rmd
-
 ```
 
 # 🖨Print a message for when this file is being sourced
@@ -661,7 +632,7 @@ cat(
 # 2023-04-19: Combined Participant data cleaned with 1770 rows and 1131 columns.
 # 2023-04-20: Combined Participant data cleaned with 1769 rows and 1221 columns.
 # 2023-05-02: Combined Participant data cleaned with 48064 rows and 1132 columns.
-
+# 2023-05-11: Combined Participant data cleaned with 1611 rows and 1129 columns.
 ```
 
 
