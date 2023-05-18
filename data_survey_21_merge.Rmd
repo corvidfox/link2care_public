@@ -433,12 +433,13 @@ rm(qds_names, rc_names)
 
 ```{r}
 l2c_survey <- qds %>%
+  mutate(vac_3 = as.character.Date(vac_3)) %>%
   bind_rows(rc) %>% 
   arrange(id, visit)
 ```
 
 ```{r}
-dim(l2c_survey) # 1611 1048
+dim(l2c_survey) # 1614 1048
 ```
 
 ## Master log
@@ -488,7 +489,7 @@ l2c_survey <- ml_sub %>%
 ```
 
 ```{r}
-dim(l2c_survey) # 1611 1075
+dim(l2c_survey) # 1614 1075
 ```
 
 ## TLFB
@@ -501,7 +502,7 @@ l2c_survey <- l2c_survey %>%
 ```
 
 ```{r}
-dim(l2c_survey) # 1611 1094
+dim(l2c_survey) # 1614 1094
 ```
 
 ## Arrest data 
@@ -534,7 +535,7 @@ l2c_survey <- l2c_survey %>%
 ```
 
 ```{r}
-dim(l2c_survey) # 1611 1109
+dim(l2c_survey) # 1614 1109
 ```
 
 ## Bridge sessions data
@@ -561,7 +562,7 @@ l2c_survey <- l2c_survey %>%
 ```
 
 ```{r}
-dim(l2c_survey) # 1611 1128
+dim(l2c_survey) # 1614 1128
 ```
 
 ## DDT data
@@ -572,7 +573,7 @@ l2c_survey <- l2c_survey %>%
 ```
 
 ```{r}
-dim(l2c_survey) # 1611 1130
+dim(l2c_survey) # 1614 1130
 ```
 
 
@@ -587,13 +588,17 @@ l2c_survey <- l2c_survey %>%
 ```
 
 ```{r}
-dim(l2c_survey) # 1611 1129
+dim(l2c_survey) # 1614 1129
+```
+## Remove columns with names/PHI
+```{r}
+l2c_survey <- select(l2c_survey, 1:5, 9:1129)
 ```
 
 Make sure we get a warning if the number of columns in `l2c_survey` changes.
 
 ```{r}
-if (ncol(l2c_survey) != 1129) {
+if (ncol(l2c_survey) != 1126) {
   stop(
     "The number of columns in l2c_survey is different than expected.",
     " The expected number was 1,132.",
@@ -618,6 +623,321 @@ if (ncol(l2c_survey) != 1129) {
 # 2023-05-02 Error: The number of columns in l2c_survey is different than expected. The expected number was 1,200. The actual number was 1132. Investigate in data_survey_21_merge.Rmd
 ```
 
+## Reorder columns to follow logical order based on visit/chronology
+```{r}
+# DDT
+l2c_survey <- l2c_survey %>%
+  mutate(
+    ddt_k = as.character(ddt_k)
+    ) %>%
+  mutate(
+    ddt_ed50 = as.character(ddt_ed50)
+    ) %>%
+  relocate(1125:1126, .after = c(148))
+
+# TLFB
+l2c_survey <- l2c_survey %>%
+  mutate(
+    days_followed = as.character(days_followed)
+    ) %>%
+  mutate(
+    num_days_homeless = as.character(num_days_homeless)
+    ) %>%
+  mutate(
+    per_days_homeless = as.character(per_days_homeless)
+    ) %>%
+  mutate(
+    num_days_home = as.character(num_days_home)
+    ) %>%
+  mutate(
+    est_days_homeless_yr = as.character(est_days_homeless_yr)
+    ) %>%
+  mutate(
+    avg_days_homeless_wk = as.character(avg_days_homeless_wk)
+    ) %>%
+  mutate(
+    flag_out_of_window = as.character(flag_out_of_window)
+    ) %>%
+  relocate(1074:1092, .before = 151)
+
+# Arrest
+l2c_survey <- l2c_survey %>%
+  relocate(1093:1107, .before = c(231))
+
+## Calculated Variables
+# MMS
+l2c_survey <- l2c_survey %>%
+  relocate(794:796, .after = c(129))
+
+# PHQ
+l2c_survey <- l2c_survey %>%
+  relocate(797:808, .after = c(349))
+
+# HSI
+l2c_survey <- l2c_survey %>%
+  relocate(809:810, .after = c(673))
+
+# AQ
+l2c_survey <- l2c_survey %>%
+  relocate(813:817, .after = c(735))
+
+# CES-D
+l2c_survey <- l2c_survey %>%
+  relocate(818:833, .after = c(750)) 
+
+# ISE
+l2c_survey <- l2c_survey %>%
+  relocate(834:842, .after = c(778)) 
+
+# FSS
+l2c_survey <- l2c_survey %>%
+  relocate(1103:1104, .after = c(1028))
+
+# Friends/Family Smoke (HSI)
+l2c_survey <- l2c_survey %>%
+  relocate(861:862, .after = c(675))
+
+# TCU/CJ CEST
+l2c_survey <- l2c_survey %>%
+  relocate(1034:1036, .after = c(947))
+
+# Friends/Family Smoke (HSI)
+l2c_survey <- l2c_survey %>%
+  relocate(861:862, .after = c(675))
+
+# PTSD
+l2c_survey <- l2c_survey %>%
+  relocate(849:850, .after = c(567))
+
+# MMD
+l2c_survey <- l2c_survey %>%
+  relocate(1047, .after = c(967))
+
+# TCU/CJ CEST
+l2c_survey <- l2c_survey %>%
+  relocate(1105:1107, .after = c(1047))
+
+# TCU/CJ CEST
+l2c_survey <- l2c_survey %>%
+  relocate(1042:1043, .after = c(1050))
+
+# TCU/CJ CEST
+l2c_survey <- l2c_survey %>%
+  relocate(1049:1050, .before = c(1046))
+
+# TCU DS
+l2c_survey <- l2c_survey %>%
+  relocate(1022:1025, .after = c(883))
+
+# PBQ
+l2c_survey <- l2c_survey %>%
+  relocate(1026, .after = c(699))
+
+# TCU/CJ CEST
+l2c_survey <- l2c_survey %>%
+  relocate(1038:1050, .after = c(955))
+
+# TCU/CJ CEST
+l2c_survey <- l2c_survey %>%
+  relocate(1038:1050, .after = c(955))
+
+# MMD
+l2c_survey <- l2c_survey %>%
+  relocate(972:986, .after = c(720))
+
+# FSS
+l2c_survey <- l2c_survey %>%
+  relocate(1040:1050, .after = c(927))
+
+# MS
+l2c_survey <- l2c_survey %>%
+  relocate(701:704, .before = c(939))
+
+# FSS
+l2c_survey <- l2c_survey %>%
+  relocate(1040:1050, .after = c(927))
+
+# SB
+l2c_survey <- l2c_survey %>%
+  relocate(1040:1050, .after = c(927))
+
+# ULS, PV, PS, DTS
+l2c_survey <- l2c_survey %>%
+  relocate(998:1041, .before = c(742))
+
+# BRFSS Sleep
+l2c_survey <- l2c_survey %>%
+  relocate(903:904, .after = c(677))
+
+# BRFSS Sleep
+l2c_survey <- l2c_survey %>%
+  relocate(1106:1107, .after = c(679))
+
+# ULS
+l2c_survey <- l2c_survey %>%
+  relocate(1053, .after = c(766))
+
+# PS
+l2c_survey <- l2c_survey %>%
+  relocate(1054:1056, .after = c(744))
+
+# PS
+l2c_survey <- l2c_survey %>%
+  relocate(745:747, .after = c(777))
+
+# DTS
+l2c_survey <- l2c_survey %>%
+  relocate(1057:1076, .after = c(793))
+
+# DS
+l2c_survey <- l2c_survey %>%
+  relocate(953:980, .before = c(570))
+
+# ULS 
+l2c_survey <- l2c_survey %>%
+  relocate(1068:1076, .after = c(997))
+
+# Health Insurance Q
+l2c_survey <- l2c_survey %>%
+  relocate(977, .before = c(195))
+
+# PBQ, FSS, PV, PS, DTS
+l2c_survey <- l2c_survey %>%
+  relocate(981:1028, .after = c(733))
+
+# DTS Total
+l2c_survey <- l2c_survey %>%
+  relocate(733, .after = c(740))
+
+# DTS
+l2c_survey <- l2c_survey %>%
+  relocate(747:750, .after = c(781))
+
+# SB
+l2c_survey <- l2c_survey %>%
+  relocate(782:797, .after = c(807))
+
+# ULS, PV, PS, DTS
+l2c_survey <- l2c_survey %>%
+  relocate(747:781, .after = c(822))
+
+# TCU CJ CEST
+l2c_survey <- l2c_survey %>%
+  relocate(823:828, .after = c(750))
+
+# DS
+l2c_survey <- l2c_survey %>%
+  relocate(571:587, .before = c(565))
+
+# BRFSS Sleep
+l2c_survey <- l2c_survey %>%
+  relocate(715:719, .before = c(707))
+
+# HSI
+l2c_survey <- l2c_survey %>%
+  relocate(718:719, .after = c(706))
+
+# FSS
+l2c_survey <- l2c_survey %>%
+  relocate(831:841, .after = c(746))
+
+# TCU CJ CEST
+l2c_survey <- l2c_survey %>%
+  relocate(842:843, .before = c(758))
+
+# TCU CJ CEST
+l2c_survey <- l2c_survey %>%
+  relocate(845, .after = c(759))
+
+# ULS
+l2c_survey <- l2c_survey %>%
+  relocate(845, .before = c(820))
+
+# PS
+l2c_survey <- l2c_survey %>%
+  relocate(852:853, .after = c(827))
+
+# PS
+l2c_survey <- l2c_survey %>%
+  relocate(854, .after = c(829))
+
+# MMD
+l2c_survey <- l2c_survey %>%
+  relocate(849:860, .after = c(797))
+
+# VAC
+l2c_survey <- l2c_survey %>%
+  relocate(859:860, .after = c(795))
+
+# MMD
+l2c_survey <- l2c_survey %>%
+  relocate(861, .after = c(811))
+
+# ULS
+l2c_survey <- l2c_survey %>%
+  relocate(862:870, .before = c(823))
+
+# LSN
+l2c_survey <- l2c_survey %>%
+  relocate(1008:1009, .after = c(962))
+
+# PTSD
+l2c_survey <- l2c_survey %>%
+  relocate(1010:1011, .after = c(585))
+
+# LSN
+l2c_survey <- l2c_survey %>%
+  relocate(588, .after = c(966))
+
+# DD
+l2c_survey <- l2c_survey %>%
+  relocate(588, .after = c(823))
+
+# T
+l2c_survey <- l2c_survey %>%
+  relocate(1027:1028, .after = c(702))
+
+# SRH
+l2c_survey <- l2c_survey %>%
+  relocate(1014, .after = c(564))
+
+# TCU CJ CEST 
+l2c_survey <- l2c_survey %>%
+  relocate(1040:1076, .after = c(760))
+
+# ALCF
+l2c_survey <- l2c_survey %>%
+  relocate(1052:1054, .after = c(735))
+
+# ANTHRO
+l2c_survey <- l2c_survey %>%
+  relocate(1055:1060, .after = c(147))
+
+# SRH 
+l2c_survey <- l2c_survey %>%
+  relocate(1061:1064, .after = c(571))
+
+# VAC
+l2c_survey <- l2c_survey %>%
+  relocate(1069:1072, .after = c(847))
+
+# VAC
+l2c_survey <- l2c_survey %>%
+  relocate(851, .after = c(852))
+
+# MS
+l2c_survey <- l2c_survey %>%
+  relocate(1073:1076, .after = c(773))
+
+# ALC/DRUG- TLFB
+l2c_survey <- l2c_survey %>%
+  relocate(161:172, .after = c(748))
+
+# LOC- TLFB
+l2c_survey <- l2c_survey %>%
+  relocate(160:166, .after = c(1027))
+```
+
 # 🖨Print a message for when this file is being sourced
 
 ```{r}
@@ -633,6 +953,8 @@ cat(
 # 2023-04-20: Combined Participant data cleaned with 1769 rows and 1221 columns.
 # 2023-05-02: Combined Participant data cleaned with 48064 rows and 1132 columns.
 # 2023-05-11: Combined Participant data cleaned with 1611 rows and 1129 columns.
+# 2023-05-15: Combined Participant data cleaned with 1614 rows and 1129 columns.
+# 2023-05-16: Combined Participant data cleaned with 1614 rows and 1126 columns.
 ```
 
 
