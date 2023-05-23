@@ -432,14 +432,21 @@ rm(qds_names, rc_names)
 ### Bind QDS and REDCap
 
 ```{r}
+qds <- qds %>%
+  mutate(
+    vac_3 = as.character(vac_3)
+  )
+rc <- rc %>%
+  mutate(
+    vac_3 = as.character(vac_3)
+  )
 l2c_survey <- qds %>%
-  mutate(vac_3 = as.character.Date(vac_3)) %>%
   bind_rows(rc) %>% 
   arrange(id, visit)
 ```
 
 ```{r}
-dim(l2c_survey) # 1614 1048
+dim(l2c_survey) # 1614 1049
 ```
 
 ## Master log
@@ -489,7 +496,7 @@ l2c_survey <- ml_sub %>%
 ```
 
 ```{r}
-dim(l2c_survey) # 1614 1075
+dim(l2c_survey) # 1614 1076
 ```
 
 ## TLFB
@@ -502,7 +509,7 @@ l2c_survey <- l2c_survey %>%
 ```
 
 ```{r}
-dim(l2c_survey) # 1614 1094
+dim(l2c_survey) # 1614 1095
 ```
 
 ## Arrest data 
@@ -535,7 +542,7 @@ l2c_survey <- l2c_survey %>%
 ```
 
 ```{r}
-dim(l2c_survey) # 1614 1109
+dim(l2c_survey) # 1614 1110
 ```
 
 ## Bridge sessions data
@@ -562,7 +569,7 @@ l2c_survey <- l2c_survey %>%
 ```
 
 ```{r}
-dim(l2c_survey) # 1614 1128
+dim(l2c_survey) # 1614 1129
 ```
 
 ## DDT data
@@ -573,7 +580,7 @@ l2c_survey <- l2c_survey %>%
 ```
 
 ```{r}
-dim(l2c_survey) # 1614 1130
+dim(l2c_survey) # 1614 1131
 ```
 
 
@@ -590,15 +597,11 @@ l2c_survey <- l2c_survey %>%
 ```{r}
 dim(l2c_survey) # 1614 1129
 ```
-## Remove columns with names/PHI
-```{r}
-l2c_survey <- select(l2c_survey, 1:5, 9:1129)
-```
 
 Make sure we get a warning if the number of columns in `l2c_survey` changes.
 
 ```{r}
-if (ncol(l2c_survey) != 1126) {
+if (ncol(l2c_survey) != 1129) {
   stop(
     "The number of columns in l2c_survey is different than expected.",
     " The expected number was 1,132.",
@@ -938,6 +941,21 @@ l2c_survey <- l2c_survey %>%
   relocate(160:166, .after = c(1027))
 ```
 
+# De-identify columns with PT names
+```{r}
+l2c_survey <- l2c_survey %>%
+  mutate(
+    ml_name_first = as.character(ml_name_first)
+  ) %>%
+  mutate(
+    ml_name_middle_init = as.character(ml_name_middle_init)
+  ) %>%
+  mutate(
+    ml_name_last = as.character(ml_name_last)
+  ) %>%
+  select(1:5, 9:1129)
+```
+
 # 🖨Print a message for when this file is being sourced
 
 ```{r}
@@ -955,6 +973,8 @@ cat(
 # 2023-05-11: Combined Participant data cleaned with 1611 rows and 1129 columns.
 # 2023-05-15: Combined Participant data cleaned with 1614 rows and 1129 columns.
 # 2023-05-16: Combined Participant data cleaned with 1614 rows and 1126 columns.
+# 2023-05-20: Combined Participant data cleaned with 1614 rows and 1129 columns.
+# 2023-05-20: Combined Participant data cleaned with 1614 rows and 1126 columns.
 ```
 
 
