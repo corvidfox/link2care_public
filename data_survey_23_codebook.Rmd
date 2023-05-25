@@ -5762,7 +5762,7 @@ cat(
 # 💾Save the data frame
 
 ```{r}
-path <- "../Participant Data/SPSS Data/combined_participant_data.sav"
+path <- "../Participant Data/Combined Participant Data/SPSS Data/combined_participant_data.sav"
 ```
 
 ```{r}

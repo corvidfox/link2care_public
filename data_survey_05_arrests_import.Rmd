@@ -106,7 +106,7 @@ cat(
 
 # 2021-06-30: Arrest data cleaned with 234 rows and 8 columns.
 # 2021-06-30: Arrest data cleaned with 499 rows and 16 columns.
-
+# 2023-04-19: Arrest data cleaned with 442 rows and 16 columns.
 ```
 
 

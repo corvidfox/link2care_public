@@ -24,7 +24,7 @@ library(testthat, warn.conflicts = FALSE)
 # 📥Import data 
 
 ```{r}
-path <- "../Participant Data/SPSS Data/TLFB Data/TLFB_Database.sav"
+path <- "../Participant Data/Combined Participant Data/SPSS Data/TLFB Data/TLFB_Database.sav"
 ```
 
 Check the most recent file modification dates on OneDrive and print for user when this file is being sourced.
@@ -121,6 +121,7 @@ cat(
 )
 
 # 2022-07-11: TLFB data cleaned with 1516 rows and 21 columns.
+# 2023-04-19: TLFB data cleaned with 1768 rows and 21 columns.
 ```
 
 

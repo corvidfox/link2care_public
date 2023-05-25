@@ -33,7 +33,7 @@ library(readr, warn.conflicts = FALSE)
 # 📥Import data 
 
 ```{r}
-path <- "../Participant Data/SPSS Data/DDT/L2C_DDT_Database_1.sav"
+path <- "../Participant Data/Combined Participant Data/SPSS Data/DDT/L2C_DDT_Database_1.sav"
 ```
 
 Check the most recent file modification dates on the UTHealth servers and print for user when this file is being sourced.
@@ -120,6 +120,7 @@ cat(
 )
 
 # 2022-07-11: DDT data cleaned with 1516 rows and 4 columns.
+# 2023-04-19: DDT data cleaned with 1768 rows and 4 columns.
 ```
 
 

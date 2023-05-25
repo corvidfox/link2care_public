@@ -23,7 +23,7 @@ library(stringr, warn.conflicts = FALSE)
 # 📥Import redcap 
 
 ```{r}
-path <- "../Participant Data/SPSS Data/Redcap/All_Visits_Redcap.sav"
+path <- "../Participant Data/Combined Participant Data/SPSS Data/Redcap/All_Visits_Redcap.sav"
 ```
 
 # Check the most recent file modification dates on the UTHealth servers and print for user when this file is being sourced. 
@@ -1041,7 +1041,7 @@ This will facilitate merging in QDS in data_survey_21_merge.Rmd.
 ```{r}
 redcap <- redcap %>% 
   mutate(
-    vac_3 = as.Date(vac_3),
+    vac_3 = as.character.Date(vac_3),
     date_visit = as.Date(date_visit)
   )
 ```
