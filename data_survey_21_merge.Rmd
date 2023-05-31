@@ -941,7 +941,7 @@ l2c_survey <- l2c_survey %>%
   relocate(160:166, .after = c(1027))
 ```
 
-# De-identify columns with PT names
+# De-identify columns with PT names, specific info to PT (PHI)
 ```{r}
 l2c_survey <- l2c_survey %>%
   mutate(
@@ -953,7 +953,7 @@ l2c_survey <- l2c_survey %>%
   mutate(
     ml_name_last = as.character(ml_name_last)
   ) %>%
-  select(1:5, 9:1129)
+  select(1:5, 9:11, 13, 15, 18:1129)
 ```
 
 # 🖨Print a message for when this file is being sourced
@@ -975,6 +975,7 @@ cat(
 # 2023-05-16: Combined Participant data cleaned with 1614 rows and 1126 columns.
 # 2023-05-20: Combined Participant data cleaned with 1614 rows and 1129 columns.
 # 2023-05-20: Combined Participant data cleaned with 1614 rows and 1126 columns.
+# 2023-05-31: Combined Participant data cleaned with 1614 rows and 1122 columns.
 ```
 
 
