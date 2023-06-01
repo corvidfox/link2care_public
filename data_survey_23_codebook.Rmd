@@ -74,12 +74,8 @@ label("ml_status","Master log status")
 label("ml_gender","Master log gender")
 label("ml_race","Master log race")
 label("ml_hispanic","Master log hispanic")
-label("ml_date_birth","Master log date of birth")
 label("ml_age","Master log age")
-label("ml_clincard_id","ClinCard ID")
 label("ml_n_clincards","N clinicard distributed")
-label("ml_phone_id","Phone ID")
-label("ml_phone_number_l2c","L2C phone number")
 label("ml_phone_n_distributed", "N phone distributed")
 label("ml_care_manager","Care manager")
 label("ml_v1","Visit 1 attended")
@@ -605,19 +601,9 @@ label("bridge_any_other","Used at least one session of other case management")
 label("bridge_all_none","Used no forms of Bridge case management")
 ```
 
-# Drop  variables that are duplicates & move `flag_out_of_window`
-```{r}
-combined_participant_data = subset(combined_participant_data, select = -c(147, 148) )
-combined_participant_data <- combined_participant_data %>%
-  relocate(234, .before = 29)
-combined_participant_data = subset(combined_participant_data, select = -c(260) )
-combined_participant_data = subset(combined_participant_data, select = -c(302) )
-combined_participant_data = subset(combined_participant_data, select = -c(338) )
-```
-
 # Assess number of variables to be sourced (excluding factor and reverse coded calculated variables)
 ```{r}
-dim(combined_participant_data) # 1614 1298
+dim(combined_participant_data) # 1614 1299
 ```
 
 # Source raw variables based on dataframe that variable comes from
@@ -715,17 +701,7 @@ cb_add_col_attributes(
 ) %>% 
   
 cb_add_col_attributes(
-    ml_date_birth, 
-    source = "Master Log"
-) %>% 
-  
-cb_add_col_attributes(
     ml_age, 
-    source = "Master Log"
-) %>% 
-  
-cb_add_col_attributes(
-    ml_clincard_id, 
     source = "Master Log"
 ) %>% 
   
@@ -733,17 +709,7 @@ cb_add_col_attributes(
     ml_n_clincards, 
     source = "Master Log"
 ) %>% 
-  
-cb_add_col_attributes(
-    ml_phone_id, 
-    source = "Master Log"
-) %>% 
-  
-cb_add_col_attributes(
-    ml_phone_number_l2c, 
-    source = "Master Log"
-) %>% 
-  
+
 cb_add_col_attributes(
     ml_phone_n_distributed, 
     source = "Master Log"
@@ -5758,42 +5724,6 @@ cat(
 # 2023-05-23: Combined Participant data cleaned with 1614 rows and 1303 columns.
 # 2023-05-23: Combined Participant data cleaned with 1614 rows and 1298 columns.
 ```
-
-# 💾Save the data frame
-
-```{r}
-path <- "../Participant Data/SPSS Data/combined_participant_data.sav"
-```
-
-```{r}
-write_sav(combined_participant_data, path)
-```
-
-Print a message for when this file is being sourced
-
-```{r}
-cat(
-  paste0(Sys.Date(), ":"),
-  "Combined Participant data saved to", path, "\n"
-)
-```
-
-```{r}
-path <- "../Participant Data/R Data/combined_participant_data.rds"
-```
-
-```{r}
-write_rds(combined_participant_data, path)
-```
-
-Print a message for when this file is being sourced
-
-```{r}
-cat(
-  paste0(Sys.Date(), ":"),
-  "Combined Participant data saved to", path, "\n"
-)
-```
 ```{r}
 library(codebookr)
 install.packages("flextable", type = "binary")
@@ -5806,14 +5736,14 @@ combined_participant_data_cb <- codebook(
   # select(combined_participant_data, 835),
   combined_participant_data,
    no_summary_stats = c(
-   "ml_date_birth", "ml_clincard_id", "ml_phone_number_l2c", "ml_care_manager", "ii"
+   "ml_care_manager", "ii"
   )
 )
 end <- lubridate::now()
 ```
 
 ```{r}
-end - start # Time difference of 9.671826 mins
+end - start # Time difference of 11.17158 mins
 ```
 
 # Create codebook
