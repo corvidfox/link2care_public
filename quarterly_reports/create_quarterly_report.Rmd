@@ -12,13 +12,12 @@ date: "2021-05-10 <br> Updated: `r Sys.Date()`"
 2. Update file paths below, if necessary. 
 
 ```{r}
-master_log_path <- "../../Live Documents/Master Log (version2).xlsx"
-phone_term_path <- "../../Live Documents/Link2Care Phone Terminations.xlsx"
-remote_path <- "../../Live Documents/L2C Remote Interview & Redcap Tracking.xlsx"
-ema_initial_pay_approach_path <- "../../Live Documents/ema_data comparison.xlsx"
-ema_15_day_path <- "../../Live Documents/15_Day_EMA.xlsx"
-arrest_path <- "../../Participant Data/Arrest Data Requests/current_arrest_data.xlsx"
-bridge_path <- "../../Participant Data/Bridge Session Data/bridge_session_minutes.xlsx"
+master_log_path <- "../data/ignored/Master Log (version2).xlsx"
+phone_term_path <- "../data/ignored/Link2Care Phone Terminations.xlsx"
+ema_initial_pay_approach_path <- "../data/ignored/ema_initial_pay_approach.Rds"
+ema_15_day_path <- "../data/ignored/15_Day_EMA.xlsx"
+arrest_path <- "../data/ignored/current_arrest_data.xlsx"
+bridge_path <- "../data/ignored/bridge_session_minutes.xlsx"
 ```
 
 3. Click "Run All Chunks Below" to create the quarterly report as a Word document. It will also create multiple other Word documents that contain tables of data. They are exported as separate Word documents because the coping the data and pasting into the appropriate table in the quarterly report is too easy to justify the effort of doing all of the table formatting in R code below.
@@ -176,50 +175,12 @@ cat(
 # 2023-03-15: Phone terminations imported with 444 rows and 22 columns.
 ```
 
-## Remote Interview & Redcap Tracking Sheet
-
-```{r}
-remote <- read_excel(
-  remote_path, 
-  sheet = "Log",
-  col_names = c(
-    "id", "group", "visit", "surface_pro", "interviewer", "mode", "date_visit", 
-    "date_data_transfer", "notes"
-  ),
-  col_types = c(
-    "numeric", "text", "numeric", rep("text", 3), rep("date", 2), "text"
-  ),
-  na = c("", "N/A", "."),
-  skip = 3
-)
-
-# Print a message for when this file is being sourced
-cat(
-  paste0(Sys.Date(), ":"),
-  "Remote interview imported with", nrow(remote), 
-  "rows and", ncol(remote),
-  "columns.\n"
-)
-
-# 2023-03-15: Remote interview imported with 143 rows and 9 columns.
-```
-
 ## EMA data
 
 NOTES: Eventually, I may want to pull this data directly from Insight. Need to learn how to use Insight first.
 
 ```{r}
-ema_initial_pay_approach <- read_excel(
-  ema_initial_pay_approach_path,
-  sheet = "Old EMA",
-  range = "A2:N48",
-  col_names = c(
-    "id", "group", paste0("emas_completed_cycle_", 1:12)
-  ),
-  col_types = c(
-    "text", "text", rep("numeric", 12)
-  )
-)
+ema_initial_pay_approach <- read_rds(ema_initial_pay_approach_path)
 
 # Print a message for when this file is being sourced
 cat(
@@ -229,9 +190,10 @@ cat(
   "columns.\n"
 )
 
-# 2022-12-04: EMA initial pay approach data imported with 47 rows and 14 columns.
-# This is not expected to change over time.
+# 2023-06-20: EMA initial pay approach data imported with 47 rows and 14 columns.
+# This should not change over time.
 ```
+
 
 ```{r}
 # Create column names for use below when reading in the EMA data.
@@ -452,17 +414,6 @@ phone_terminations_long <- phone_terminations %>%
   filter(!is.na(reason)) %>% 
   mutate(
     reason_f = factor(reason) %>% fct_infreq()
-  )
-```
-
-## Remote Interview & Redcap Tracking Sheet
-
-```{r}
-remote <- remote %>% 
-  mutate(
-    # Fix different spellings
-    group = if_else(group == "UCM+SP", "UCM + SP", group),
-    group_f = factor(group, c("UCM", "UCM + SP", "L2C"))
   )
 ```
 
@@ -2272,7 +2223,9 @@ table_12 <- tibble(measure = "Case management of any type") |>
 
 ```{r}
 table_12_ft <- flextable(table_12) %>% 
-  my_ft_theme()
+  my_ft_theme() |> 
+  # Need font size 10 for the table to fit on the page.
+  fontsize(part = "all", size = 10)
 ```
 
 Output Word document for easy copy paste into template (DELETE)

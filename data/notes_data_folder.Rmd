@@ -4,6 +4,10 @@ date: "Created: 2021-04-23 <br> Updated: `r Sys.Date()`"
 output: github_document
 ---
 
+# ignored
+
+This folder contains data files with PHI and/or other HIPAA protected data. This folder, and all files in it, are ignored by git and are not uploaded to GitHub. Therefore, each local repository will need to manually download the data from our secure server and add it to this folder in order for the code files to access the data they need.
+
 # columns.csv
 
 **Created in:** data_survey_01_qds_v1_import.Rmd   
