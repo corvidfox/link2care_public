@@ -85,11 +85,11 @@ master_log_screened_out <- read_excel(
   sheet = "Screened Out",
   col_names = c(
     "id", "name_full", "date_baseline", "gender",  "race", "hispanic", 
-    "date_birth", "age", "reason_1", "reason_2", "reason_3", "notes"
+    "date_birth", "age", "reason_1", "reason_2", "reason_3", "reason_4", "reason_5", "reason_6", "reason_7", "reason_8", "reason_9", "notes"
   ),
   col_types = c(
     "text", "text", "date", rep("text", 3), "date", "numeric", 
-    rep("text", 3), "skip", "text", "skip"
+    rep("text", 9), "skip", "text"
   ),
   skip = 1,
   na = c("", "N/A")
@@ -135,7 +135,19 @@ if (length(table(master_log_screened_in$group)) != 3) {
   stop("The group column should only have 3 values. It has ", length(table(master_log_screened_in$group)))
 }
 ```
+# Deidentify master log first, middle, and last names
 
+```{r}
+# start <- lubridate::now()
+# test_cb <- codebook(
+#   test, 
+#   no_summary_stats = c(
+#     "ml_name_first", "ml_name_middle_init", "ml_name_last", "ml_date_birth",
+#     "ml_clincard_id", "ml_phone_number_l2c", "ml_care_manager", "ii"
+#   )
+# )
+# end <- lubridate::now()
+```
 
 # 💾Save the data frames
 
@@ -186,7 +198,6 @@ cat(
 
 # 2022-07-01: Master log cleaned with 378 rows and 55 columns.
 ```
-
 
 # 🗑Clean up
 

@@ -28,7 +28,7 @@ library(readr, warn.conflicts = FALSE)
 * Bridge session Excel file is password protected and the password can't be removed. Therefore, you have to open the password protected file, select all the data, copy, and then paste into a new Excel file that is not password protected.   
 
 ```{r}
-path <- "../Participant Data/Bridge Session Data/bridge_session_minutes.xlsx"
+path <- "../Participant Data/Combined Participant Data/Bridge Session Data/bridge_session_minutes.xlsx"
 ```
 
 Check the most recent file modification dates on the UTHealth servers and print for user when this file is being sourced.
@@ -64,6 +64,7 @@ cat(
 )
 
 # 2022-07-11: Bridge session data 3744 rows and 10 columns.
+# 2023-05-15: Bridge session data 4364 rows and 10 columns.
 ```
 
 
@@ -180,7 +181,7 @@ bridge_wide <- bridge %>%
 # 💾Save the data frames
 
 ```{r}
-path <- "../Participant Data/R Data/bridge.rds"
+path <- "../Participant Data/R data/bridge.rds"
 ```
 
 ```{r}
@@ -197,7 +198,7 @@ cat(
 ```
 
 ```{r}
-path <- "../Participant Data/R Data/bridge_wide.rds"
+path <- "../Participant Data/R data/bridge_wide.rds"
 ```
 
 ```{r}
@@ -223,6 +224,7 @@ cat(
 )
 
 # 2022-07-11: Bridge session long data cleaned with 3095 rows and 20 columns.
+# 2023-05-15: Bridge session long data cleaned with 3715 rows and 20 columns.
 ```
 
 ```{r}
@@ -232,6 +234,8 @@ cat(
 )
 
 # 2022-07-11: Bridge session wide data cleaned with 376 rows and 20 columns.
+# 2023-05-15: Bridge session wide data cleaned with 442 rows and 20 columns.
+
 ```
 
 

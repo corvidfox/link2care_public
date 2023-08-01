@@ -33,7 +33,7 @@ source("R/add_source_attr.R")
 Import all 5 QDS data frames
 
 ```{r}
-qds_spss_path <- "../Participant Data/SPSS Data/QDS Data/"
+qds_spss_path <- "../Participant Data/Combined Participant Data/SPSS Data/QDS Data/"
 qds_spss_paths <- paste0(qds_spss_path, "Visit_", 1:5, "_Data.SAV")
 ```
 
@@ -90,7 +90,18 @@ walk(
 # 2022-08-06: v3 imported with 243 rows and 542 columns.
 # 2022-08-06: v4 imported with 179 rows and 598 columns.
 # 2022-08-06: v5 imported with 152 rows and 649 columns.
+
+# 2023-04-13: v1 imported with 442 rows and 810 columns.
+# 2023-04-13: v2 imported with 406 rows and 213 columns.
+# 2023-04-13: v3 imported with 273 rows and 542 columns.
+# 2023-04-13: v4 imported with 207 rows and 598 columns.
+# 2023-04-13: v5 imported with 173 rows and 649 columns.
 ```
+
+```{r}
+v1 %>% select(starts_with("phq"))
+```
+
 
 
 # Clean column names
@@ -2020,6 +2031,20 @@ qds_all_visits <- qds_all_visits %>%
   select(id, group, everything())
 ```
 
+## Coerce variable types
+
+This will facilitate merging with REDCAp in data_survey_21_merge.Rmd.
+
+```{r}
+qds_all_visits <- qds_all_visits %>% 
+  mutate(
+    af_drinks = as.numeric(af_drinks)
+  )
+```
+
+
+# Data check
+
 ```{r}
 # Future proof this by checking to see if the variables have changed over time.
 # If this test fails in the future, come back and make adjustments to how we 
@@ -2027,9 +2052,11 @@ qds_all_visits <- qds_all_visits %>%
 test_that("The expected columns exists in the qds_all_visits data.", {
   expect_equal(
     length(qds_all_visits),
-    1049L
+    1048L
   )
 })
+
+# 2023-04-19 The expected columns exists in the qds_all_visits data. --- length(qds_all_visits) not equal to 1049L. 1048 - 1049 == -1
 ```
 
 Print a message for when this file is being sourced
@@ -2041,6 +2068,9 @@ cat(
 )
 
 # 2022-07-03: QDS data imported and merged with 1241 rows and 1049 columns.
+# 2023-04-19: QDS data imported and merged with 1502 rows and 1048 columns.
+# 2023-05-15: QDS data imported and merged with 1506 rows and 1048 columns.
+
 ```
 
 
@@ -2051,7 +2081,7 @@ rds_path <- "../Participant Data/R Data/qds_all_visits_import.rds"
 write_rds(qds_all_visits, "../Participant Data/R data/qds_all_visits_import.rds")
 
 # Michael also wants an SPSS version
-spss_path <- "../Participant Data/SPSS Data/QDS Data/qds_all_visits_import.SAV"
+spss_path <- "../Participant Data/Combined Participant Data/SPSS Data/QDS Data/qds_all_visits_import.SAV"
 write_sav(qds_all_visits, spss_path)
 ```
 
