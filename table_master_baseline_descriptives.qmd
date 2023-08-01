@@ -1,0 +1,75 @@
+---
+title: "Master Baseline Descriptives Table"
+format: gfm
+---
+
+# Overview
+
+This file generates a table containing baseline descriptive statistics for every survey data variable collected.
+
+
+# Load packages
+
+```{r message=FALSE}
+library(dplyr)
+library(haven)
+library(stringr)
+library(tidyr)
+library(meantables)
+library(freqtables)
+library(purrr)
+library(flextable)
+library(officer)
+```
+
+
+# Import data
+
+Import `combined_participant_data.rds`. This dataset is created in `data_survey_21_merge.Rmd`.
+
+```{r}
+l2c_survey <- readr::read_rds("../Participant Data/R Data/combined_participant_data.rds")
+```
+
+```{r}
+dim(l2c_survey) # 1614 1299
+```
+
+## Keep vist 1 and 2 only
+
+This is a table of baseline statistics. We will only need visit 1, and in a handful of cases, visit 2.
+
+```{r}
+l2c_survey_baseline <- filter(l2c_survey, visit == 1 | visit == 2)
+```
+
+```{r}
+dim(l2c_survey_baseline) # 849 1299
+```
+
+```{r}
+rm(l2c_survey)
+```
+
+# Import list of analysis variables
+
+Normally, I wouldn't do it this way, but there are just so many variables that it's easier to keep track of them all and keep them in order using a spreadsheet.
+
+```{r}
+analysis_vars    <- readxl::read_excel("codebooks/master_baseline_descriptive_table_vars.xlsx")
+continuous_vars  <- analysis_vars %>% filter(cat == 0) %>% pull(var)
+categorical_vars <- analysis_vars %>% filter(cat == 1) %>% pull(var)
+```
+
+See if any of the variable names need to change
+
+```{r}
+names_l2c_survey <- names(l2c_survey_baseline)
+names_analysis_vars <- analysis_vars$var
+setdiff(names_analysis_vars, names_l2c_survey)
+```
+
+```{r}
+l2c_survey
+```
+
