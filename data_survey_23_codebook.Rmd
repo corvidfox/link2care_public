@@ -14,10 +14,8 @@ This file creates a codebook for combined_participant_data.rds, which is created
 library(dplyr, warn.conflicts = FALSE)
 library(readr, warn.conflicts = FALSE)
 library(codebookr, warn.conflicts = FALSE)
-install.packages("flextable")
 library(shiny, warn.conflicts = FALSE)
 ```
-
 
 # 📥Import data
 
@@ -45,7 +43,6 @@ Find and replace
 
 * label\(\"(\w+)\", ?(\".+\")\)
 * cb_add_col_attributes(\n  \1, \n  description = \2\n) %>%\n
-
 
 ```{r}
 combined_participant_data <- combined_participant_data %>%
@@ -602,6 +599,7 @@ label("bridge_all_none","Used no forms of Bridge case management")
 ```
 
 # Assess number of variables to be sourced (excluding factor and reverse coded calculated variables)
+
 ```{r}
 dim(combined_participant_data) # 1614 1299
 ```
@@ -609,6 +607,7 @@ dim(combined_participant_data) # 1614 1299
 # Source raw variables based on dataframe that variable comes from
 
 ## Administrative
+
 ```{r}
 combined_participant_data <- combined_participant_data %>%
 cb_add_col_attributes( 
@@ -658,6 +657,7 @@ cb_add_col_attributes(
 ```
 
 ## De-identifiers, Master Log, & Screening Questionnaire
+
 ```{r}
 combined_participant_data <- combined_participant_data %>% 
   cb_add_col_attributes(
@@ -1282,6 +1282,7 @@ cb_add_col_attributes(
 ```
 
 ## Rapid Estimate of Adult Literacy in Medicine (REALM) and End of Screening Questionnaire
+
 ```{r}
 combined_participant_data <- combined_participant_data %>% 
   cb_add_col_attributes(
@@ -1371,6 +1372,7 @@ cb_add_col_attributes(
 ```
 
 ## Demographic/Background Information Questionnaire
+
 ```{r}
 combined_participant_data <- combined_participant_data %>% 
 cb_add_col_attributes(
@@ -1678,7 +1680,9 @@ cb_add_col_attributes(
     source = "V1, V3, V4, V5"
 )
 ```
+
 ## Arrest
+
 ```{r}
 combined_participant_data <- combined_participant_data %>%
   cb_add_col_attributes(
@@ -1758,6 +1762,7 @@ cb_add_col_attributes(
 ```
 
 ## The Brief Homelessness Questionnaire
+
 ```{r}
 combined_participant_data <- combined_participant_data %>%
 cb_add_col_attributes(
@@ -2177,6 +2182,7 @@ cb_add_col_attributes(
 ```
 
 ## MacArthur Scale of Subjective Social Status
+
 ```{r}
 combined_participant_data <- combined_participant_data %>% 
 cb_add_col_attributes(
@@ -2191,6 +2197,7 @@ cb_add_col_attributes(
 ```
 
 ## Patient Health Questionnaire
+
 ```{r}
 combined_participant_data <- combined_participant_data %>%
 cb_add_col_attributes(
@@ -2270,6 +2277,7 @@ cb_add_col_attributes(
 ```
 
 ## SF-12 Health Survey
+
 ```{r}
 combined_participant_data <- combined_participant_data %>% 
 cb_add_col_attributes(
@@ -2334,6 +2342,7 @@ cb_add_col_attributes(
 ```
 
 ## Health Related Quality of Life
+
 ```{r}
 combined_participant_data <- combined_participant_data %>% 
 cb_add_col_attributes(
@@ -2353,6 +2362,7 @@ cb_add_col_attributes(
 ```
 
 ## Self-Rated Health
+
 ```{r}
 combined_participant_data <- combined_participant_data %>%  
 cb_add_col_attributes(
@@ -3295,7 +3305,9 @@ cb_add_col_attributes(
     source = "V1, V3, V4, V5"
 )
 ```
+
 ## TCU Drug Screen 5
+
 ```{r}
 combined_participant_data <- combined_participant_data %>%
 cb_add_col_attributes(
@@ -3375,6 +3387,7 @@ cb_add_col_attributes(
 ```
 
 ## Primary Care PTSD Screen (PC-PTSD)
+
 ```{r}
 combined_participant_data <- combined_participant_data %>% 
 cb_add_col_attributes(
@@ -3397,7 +3410,9 @@ cb_add_col_attributes(
     source = "V1"
 )
 ```
+
 ## BRFSS Adverse Childhood Experience (ACE) Module 
+
 ```{r}
 combined_participant_data <- combined_participant_data %>% 
 cb_add_col_attributes(
@@ -3457,6 +3472,7 @@ cb_add_col_attributes(
 ```
 
 ## Tobacco History
+
 ```{r}
 combined_participant_data <- combined_participant_data %>% 
 cb_add_col_attributes(
@@ -3981,6 +3997,7 @@ cb_add_col_attributes(
 ```
 
 ## Heaviness of Smoking Index
+
 ```{r}
 combined_participant_data <- combined_participant_data %>% 
 cb_add_col_attributes(
@@ -3995,6 +4012,7 @@ cb_add_col_attributes(
 ```
 
 ## Behavioral Risk Factor Surveillance System (BRFSS) Inadequate Sleep
+
 ```{r}
 combined_participant_data <- combined_participant_data %>% 
 cb_add_col_attributes(
@@ -4024,6 +4042,7 @@ cb_add_col_attributes(
 ```
 
 ## Alcohol Quantity and Frequency Questionnaire
+
 ```{r}
 combined_participant_data <- combined_participant_data %>% 
 cb_add_col_attributes(
@@ -4093,6 +4112,7 @@ cb_add_col_attributes(
 ```
 
 ## Alcohol and Drug Timeline Follow-Back (TLFB)
+
 ```{r}
 combined_participant_data <- combined_participant_data %>% 
 cb_add_col_attributes(
@@ -4161,8 +4181,8 @@ cb_add_col_attributes(
 )
 ```
 
-
 ## Personality Beliefs Questionnaire
+
 ```{r}
 combined_participant_data <- combined_participant_data %>%
 cb_add_col_attributes(
@@ -4202,6 +4222,7 @@ cb_add_col_attributes(
 ```
 
 ## USDA Food Security Survey
+
 ```{r}
 combined_participant_data <- combined_participant_data %>%
 cb_add_col_attributes(
@@ -4236,6 +4257,7 @@ cb_add_col_attributes(
 ```
 
 ## Meal Survey
+
 ```{r}
 combined_participant_data <- combined_participant_data %>%
 cb_add_col_attributes(
@@ -4260,6 +4282,7 @@ cb_add_col_attributes(
 ```
 
 ## TCU CJ Client Evaluation of Self and Treatment (CJ CEST)
+
 ```{r}
 combined_participant_data <- combined_participant_data %>%
 cb_add_col_attributes(
@@ -4549,6 +4572,7 @@ cb_add_col_attributes(
 ```
 
 ## COVID-19 Vaccine
+
 ```{r}
 combined_participant_data <- combined_participant_data %>%
 cb_add_col_attributes(
@@ -4598,6 +4622,7 @@ cb_add_col_attributes(
 ```
 
 ## Well-Being Assessment
+
 ```{r}
 combined_participant_data <- combined_participant_data %>%
 cb_add_col_attributes(
@@ -4672,6 +4697,7 @@ cb_add_col_attributes(
 ```
 
 ## MacArthur Major Discrimination
+
 ```{r}
 combined_participant_data <- combined_participant_data %>%
 cb_add_col_attributes(
@@ -4751,6 +4777,7 @@ cb_add_col_attributes(
 ```
 
 ## Urban Life Stress Scale
+
 ```{r}
 combined_participant_data <- combined_participant_data %>%
 cb_add_col_attributes(
@@ -4860,6 +4887,7 @@ cb_add_col_attributes(
 ```
 
 ## Personal Victimization
+
 ```{r}
 combined_participant_data <- combined_participant_data %>%
 cb_add_col_attributes(
@@ -4879,6 +4907,7 @@ cb_add_col_attributes(
 ```
 
 ## Perceived Stress Scale
+
 ```{r}
 combined_participant_data <- combined_participant_data %>%
 cb_add_col_attributes(
@@ -4903,6 +4932,7 @@ cb_add_col_attributes(
 ```
 
 ## Distress Tolerance Scale (DTS)
+
 ```{r}
 combined_participant_data <- combined_participant_data %>%
 cb_add_col_attributes(
@@ -5054,6 +5084,7 @@ cb_add_col_attributes(
 ```
 
 ## Center for Epidemiological Studies Depression (CES-D)
+
 ```{r}
 combined_participant_data <- combined_participant_data %>%
 cb_add_col_attributes(
@@ -5173,6 +5204,7 @@ cb_add_col_attributes(
 ```
 
 ## Religious Participation
+
 ```{r}
 combined_participant_data <- combined_participant_data %>%
 cb_add_col_attributes(
@@ -5187,6 +5219,7 @@ cb_add_col_attributes(
 ```
 
 ## Lubben Social Network Scale-6
+
 ```{r}
 combined_participant_data <- combined_participant_data %>%
 cb_add_col_attributes(
@@ -5221,6 +5254,7 @@ cb_add_col_attributes(
 ```
 
 ## Homeless Timeline Follow-Back (TLFB)
+
 ```{r}
 combined_participant_data <- combined_participant_data %>%
 cb_add_col_attributes(
@@ -5249,8 +5283,8 @@ cb_add_col_attributes(
 )
 ```
 
-
 ## Resource Utilization Questionnaire
+
 ```{r}
 combined_participant_data <- combined_participant_data %>%
 cb_add_col_attributes(
@@ -5410,6 +5444,7 @@ cb_add_col_attributes(
 ```
 
 ## Barriers to Phone Based Case Management
+
 ```{r}
 combined_participant_data <- combined_participant_data %>%
 cb_add_col_attributes(
@@ -5629,6 +5664,7 @@ cb_add_col_attributes(
 ```
 
 ## Bridge Sessions
+
 ```{r}
 combined_participant_data <- combined_participant_data %>%
 cb_add_col_attributes(
@@ -5678,6 +5714,7 @@ cb_add_col_attributes(
 ```
 
 ## Delay Discounting Task
+
 ```{r}
 combined_participant_data <- combined_participant_data %>%
 cb_add_col_attributes(
@@ -5691,17 +5728,7 @@ cb_add_col_attributes(
 )
 ```
 
-## Staff Perceptions of the Link2Care App *don't include?
-
-## Usual Daily EMA Items
-
-## Monday EMA Items
-
 # Create codebook
-
-```{r}
-# print(test_cb, "test.docx")
-```
 
 # 🖨Print a message for when this file is being sourced
 
@@ -5725,11 +5752,10 @@ cat(
 # 2023-05-23: Combined Participant data cleaned with 1614 rows and 1298 columns.
 ```
 ```{r}
-library(codebookr)
-install.packages("flextable", type = "binary")
+
 ```
 
-```{r}
+```{r eval=FALSE}
 start <- lubridate::now()
 combined_participant_data_cb <- codebook(
   # select(combined_participant_data, 835:840),
@@ -5742,13 +5768,13 @@ combined_participant_data_cb <- codebook(
 end <- lubridate::now()
 ```
 
-```{r}
+```{r eval=FALSE}
 end - start # Time difference of 11.17158 mins
 ```
 
 # Create codebook
 
-```{r}
+```{r eval=FALSE}
 print(combined_participant_data_cb, "codebooks/Combined Participant Survey Data Codebook.docx")
 ```
 
