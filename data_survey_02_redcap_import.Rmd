@@ -23,7 +23,7 @@ library(stringr, warn.conflicts = FALSE)
 # 📥Import redcap 
 
 ```{r}
-path <- "../Participant Data/Combined Participant Data/SPSS Data/Redcap/All_Visits_Redcap.sav"
+path <- "data/redcap/All_Visits_Redcap.sav"
 ```
 
 # Check the most recent file modification dates on the UTHealth servers and print for user when this file is being sourced. 

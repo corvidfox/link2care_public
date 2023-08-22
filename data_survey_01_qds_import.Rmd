@@ -33,7 +33,7 @@ source("R/add_source_attr.R")
 Import all 5 QDS data frames
 
 ```{r}
-qds_spss_path <- "../Participant Data/Combined Participant Data/SPSS Data/QDS Data/"
+qds_spss_path <- "data/qds_data/"
 qds_spss_paths <- paste0(qds_spss_path, "Visit_", 1:5, "_Data.SAV")
 ```
 

@@ -21,7 +21,7 @@ library(readr, warn.conflicts = FALSE)
 # 📥Import data 
 
 ```{r}
-path <- "../Live Documents/Master Log (version2).xlsx"
+path <- "data/master_log/Master Log (version2).xlsx"
 ```
 
 Check the most recent file modification dates on the UTHealth servers and print for user when this file is being sourced.

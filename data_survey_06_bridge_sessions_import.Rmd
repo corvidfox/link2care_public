@@ -28,7 +28,7 @@ library(readr, warn.conflicts = FALSE)
 * Bridge session Excel file is password protected and the password can't be removed. Therefore, you have to open the password protected file, select all the data, copy, and then paste into a new Excel file that is not password protected.   
 
 ```{r}
-path <- "../Participant Data/Combined Participant Data/Bridge Session Data/bridge_session_minutes.xlsx"
+path <- "data/bridge_session_data/bridge_session_minutes.xlsx"
 ```
 
 Check the most recent file modification dates on the UTHealth servers and print for user when this file is being sourced.

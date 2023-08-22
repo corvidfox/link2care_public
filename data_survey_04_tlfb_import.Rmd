@@ -24,7 +24,7 @@ library(testthat, warn.conflicts = FALSE)
 # 📥Import data 
 
 ```{r}
-path <- "../Participant Data/Combined Participant Data/SPSS Data/TLFB Data/TLFB_Database.sav"
+path <- "data/tlfb/TLFB_Database.sav"
 ```
 
 Check the most recent file modification dates on OneDrive and print for user when this file is being sourced.
