@@ -1011,6 +1011,14 @@ redcap$group[redcap$id == 2336] <- 3
 redcap$group[redcap$id == 2349] <- 2
 ```
 
+## Change visit number
+
+2023-08-25: participant 2349 had their baseline visit on 2022-02-28. The other visit marked as visit 1 on 2022-04-12 in the combined_participant_data was pulled from REDCap. It was actually their visit 3. We correct that error below
+
+```{r}
+redcap$visit[redcap$id == 2349 & redcap$date_visit == "2022-04-12"] <- 3
+```
+
 # Remove all screening variables
 
 2023-05-11: Screening questions were built into REDCap, but it was never actually used to collect screening data. Therefore, the screening question columns all contain missing data. Will will remove those here to make the data easier to work with.
@@ -1050,7 +1058,7 @@ redcap <- redcap %>%
 # 💾Save the redcap frame
 
 ```{r}
-path <- "../Participant Data/R data/redcap_import.rds"
+path <- "data/redcap/redcap_import.rds"
 ```
 
 ```{r}
