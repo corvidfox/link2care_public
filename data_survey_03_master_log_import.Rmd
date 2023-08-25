@@ -21,7 +21,7 @@ library(readr, warn.conflicts = FALSE)
 # 📥Import data 
 
 ```{r}
-path <- "data/master_log/Master Log (version2).xlsx"
+path <- "data/master_log/master_log.xlsx"
 ```
 
 Check the most recent file modification dates on the UTHealth servers and print for user when this file is being sourced.
@@ -135,6 +135,7 @@ if (length(table(master_log_screened_in$group)) != 3) {
   stop("The group column should only have 3 values. It has ", length(table(master_log_screened_in$group)))
 }
 ```
+
 # Deidentify master log first, middle, and last names
 
 ```{r}
@@ -152,7 +153,7 @@ if (length(table(master_log_screened_in$group)) != 3) {
 # 💾Save the data frames
 
 ```{r}
-path <- "../Participant Data/R Data/master_log_screened_in.rds"
+path <- "data/master_log/master_log_screened_in.rds"
 ```
 
 ```{r}
@@ -169,7 +170,7 @@ cat(
 ```
 
 ```{r}
-path <- "../Participant Data/R Data/master_log_screened_out.rds"
+path <- "data/master_log/master_log_screened_out.rds"
 ```
 
 ```{r}

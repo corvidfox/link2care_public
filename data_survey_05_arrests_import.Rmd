@@ -26,7 +26,7 @@ library(readr, warn.conflicts = FALSE)
 * Had to remove password from Excel sheet before import. File -> Passwords... -> Delete password.   
 
 ```{r}
-path <- "data/arrest_data/current_arrest_data.xlsx"
+path <- "data/arrest/arrest.xlsx"
 ```
 
 Check the most recent file modification dates on OneDrive and print for user when this file is being sourced.
@@ -72,7 +72,7 @@ cat(
 # 💾Save the data frame
 
 ```{r}
-path <- "../Participant Data/R Data/arrest.rds"
+path <- "data/arrest/arrest.rds"
 ```
 
 ```{r}

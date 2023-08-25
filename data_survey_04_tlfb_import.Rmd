@@ -95,7 +95,7 @@ tlfb <- tlfb %>%
 # 💾Save the data frame
 
 ```{r}
-path <- "../Participant Data/R data/tlfb.rds"
+path <- "data/tlfb/tlfb.rds"
 ```
 
 ```{r}

@@ -127,7 +127,7 @@ cat(
 # 💾Save the data frame
 
 ```{r}
-path <- "../Participant Data/R Data/ddt.rds"
+path <- "data/ddt/ddt.rds"
 ```
 
 ```{r}

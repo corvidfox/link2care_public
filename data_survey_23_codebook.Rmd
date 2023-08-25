@@ -22,7 +22,7 @@ library(shiny, warn.conflicts = FALSE)
 * combined_participant_data.rds was created in `data_survey_21_merge.Rmd`, cleaned in `data_survey_22_calculated_columns.Rmd`.
 
 ```{r}
-path <- "../Participant Data/R Data/combined_participant_data.rds"
+path <- "data/combined_participant_data/combined_participant_data.rds"
 ```
 
 ```{r}
@@ -61,6 +61,19 @@ cb_add_col_attributes(
   description = "Master log hispanic"
 )
 ```
+
+```{r}
+combined_participant_data |> 
+  select(starts_with("sq"))
+```
+
+# 🔴 Fix
+
+2023-08-25: In #50 , I discovered that in data_survey_23_codebook.Rmd the label() code (lines 106-123) is no longer working. The column names cell_have_f through facebook_active_f no longer exist in the combined_participant_data.rds for some reason. I'm not sure why.
+
+Those variables are created in one_offs/data_survey_01_import_Rmd. I need to move that code into the combined participant data pipeline.
+
+Doing so may solve other data problems as well.
 
 ```{r}
 #PT Info
@@ -5728,14 +5741,35 @@ cb_add_col_attributes(
 )
 ```
 
-# Create codebook
 
-# 🖨Print a message for when this file is being sourced
+# 💾 Save the data frame
+
+With the attributes added
+
+```{r}
+path <- "data/combined_participant_data/combined_participant_data.rds"
+```
+
+```{r}
+write_rds(l2c_survey, path)
+```
+
+Print a message for when this file is being sourced
 
 ```{r}
 cat(
   paste0(Sys.Date(), ":"),
-  "Combined Participant data cleaned with", nrow(combined_participant_data),
+  "Combined Participant data with codebook attributes saved to", path, "\n"
+)
+```
+
+# 🖨 Print a message for when this file is being sourced
+
+```{r}
+cat(
+  paste0(Sys.Date(), ":"),
+  "Combined Participant data with codebook attributes saved with", 
+  nrow(combined_participant_data),
   "rows and", ncol(combined_participant_data), "columns.\n"
 )
 # 2022-07-11: Combined Participant data cleaned with 1157 rows and 1202 columns.
@@ -5751,19 +5785,16 @@ cat(
 # 2023-05-23: Combined Participant data cleaned with 1614 rows and 1303 columns.
 # 2023-05-23: Combined Participant data cleaned with 1614 rows and 1298 columns.
 ```
-```{r}
-
-```
 
 ```{r eval=FALSE}
 start <- lubridate::now()
 combined_participant_data_cb <- codebook(
-  # select(combined_participant_data, 835:840),
-  # select(combined_participant_data, 835),
   combined_participant_data,
-   no_summary_stats = c(
-   "ml_care_manager", "ii"
-  )
+  # Temporarily printing this with no summary stats
+  no_summary_stats = names(combined_participant_data)
+  # no_summary_stats = c(
+  #  "ml_care_manager", "ii"
+  # )
 )
 end <- lubridate::now()
 ```

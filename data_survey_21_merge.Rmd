@@ -32,6 +32,11 @@ library(lubridate, warn.conflicts = FALSE)
 library(data.table, warn.conflicts = FALSE)
 ```
 
+```{r}
+source("R/fact_reloc.R")
+```
+
+
 
 # 📥Import data 
 
@@ -50,26 +55,22 @@ Most of the data cleaning that was done was to standardize column names. [Click 
 After doing this initial cleaning, the individual files were saved in RDS format on Teams.
 
 ```{r}
-path <- "../Participant Data/R data/"
-```
-
-```{r}
 data_frames <- c(
-  qds    = "qds_all_visits_import.rds",
-  rc     = "redcap_import.rds",
-  ml     = "master_log_screened_in.rds",
-  tlfb   = "tlfb.rds",
-  arrest = "arrest.rds",
-  bridge = "bridge_wide.rds",
-  ddt    = "ddt.rds"
+  qds    = "data/qds/qds_all_visits_import.rds",
+  rc     = "data/redcap/redcap_import.rds",
+  ml     = "data/master_log/master_log_screened_in.rds",
+  tlfb   = "data/tlfb/tlfb.rds",
+  arrest = "data/arrest/arrest.rds",
+  bridge = "data/bridge_session_data/bridge_wide.rds",
+  ddt    = "data/ddt/ddt.rds"
 )
 ```
 
 ```{r}
 for (i in seq_along(data_frames)) {
-  full_path <- paste0(path, data_frames[[i]])
-  df_nm     <- names(data_frames)[[i]]
-  df        <- read_rds(full_path)
+  path  <- data_frames[[i]]
+  df_nm <- names(data_frames)[[i]]
+  df    <- read_rds(path)
   assign(df_nm, df, envir = .GlobalEnv)
   
   # Print a message for when this file is being sourced
@@ -80,15 +81,15 @@ for (i in seq_along(data_frames)) {
   )
 }
 
-rm(df_nm, full_path, i, path)
+rm(df_nm, i, path)
 
-# 2023-05-11: qds_all_visits_import.rds imported as qds with 1503 rows and 1048 columns.
-# 2023-05-11: redcap_import.rds imported as rc with 108 rows and 659 columns.
-# 2023-05-11: master_log_screened_in.rds imported as ml with 442 rows and 55 columns.
-# 2023-05-11: tlfb.rds imported as tlfb with 1768 rows and 21 columns.
-# 2023-05-11: arrest.rds imported as arrest with 442 rows and 16 columns.
-# 2023-05-11: bridge_wide.rds imported as bridge with 442 rows and 20 columns.
-# 2023-05-11: ddt.rds imported as ddt with 1768 rows and 4 columns.
+# 2023-08-25: data/qds/qds_all_visits_import.rds imported as qds with 1506 rows and 1048 columns.
+# 2023-08-25: data/redcap/redcap_import.rds imported as rc with 108 rows and 659 columns.
+# 2023-08-25: data/master_log/master_log_screened_in.rds imported as ml with 442 rows and 55 columns.
+# 2023-08-25: data/tlfb/tlfb.rds imported as tlfb with 1768 rows and 21 columns.
+# 2023-08-25: data/arrest/arrest.rds imported as arrest with 442 rows and 16 columns.
+# 2023-08-25: data/bridge_session_data/bridge_wide.rds imported as bridge with 442 rows and 20 columns.
+# 2023-08-25: data/ddt/ddt.rds imported as ddt with 1768 rows and 4 columns.
 ```
 
 
@@ -594,6 +595,17 @@ l2c_survey <- l2c_survey %>%
   select(id, visit, date_visit, group = ml_group, everything())
 ```
 
+Create a factor version of the group variable
+
+# 🔴 Fix
+
+2023-08-25: Sangeeta reorders all of the columns below in the section titled, "Reorder columns to follow logical order based on visit/chronology". However, should does it by column number rather than column name. So, if I insert the new factor version of the column here, it messes up her code. I don't have time to fix it right now, but I need to come back and fix it later.
+
+```{r}
+# l2c_survey <- l2c_survey |>
+#   fact_reloc(group, 1:3, c("UCM", "UCM+SP", "L2C"))
+```
+
 ```{r}
 dim(l2c_survey) # 1614 1129
 ```
@@ -626,7 +638,9 @@ if (ncol(l2c_survey) != 1129) {
 # 2023-05-02 Error: The number of columns in l2c_survey is different than expected. The expected number was 1,200. The actual number was 1132. Investigate in data_survey_21_merge.Rmd
 ```
 
-## Reorder columns to follow logical order based on visit/chronology
+
+# Reorder columns to follow logical order based on visit/chronology
+
 ```{r}
 # DDT
 l2c_survey <- l2c_survey %>%
@@ -942,6 +956,7 @@ l2c_survey <- l2c_survey %>%
 ```
 
 # De-identify columns with PT names, specific info to PT (PHI)
+
 ```{r}
 l2c_survey <- l2c_survey %>%
   mutate(
@@ -982,7 +997,7 @@ cat(
 # 💾Save the data frame
 
 ```{r}
-path <- "../Participant Data/Combined Participant Data/SPSS Data/combined_participant_data.sav"
+path <- "data/combined_participant_data/combined_participant_data.sav"
 ```
 
 ```{r}
@@ -999,7 +1014,7 @@ cat(
 ```
 
 ```{r}
-path <- "../Participant Data/R Data/combined_participant_data.rds"
+path <- "data/combined_participant_data/combined_participant_data.rds"
 ```
 
 ```{r}
