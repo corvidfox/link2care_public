@@ -1,0 +1,1304 @@
+---
+title: "Import Link2Care Survey Data - QDS - Visit 1"
+author: "Brad Cannell"
+date: "2020-12-23 <br> Updated: `r Sys.Date()`"
+format: pdf
+---
+
+
+# ⭐️Overview
+
+This file is used to import the Link2Care follow-up visit survey data and do some initial data cleaning.
+
+[Notes on cleaning individual L2C data sets for merging](https://github.com/brad-cannell/link2care_public/wiki/Notes-on-cleaning-individual-L2C-data-sets-for-merging)
+
+
+# 📦Load packages
+
+```{r message=FALSE}
+library(dplyr, warn.conflicts = FALSE)
+library(purrr, warn.conflicts = FALSE)
+library(haven, warn.conflicts = FALSE)
+```
+
+```{r}
+source("R/standardize_col_names.R")
+```
+
+
+# 📥 Import data 
+
+- Import all 5 QDS data frames. 
+- These datasets were exported directly from QDS as SPSS files (.SAV), and they have already been run through an SPSS syntax file (`spss_syntax/Visit 1.sps`, `spss_syntax/Visit 2.sps`, etc.).
+- The data was exported from QDS by someone other than MBC.
+- The SPSS syntax files were created by someone other than MBC.
+
+```{r}
+qds_spss_path <- "data/qds/"
+qds_spss_paths <- paste0(qds_spss_path, "Visit_", 1:5, "_Data.SAV")
+```
+
+Check the most recent file modification dates and print for user when this file is being sourced.
+
+```{r}
+walk(
+  .x = c(1:5),
+  .f = function(x) {
+    sav_nm <- paste0("Visit_", x, "_Data.SAV")
+    path <- paste0(qds_spss_path, sav_nm)
+    cat(
+      sav_nm, "last modified on OneDrive", as.character(file.info(path)$mtime), "\n"
+    )
+  }
+)
+```
+
+Import the data
+
+```{r}
+walk(
+  .x = c(1:5),
+  .f = function(x) {
+    new_nm <- paste0("v", x)
+    sav_nm <- paste0("Visit_", x, "_Data.SAV")
+    path <- paste0(qds_spss_path, sav_nm)
+    assign(new_nm, read_sav(path), envir = .GlobalEnv)
+  }
+)
+
+rm(qds_spss_path)
+```
+
+Print a message for when this file is being sourced
+
+```{r}
+walk(
+  .x = c(1:5),
+  .f = function(x) {
+    df_nm <- paste0("v", x)
+    df <- get(df_nm, envir = .GlobalEnv)
+    # Print a message for when this file is being sourced
+    cat(
+      paste0(Sys.Date(), ":"),
+      df_nm, "imported with", nrow(df), "rows and", ncol(df), "columns.\n"
+    )
+  }
+)
+
+# Data check:
+# 2023-08-30: v1 imported with 442 rows and 810 columns.
+# 2023-08-30: v2 imported with 406 rows and 213 columns.
+# 2023-08-30: v3 imported with 273 rows and 542 columns.
+# 2023-08-30: v4 imported with 207 rows and 598 columns.
+# 2023-08-30: v5 imported with 178 rows and 649 columns.
+```
+
+
+# Clean column names
+
+We have to make the column names match across visits so that we can merge all of the individual QDS data frames into one.
+
+## Reorder column names and manual changes
+
+1. The columns in the data are not arranged in the order that they exist in the actual QDS survey for some reason. This makes the data harder to work with, and it will make the codebook we eventually create difficult to use. So, we are going to reorder them in the order that they appear in the Link2Care appendix (`codebooks/from_qds/Link2Care_Appendix.pdf`).
+
+  - Note that there are some variables in the data that do not exist in the Link2Care appendix. For example, the questions about COVID vaccines. We will order them after the columns that do appear in the Link2Care appendix.
+
+  - To prevent us from typing out 800+ variable names manually, we are going to read-in the variable names from the codebook and then create a blog of text that we copy and paste into a code chunk using `select()` below. Prepping the codebook to be able to do this took a long time and isn't very future-proof. However, we should only have to do this step once. As changes occur to QDS in the future, we can just update the code chunk with the `select()` function.
+
+2. There are some instances where it makes sense to make manual changes to column names now, before the standardization process below. For example, the MMSE columns. It's better to manually change them now because after standardize_col_names you can no longer cut and paste from the Word QDS codebooks. Also, it becomes difficult to be sure which variables in the data correspond to which variables in the codebook (e.g., "mms_4" and "mms_4v").There will also be additional manual changes made after the standardization process.
+
+# 🔴 2023-08-30: Left off
+
+I want to try a couple of different things here than how I was doing them in `data_survey_01_qds_import.Rmd` before moving on. If they work, great! We'll use this file instead. If they don't, then just go back to what you were doing there.
+
+- Aside from where they need to be renumbered, keep the columns names true to the QDS codebook.
+  - Actually, don't mess with this right now. I'm not sure what it will mess up down the line.
+
+- Break up the code into survey sections instead of one big code chunk.
+  - Actually, I don't think this is worth the time it will take.
+  - Part of the reason for wanting to do this was to add an attribute the columns that says was survey instrument they came from. Don't worry about the codebook too much for now. We will worry about it more later. In fact, we may end up using a Quarto book instead of a codebook anyway.
+
+- Create calculated columns right here in this file instead of relying on the SPSS code. This makes it easier to update later.
+ - It does. Let's try doing the calculations below after merging all of the individual data frames, though.
+
+- Order the columns in a natural ordering now.
+ - This is important. However, if we care going to create calculated variables on the merged data frame below, then it seems like a waste of time to reorder the columns now.
+ 
+- At some point, I want to make sure that every column name is prefixed to identify the questionnaire it came from.
+ 
+### Visit 1 reorder
+
+```{r}
+v1_reorder <- v1 |> 
+  select(
+    
+    # QDS administrative columns ==============================================
+    SUBJECT, TODAY_V1, II_V1, VISIT_V1, TEST_V1, VISIT_TYPE, endtime = ENDTIME1, 
+    ETIME_V1,
+    
+    # Screening ===============================================================
+    
+    ## Screening Questionnaire
+    SQ_GENDER = GENDER, SQ_2, SQ_3, SQ_4, SQ_5, SQ_6, SQ_7, 
+    SQ_7A, SQ_7B, SQ_7C, SQ_7D, SQ_8, SQ_9, SQ_9L, SQ_10, SQ_11, SQ_12, SQ_13, 
+    SQ_14, SQ_15, SQ_16, SQ_17, SQ_18, SQ_18A, SQ_18B, SQ_18C, SQ_18D, SQ_18E, 
+    SQ_18F, SQ_18G, SQ_18H, SQ_18I, SQ_19, SQ_20, SQ_21, SQ_22, SQ_22A, SQ_22B, 
+    SQ_22C, SQ_22D, SQ_22E, SQ_22F, SQ_22G, SQ_22H, SQ_23,
+    
+    ## Mini Mental State Exam
+    ### Changes to MMSE column names
+    ### In visit 1, the MMSE questions go MMS_4, MMS_4A-MMS_4F, COUNT, MMS4V, 
+    ### MMS4VA-MMS4VF, NUM, MMS_5. However, MMS4V should have been MMS_5 and 
+    ### MMS_5 should have been MMS_6, etc. This proliferates all the way down 
+    ### the questions. We need to fix these before the standardization process.
+
+    ### Better to do this now because after standardize_col_names you can no 
+    ### longer cut and paste from the Word codebooks. Also, it becomes difficult 
+    ### to be sure which variables in the data correspond to which variables in 
+    ### the codebook (e.g., "mms_4" and "mms_4v").
+
+    ### Additionally, I'm going to add the section name (mms) in front of some of 
+    ### the column names that don't include it. For example, RECAL1 to mms_recall1.
+    MMS_1A, MMS_1B, MMS_1C, MMS_1D, MMS_1E, MMS_1, MMS_2A, MMS_2B, MMS_2C, MMS_2D, 
+    MMS_2E, MMS_2, MMS_3, MMS_3G, MMS_3H, MMS_3I, MMS_3J, 
+    mms_recall_1 = RECAL1, 
+    MMS_4, MMS_4A, MMS_4B, MMS_4C, MMS_4D, MMS_4E, MMS_4F, 
+    mms_count = COUNT, 
+    mms_5 = MMS4V, 
+    mms_5a = MMS4VA, 
+    mms_5b = MMS4VB, 
+    mms_5c = MMS4VC, 
+    mms_5d = MMS4VD, 
+    mms_5e = MMS4VE, 
+    mms_5f = MMS4VF, 
+    mms_num = NUM, 
+    mms_6 = MMS_5, 
+    mms_6a = MMS_5A, 
+    mms_6b = MMS_5B, 
+    mms_6c = MMS_5C, 
+    mms_6d = MMS_5D, 
+    mms_recall_2 = RECAL2, 
+    mms_7 = MMS_6, 
+    mms_7a = MMS_6A, 
+    mms_7b = MMS_6B, 
+    mms_7c = MMS_6C, 
+    mms_object = OBJECT, 
+    mms_8 = MMS_7, 
+    mms_9 = MMS_8, 
+    mms_9a = MMS_8A, 
+    mms_9b = MMS_8B, 
+    mms_9c = MMS_8C, 
+    mms_9d = MMS_8D, 
+    mms_paper = PAPER, 
+    mms_10 = MMS_9, 
+    mms_11 = MMS_10, 
+    mms_12 = MMS_11, 
+    MMS_S,
+    
+    ## Rapid Estimate of Adult Literacy in Medicine (REALM)
+    REALM, 
+    realm_a = REALMA, 
+    realm_b = REALMB, 
+    realm_c = REALMC, 
+    realm_d = REALMD, 
+    realm_e = REALME, 
+    realm_f = REALMF, 
+    realm_g = REALMG, 
+    realm_h = REALMH, 
+    realm_i = REALMI, 
+    realm_total = REALM_S,
+    
+    ## Biological/Anthropometric Measures
+    WEIGHT, HEIGHT, WAIST_C, CO_V1, READ1_V1, READ2_V1, 
+    read_3 = READ3_V5, CTIME_V1,
+    
+    ## Locator Form
+    ### NOT USED V1
+    
+    # SOCIOECONOMIC STATUS/DEMOGRAPHICS/HOMELESSNESS/CRIMINAL HISTORY INFORMATION
+    
+    ## Demographic/Background Information Questionnaire
+    ### Use intuitive names for many of these variables.
+    ### Also, demo_16g was incorrectly numbered when the data was created.
+    dem_marital_status = DEM1V1, 
+    dem_children = DEM2V1, 
+    dem_race = DEM3V1, 
+    dem_race_mult_n = DEM4V1, 
+    dem_race_mult_white = DEM4V1A, 
+    dem_race_mult_black = DEM4V1B, 
+    dem_race_mult_asian = DEM4V1C, 
+    dem_race_mult_pacific = DEM4V1D, 
+    dem_race_mult_native = DEM4V1E, 
+    dem_race_mult_other = DEM4V1F, 
+    dem_edu_20_cat = DEM5V1, 
+    dem_edu_ged = DEM5AV1, 
+    dem_employ_status = DEM6V1, 
+    dem_employ_hpw = DEM6AV1, 
+    dem_employ_7days = DME6BV1, 
+    dem_ins = DEM7V1, 
+    dem_ins_medicare = DEM7V1A, 
+    dem_medicaid = DEM7V1B, 
+    dem_ins_military = DEM7V1C, 
+    dem_ins_private = DEM7V1D, 
+    dem_ins_none = DEM7V1E, 
+    dem_ins_any = Any_health_insurance, # Calculated in SPSS
+    dem_social_security = DEM8V1, 
+    dem_social_security_amount = DEM9V1, 
+    dem_snap = DEM10V1, 
+    dem_snap_amount = DEM11V1,
+    dem_income_source = DEM12V1, 
+    dem_income_source_work = DEM12V1A, 
+    dem_income_source_criminalized = DEM12V1B, 
+    dem_income_source_disability = DEM12V1C, 
+    dem_income_source_emp_benefits = DEM12V1D, 
+    dem_income_source_self_emp = DEM12V1E, 
+    dem_income_source_sex = DEM12V1F, 
+    dem_income_source_drugs = DEM12V1G, 
+    dem_income_source_social_assistance = DEM12V1H, 
+    dem_income_source_student_loans = DEM12V1I, 
+    dem_income_source_friends_relatives = DEM12V1J, 
+    dem_income_source_other = DEM12V1K, 
+    dem_income_source_none = DEM12V1L, 
+    dem_income_12_mnth_8_cat = DEM13V1, 
+    DEM13AV1, DEM13BV1, DEM13CV1, DEM13DV1, DEM13EV1, DEM13FV1, DEM13GV1, DEM13HV1, 
+    dem_income_1_mnth_7_cat = DEM14V1, DEM14AV1, DEM14BV1, DEM14CV1, DEM14DV1, 
+    DEM14EV1, DEM14FV1, 
+    dem_14g = DEMO16G, 
+    dem_veteran = DEM15V1, 
+    DEM16V1, 
+    dem_sexual_orientation = DEM17V1, 
+    dem_transgender = DEM18V1,
+    
+    ## The Brief Homelessness Questionnaire 
+    ### Remove the extra "A" from several names (e.g., BH12AV1)
+    ### Renumber starting at BH13BV1. BH13BV1, BH13BV1, and BH13CV1 all ask people 
+    ### if they've been arrested for various things. Ideally, this should have
+    ### been one long question, but it wasn't. I don't like the idea of having
+    ### bh_13aa, bh_13ba, bh_13ca, etc. Because the answer choices are all 
+    ### entirely different, I'm going to treat these as separate questions and 
+    ### renumber them.
+    BH1V1, BH1V1Y, BH1V1M, BH1V1D, BH2V1, BH3V1, BH4V1, BH4V1Y, BH4V1M, BH4V1D, 
+    BH5V1, BH6V1, BH7V1, BH7V1Y, BH7V1M, BH7V1W, BH8V1, BH9V1, BH10V1, 
+    bh_11 = BH11AV1, 
+    bh_12 = BH12AV1, 
+    bh_12a = BH12AV1A, 
+    bh_12b = BH12AV1B, 
+    bh_12c = BH12AV1C, 
+    bh_12d = BH12AV1D, 
+    bh_12e = BH12AV1E, 
+    bh_12f = BH12AV1F, 
+    bh_12g = BH12AV1G, 
+    bh_12h = BH12AV1H, 
+    bh_12i = BH12AV1I, 
+    bh_12j = BH12AV1J, 
+    bh_12k = BH12AV1K, 
+    bh_12l = BH12AV1L, 
+    bh_13 = BH13AV1, 
+    bh_13a = BH13AV1A, 
+    bh_13b = BH13AV1B, 
+    bh_13c = BH13AV1C, 
+    bh_13d = BH13AV1D, 
+    bh_13e = BH13AV1E, 
+    bh_13f = BH13AV1F, 
+    bh_14 = BH13BV1, 
+    bh_14a = BH13BV1A, 
+    bh_14b = BH13BV1B, 
+    bh_14c = BH13BV1C, 
+    bh_14d = BH13BV1D, 
+    bh_14e = BH13BV1E, 
+    bh_14f = BH13BV1F, 
+    bh_14g = BH13BV1G, 
+    bh_14h = BH13BV1H, 
+    bh_15 = BH13CV1, 
+    bh_15a = BH13CV1A, 
+    bh_15b = BH13CV1B, 
+    bh_15c = BH13CV1C, 
+    bh_15d = BH13CV1D, 
+    bh_15e = BH13CV1E, 
+    bh_15f = BH13CV1F, 
+    bh_15g = BH13CV1G, 
+    bh_15h = BH13CV1H, 
+    bh_16 = BH14V1, 
+    bh_17 = BH14BV1, 
+    bh_18y = BH14BV1Y, 
+    bh_18m = BH14BV1M, 
+    bh_18w = BH14BV1W,
+    bh_19 = BH15V1, 
+    bh_20 = BH15AV1, 
+    bh_21 = BH16V1, 
+    bh_22 = BH17V1, 
+    bh_22y = BH17V1Y, 
+    bh_22m = BH17V1M, 
+    bh_22w = BH17V1W, 
+    bh_23 = BH18V1, 
+    bh_24 = BH18BV1, 
+    bh_24a = BH18BV1A, 
+    bh_24b = BH18BV1B, 
+    bh_24c = BH18BV1C, 
+    bh_24d = BH18BV1D, 
+    bh_24e = BH18BV1E, 
+    bh_24f = BH18BV1F, 
+    bh_24g = BH18BV1G, 
+    bh_24h = BH18BV1H, 
+    bh_24i = BH18B1V1, 
+    bh_25 = BH19V1, 
+    bh_26 = BH20V1, 
+    
+    ## MacArthur Scale of Subjective Social Status
+    SSS1_V1, SSS2_V1,
+    
+    # HEALTH, MENTAL HEALTH, & HEALTH BEHAVIOR ================================
+    
+    ## Patient Health Questionnaire
+    PHQ1_V1, PHQ2_V1, PHQ3_V1, PHQ4_V1, PHQ5_V1, PHQ6_V1, PHQ7_V1, PHQ8_V1, 
+    PHQ9_V1, PHQ10_V1, PHQ11_V1, PHQ12_V1, PHQ13_V1, PHQ14_V1, PHQ15_V1,
+    
+    ## SF 12 Health Survey
+    HS1_V1, HS2_V1, HS3_V1, HS4_V1, HS5_V1, HS6_V1, HS7_V1, HS8_V1, HS9_V1, 
+    HS10_V1, HS11_V1, HS12_V1,
+    
+    ## Health Related Quality of Life
+    HRQ1_V1, HRQ2_V1, HRQ3_V1,
+    
+    ## Self-Rated Health
+    ### The numbering and naming convention in this section gets pretty messed up 
+    ### below. Since I already have to retype the name of some many of these, I’m 
+    ### going to go ahead and give these a better name from the beginning. This 
+    ### questionnaire is also used in v3, v4, v5
+    srh_1 = S2_V1, 
+    srh_1a = S2_V1A, 
+    srh_1b = S2_V1B, 
+    srh_1c = S2_V1C, 
+    srh_1d = S2_V1D, 
+    srh_1e = S2_V1E, 
+    srh_1f = S2_V1F, 
+    srh_1g = S2_V1G, 
+    srh_1h = S2_V1H, 
+    srh_2a = SR3A_V1, 
+    srh_2b = SR3B_V1, 
+    srh_2c = SR3C_V1, 
+    srh_2d = SR3D_V1,
+    srh_2e = SR3E_V1,
+    srh_2f = SR3F_V1,
+    srh_3 = S3_V1,
+    srh_4 = S4_V1,
+    srh_4a = S4_V1A,
+    srh_4b = S4_V1B,
+    srh_4c = S4_V1C,
+    srh_4d = S4_V1D,
+    srh_4e = S4_V1E,
+    srh_4f = S4_V1F,
+    srh_4g = S4_V1G,
+    srh_4h = S4_V1H,
+    srh_5 = S5_V1,
+    srh_6 = S6_V1,
+    srh_7 = S7_V1,
+    srh_7a = S7_V1A,
+    srh_7b = S7_V1B,
+    srh_7c = S7_V1C,
+    srh_7d = S7_V1D,
+    srh_7e = S7_V1E,
+    srh_7f = S7_V1F,
+    srh_7g = S7_V1G,
+    srh_8 = S8_V1,
+    srh_8a = S8_V1A,
+    srh_8b = S8_V1B,
+    srh_8c = S8_V1C,
+    srh_8d = S8_V1D,
+    srh_8e = S8_V1E,
+    srh_8f = S8_V1F,
+    srh_8g = S8_V1G,
+    srh_9 = S9_V1,
+    srh_9a = S9_V1A,
+    srh_9b = S9_V1B,
+    srh_9c = S9_V1C,
+    srh_9d = S9_V1D,
+    srh_9e = S9_V1E,
+    srh_9f = S9_V1F,
+    srh_9g = S9_V1G,
+    srh_9h = S9_V1H,
+    srh_9i = S9_V1I,
+    srh_9j = S9_V1J,
+    srh_9k = S9_V1K,
+    srh_9l = S9_V1L,
+    srh_9m = S9_V1M,
+    srh_9n = S9_V1N,
+    srh_9o = S9_V1O,
+    srh_9p = S9_V1P,
+    srh_9q = S9_V1Q,
+    srh_9r = S9_V1R,
+    srh_10 = S10_V1,
+    srh_11 = S11_V1,
+    srh_12 = S12_V1,
+    srh_13 = S13_V1,
+    srh_14 = S14_V1,
+    srh_14a = S14_V1A,
+    srh_14b = S14_V1B,
+    srh_14c = S14_V1C,
+    srh_14d = S14_V1D,
+    srh_15 = S15_V1,
+    srh_16 = S16_V1,
+    srh_17 = S17_V1,
+    srh_18 = S18_V1,
+    srh_18a = S18_V1A,
+    srh_18b = S18_V1B,
+    srh_18c = S18_V1C,
+    srh_18d = S18_V1D,
+    srh_18e = S18_V1E,
+    srh_18f = S18_V1F,
+    srh_18g = S18_V1G,
+    srh_18h = S18_V1H,
+    srh_18i = S18_V1I,
+    srh_18j = S18_V1J,
+    srh_18k = S18_V1K,
+    srh_18l = S18_V1L,
+    srh_19 = S19_V1,
+    srh_20 = S20_V1,
+    srh_21 = S21_V1,
+    srh_22 = S22_V1,
+    srh_23 = S23_V1,
+    srh_24 = S24_V1,
+    srh_24a = S24_V1A,
+    srh_24b = S24_V1B,
+    srh_24c = S24_V1C,
+    srh_24d = S24_V1D,
+    srh_24e = S24_V1E,
+    srh_24f = S24_V1F,
+    srh_25 = S25A_V1,
+    srh_26 = S26A_V1,
+    srh_26a = S26A_V1A,
+    srh_26b = S26A_V1B,
+    srh_26c = S26A_V1C,
+    srh_26d = S26A_V1D,
+    srh_26e = S26A_V1E,
+    srh_26f = S26A_V1F,
+    srh_26g = S26A_V1G,
+    srh_27 = S25B_V1,
+    srh_28 = S26B_V1,
+    srh_28a = S26B_V1A,
+    srh_28b = S26B_V1B,
+    srh_28c = S26B_V1C,
+    srh_28d = S26B_V1D,
+    srh_28e = S26B_V1E,
+    srh_28f = S26B_V1F,
+    srh_28g = S26B_V1G,
+    srh_29 = S25C_V1,
+    srh_30 = S26C_V1,
+    srh_30a = S26C_V1A,
+    srh_30b = S26C_V1B,
+    srh_30c = S26C_V1C,
+    srh_30d = S26C_V1D,
+    srh_30e = S26C_V1E,
+    srh_30f = S26C_V1F,
+    srh_30g = S26C_V1G,
+    srh_31 = S25D_V1,
+    srh_32 = S26D_V1,
+    srh_32a = S26D_V1A,
+    srh_32b = S26D_V1B,
+    srh_32c = S26D_V1C,
+    srh_32d = S26D_V1D,
+    srh_32e = S26D_V1E,
+    srh_32f = S26D_V1F,
+    srh_32g = S26D_V1G,
+    srh_33 = S25E_V1,
+    srh_34 = S26E_V1,
+    srh_34a = S26E_V1A,
+    srh_34b = S26E_V1B,
+    srh_34c = S26E_V1C,
+    srh_34d = S26E_V1D,
+    srh_34e = S26E_V1E,
+    srh_34f = S26E_V1F,
+    srh_34g = S26E_V1G,
+    srh_35 = S27_V1,
+    srh_36 = S28_V1,
+    srh_37 = S29_V1,
+    srh_38 = S30_V1,
+    srh_38a = S30_V1A,
+    srh_38b = S30_V1B,
+    srh_38c = S30_V1C,
+    srh_38d = S30_V1D,
+    srh_38e = S30_V1E,
+    srh_38f = S30_V1F,
+    srh_38g = S30_V1G,
+    srh_39 = S31_V1,
+    srh_40 = S32_V1,
+    srh_40a = S32_V1A,
+    srh_40b = S32_V1B,
+    srh_40c = S32_V1C,
+    srh_40d = S32_V1D,
+    srh_40e = S32_V1E,
+    srh_40f = S32_V1F,
+    srh_40g = S32_V1G,
+    srh_40h = S32_V1H,
+    srh_40i = S32_V1I,
+    srh_41 = S33_V1,
+    srh_42 = S34_V1,
+    srh_43 = S35_V1,
+    srh_44 = S36_V1,
+    srh_45 = S37_V1,
+    srh_46 = S38_V1,
+    srh_47 = S39A_V1,
+    srh_48 = S39B_V1,
+    srh_49 = S40_V1,
+    srh_50 = S41_V1,
+    srh_51 = S42_V1,
+    srh_52 = S43_V1,
+    srh_52a = S43_V1A,
+    srh_52b = S43_V1B,
+    srh_52c = S43_V1C,
+    srh_52d = S43_V1D,
+    srh_52e = S43_V1E,
+    srh_52f = S43_V1F,
+    srh_52g = S43_V1G,
+    srh_52h = S43_V1H,
+    srh_52i = S43_V1I,
+    
+    ## TCU Drug Screen 5
+    ### NOT USED V1
+    
+    ## Primary Care PTSD Screen (PC-PTSD)
+    PTSD1_V1, PTSD2_V1, PTSD3_V1, PTSD4_V1,
+    
+    ## BRFSS Adverse Childhood Experience (ACE) Module
+    ### NOT USED V1
+    
+    ## Tobacco History 
+    ### T3B_V1 should really be t4. This throws off the numbering all the way 
+    ### through the questionnaire.
+    ### On 2021-06-30 the QDS survey was changed to be more like the REDCap survey. 
+    ### Explained above
+    T1_V1, T2_V1, 
+    t_3 = T3A_V1,
+    t_3y = T3A_V1Y,
+    t_3m = T3A_V1M,
+    t_4 = T3B_V1,
+    t_5 = T4_V1,
+    t_6 = T5_V1,
+    t_6a = T5A1_V1,
+    t_6b = T5A2_V1,
+    t_6c = T5A3_V1,
+    t_6d = T5A4_V1,
+    t_6e = T5A5_V1,
+    t_6f = T5A6_V1,
+    t_7 = T6_V1,
+    t_7a = T6A1_V1,
+    t_7b = T6A2_V1,
+    t_7c = T6A3_V1,
+    t_7d = T6A4_V1,
+    t_7e = T6A5_V1,
+    t_7f = T6A6_V1,
+    t_8 = T7_V1,
+    t_9 = T8_V1,
+    t_10 = T9_V1,
+    t_11 = T10_V1,
+    t_12 = T11_V1,
+    t_13 = T12_V1,
+    t_13a = T12A_V1,
+    t_13b = T12B_V1,
+    t_14 = T13_V1,
+    t_15 = T14_V1,
+    t_15a = T14_V1A,
+    t_15b = T14_V1B,
+    t_15c = T14_V1C,
+    t_15d = T14_V1D,
+    t_15e = T14_V1E,
+    t_15f = T14_V1F,
+    t_15g = T14_V1G,
+    t_15h = T14_V1H,
+    t_15i = T14_V1I,
+    t_16 = T15_V1,
+    t_17 = T16_V1,
+    t_18 = T17_V1,
+    t_19 = T18_V1,
+    t_20 = T19_V1,
+    t_21 = T20_V1,
+    t_22 = T21_V1,
+    t_23 = T22_V1,
+    t_24 = T23_V1,
+    t_24a = T23_V1A,
+    t_24b = T23_V1B,
+    t_24c = T23_V1C,
+    t_24d = T23_V1D,
+    t_24e = T23_V1E,
+    t_24f = T23_V1F,
+    t_24g = T23_V1G,
+    t_24h = T23_V1H,
+    t_25 = T24_V1,
+    t_26 = T25_V1,
+    t_27 = T26A_V1,
+    t_27a = T26A_V1A,
+    t_27b = T26A_V1B,
+    t_27c = T26A_V1C,
+    t_27d = T26A_V1D,
+    t_27e = T26A_V1E,
+    t_27f = T26A_V1F,
+    t_28 = T27_V1,
+    t_29 = T28_V1,
+    t_30 = T29_V1,
+    t_31 = T30_V1,
+    t_32 = T31_V1,
+    t_32a = T31_V1A,
+    t_32b = T31_V1B,
+    t_32c = T31_V1C,
+    t_32d = T31_V1D,
+    t_32e = T31_V1E,
+    t_32f = T31_V1F,
+    t_32g = T31_V1G,
+    t_32h = T31_V1H,
+    t_32i = T31_V1I,
+    t_32j = T31_V1J,
+    t_33 = T31B_V1,
+    t_33a = T31B_V1A,
+    t_33b = T31B_V1B,
+    t_33c = T31B_V1C,
+    t_34 = T32_V1,
+    t_35 = T33_V1,
+    t_35a = T33_V1A,
+    t_35b = T33_V1B,
+    t_35c = T33_V1C,
+    t_35d = T33_V1D,
+    t_35e = T33_V1E,
+    t_35f = T33_V1F,
+    t_35g = T33_V1G,
+    t_35h = T33_V1H,
+    t_35i = T33_V1I,
+    t_35j = T33_V1J,
+    t_36 = T34_V1,
+    t_37 = T35_V1,
+    t_38 = T36_V1,
+    t_39 = T37_V1,
+    t_40 = T38_V1,
+    t_41 = T39_V1,
+    t_42 = T40_V1,
+    
+    ## Heaviness of Smoking Index
+    HSI1_V1, HSI2_V1, 
+    
+    ## Behavioral Risk Factor Surveillance System (BRFSS) Inadequate Sleep
+    BRS1_V1, BRS2_V1, BRS3_V1, BRS4_V1, BRS5_V1,
+    
+    ## Alcohol Quantity and Frequency Questionnaire
+    AF1_V1, AF2M_V1, AF3TU_V1, AF4W_V1, AF5TH_V1, AF6F_V1, AF6SA_V1, AF8SU_V1, 
+    af_drinks = DRINKS, AF9_V1, AF9A_V1, AF9B_V1, AF9C_V1,
+    
+    ## Alcohol and Drug Timeline Follow-Back (TLFB)
+    ### NOT USED V1
+    
+    ## Personality Beliefs Questionnaire
+    ### NOT USED V1
+    
+    ## USDA Food Security Survey
+    ### NOT USED V1
+    
+    ## Meal Survey
+    MS1_V1, MS2_V1, MS3_V1, ms_4 = MS8_V1,
+    
+    ## TCU CJ Client Evaluation of Self and Treatment (CJ CEST)
+    ### NOT USED V1
+    
+    ## Sexual Behaviors
+    SB1_V1, SB2_V1, SB3_V1, SB4_V1, SB5_V1, SB6_V1, SB7_V1, SB7_V1A, SB7_V1B, 
+    SB7_V1C, SB7_V1D, SB7_V1E, SB7_V1F, SB7_V1G, SB8_V1, SB9_V1,
+    
+    # STRESS ==================================================================
+    
+    ## Detroit Area Study Assessment of Day-to-Day Discrimination
+    DD1_V1, DD2_V1, DD3_V1, DD4_V1, DD5_V1, DD6_V1, DD7_V1, DD8_V1, DD9_V1, 
+    DD10_V1,
+    
+    ## MacArthur Major Discrimination
+    ### NOT USED V1
+    
+    ## Urban Life Stress Scale
+    ### NOT USED V1
+    
+    ## Personal Victimization
+    ### NOT USED V1
+    
+    ## Perceived Stress Scale
+    ### NOT USED V1
+    
+    ## Distress Tolerance Scale (DTS)
+    ### NOT USED V1
+    
+    ## The Pandemic Stress Index (PSI)
+    ### NOT USED V1
+    
+    # NEGATIVE AFFECT
+    
+    ## Aggression Questionnaire (AQ-12)
+    AQ1_V1, AQ2_V1, AQ3_V1, AQ4_V1, AQ5_V1, AQ6_V1, AQ7_V1, AQ8_V1, AQ9_V1, 
+    AQ10_V1, AQ11_V1, AQ12_V1,
+    
+    ## Center for Epidemiological Studies Depression (CES-D)
+    CES1_V1, CES2_V1, CES3_V1, CES4_V1, CES5_V1, CES6_V1, CES7_V1, CES8_V1, 
+    CES9_V1, CES10_V1,
+    
+    # INTERPERSONAL/INTRAPERSONAL RESOURCES =================================== 
+    
+    ## Interpersonal Support Evaluation List
+    IS1_V1, IS2_V1, IS3_V1, IS4_V1, IS5_V1, IS6_V1, IS7_V1, IS8_V1, IS9_V1, 
+    IS10_V1, IS11_V1, IS12_V1,
+    
+    ## Religious Participation
+    RP1_V1, RP2_V1,
+    
+    ## Lubben Social Network Scale – 6
+    LSN1_V1, LSN2_V1, LSN3_V1, LSN4_V1, LSN5_V1, LSN6_V1,
+    
+    ## HOMELESS TIMELINE FOLLOW-BACK (TLFB)
+    ### NOT USED V1
+    
+    ## Resource Utilization Questionnaire
+    R1_V1, R2_V1, R3_V1, R4_V1, R5_V1, R6_V1, R7_V1, R8_V1, R9_V1, R10_V1, 
+    R11_V1, 
+    r_12 = R11B_V1, 
+    r_13 = R12_V1, 
+    r_14 = R13_V1, 
+    r_15 = R14_V1, 
+    r_16 = R15_V1, 
+    r_16a = R15_V1A, 
+    r_16b = R15_V1B, 
+    r_16c = R15_V1C, 
+    r_16d = R15_V1D, 
+    r_16e = R15_V1E, 
+    r_16f = R15_V1F, 
+    r_16g = R15_V1G, 
+    r_16h = R15_V1H, 
+    r_16i = R15_V1I, 
+    r_16j = R15_V1J, 
+    r_16k = R15_V1K, 
+    r_16l = R15_V1L, 
+    r_16m = R15_V1M, 
+    r_16n = R15_V1N, 
+    r_16o = R15_V1O,
+    
+    ## Barriers to Phone Based Case Management
+    BPM1_V1, BPM2_V1, BPM3_V1, BPM4_V1, BPM5_V1, BPM5_V1A, BPM5_V1B, BPM5_V1C, 
+    BPM5_V1D, BPM5_V1E, BPM5_V1F, BPM5_V1G,
+    
+    # End of sections from the Link2Care appendix =============================
+    
+    ## Add everything() to make sure no columns are lost. Many of these will be
+    ## calculated variables from the SPSS script. 
+    everything()
+)
+```
+
+**Data check:** Take a look at what comes after `BPM5_V1G`. Over time, if new variables are added to the QDS data, this could change. If it does, we may want to rename or rearrange the new columns. Make sure to use the last column named before `everything()` in the code above as the starting column name in the code below.
+
+```{r}
+#| eval: false
+v1_reorder |>
+  select(BPM5_V1G:last_col()) |> 
+  names()
+```
+
+There are 78 columns after `BPM5_V1G`.
+- One of them is `SUBJECT1`, which we drop below.
+- The remaining 77 columns are calculated variables created in SPSS.
+  - Later, we will create calculated columns in this file instead of relying on the SPSS code. The rationale for doing so is that it will make the calculated columns easier to updated/maintain. We won't have to switch back and forth between SPSS and R.
+ - We will create the calculated variables after merging all of the individual data frames instead of creating them in each visit data frame. Again, this will make the code easier to maintain. If we need to make a change, we will only need to do so once -- not once for each visit.
+
+#### v1: Drop unneeded columns
+
+- Drop the `SUBJECT1` column. I'm not sure why it exists, but it has a missing value in every row.
+- Drop the `TEST_V1` column. I'm not sure why it exists, but it has a missing value in every row.
+- Drop the SPSS calculated columns for now. We will recreate them later.
+
+```{r}
+# Helpful regex: \[\d*\] 
+# Helpful regex: [ ]{2,}
+drop_v1 <- c(
+  "BPM5_V1G", "SUBJECT1", "mms_score", "MMS_total", "MMS_severity", 
+  "PHQ1_V1_dichot", "PHQ2_V1_dichot", "PHQ3_V1_dichot", "PHQ4_V1_dichot", 
+  "PHQ5_V1_dichot", "PHQ6_V1_dichot", "PHQ7_V1_dichot", "PHQ8_V1_dichot", 
+  "PHQ_dep_dichot_total", "PHQ_symp_V1", "PHQ_mdd_V1", "PHQ_gad_V1", "hsi", 
+  "HSI_cat", "BRIS2_QD_dichot", "QD_unintent_slp", "PA", "VA", "A", "HA", 
+  "AQ", "CES5_V1r", "CES8_V1r", "CES_V1_total", "CES_V1_total_labelled", 
+  "CES1_V1_dichot", "CES2_V1_dichot", "CES3_V1_dichot", "CES4_V1_dichot", 
+  "CES5_V1r_dichot", "CES6_V1_dichot", "CES7_V1_dichot", "CES8_V1r_dichot", 
+  "CES9_V1_dichot", "CES10_V1_dichot", "CES_V1_dichot_total", 
+  "CES_V1_dichot_labelled", "IS1_V1r", "IS2_V1r", "IS7_V1r", "IS8_V1r", 
+  "IS11_V1r", "IS12_V1r", "ISEapp_V1", "ISEbel_V1", "ISEtan_V1", 
+  "LSN_V1_family", "LSN_V1_friends", "LSN_V1_total", "DD_V1_total", 
+  "PTSD_V1_total", "PTSD_V1_postive", "HS1_V1_dichotomous", "AlcQF_V1", 
+  "binge_drinker_V1", "Heavy_drinker", "weight_kg_V1", "height_meter_V1", 
+  "height_meter_sq_V1", "BMI_V1", "weight_status_V1", "obese_V1", 
+  "ovrwt_obese_V1", "current_months_homeless", "friends_smoke_V1", 
+  "spouse_smoke", "Mental_Health_dx", "pain", "Substance_abuse_hs", 
+  "Substance_use_30d", "Time_to_complete_V1", "T5_V1val", "T6_V1val",
+  
+  # Other columns to drop that weren't at the end of the data frame
+  "TEST_V1"
+)
+
+v1_reorder <- v1_reorder |>
+  select(-all_of(drop_v1))
+
+rm(drop_v1)
+```
+
+**Data check:** Data dimensions
+
+```{r}
+dim(v1_reorder) # 442 732
+```
+
+#### v1: Add source attribute for codebook
+
+```{r}
+for (i in seq_along(names(v1_reorder))) {
+  attr(v1_reorder[[i]], "source") <- "Visit 1"
+}
+
+rm(i)
+```
+
+### Visit 2 reorder
+
+```{r}
+v2_reorder <- v2 %>% 
+  select(
+    
+    # QDS administrative columns ==============================================
+    SUBJECT, TODAY_V2, II_V2, VISIT_V2, TEST_V2, VISIT_TYPE, ETIME_V2,
+    
+    # Screening ===============================================================
+    
+    ## Screening Questionnaire
+    ### NOT USED V2
+    
+    ## Mini Mental State Exam
+    ### NOT USED V2
+    
+    ## Rapid Estimate of Adult Literacy in Medicine (REALM)
+    ### NOT USED V2
+    
+    ## Biological/Anthropometric Measures
+    READ1_V2, READ2_V2, READ3_V2, CTIME_V2,
+    
+    ## Locator Form
+    ### NOT USED V2
+    
+    # SOCIOECONOMIC STATUS/DEMOGRAPHICS/HOMELESSNESS/CRIMINAL HISTORY INFORMATION 
+    
+    ## Demographic/Background Information Questionnaire
+    ### NOT USED V2
+    
+    ## The Brief Homelessness Questionnaire
+    ### NOT USED V2
+    
+    ## MacArthur Scale of Subjective Social Status
+    ### Rename these to indicate which questionnaire the came from
+    mac_ssss_01 = WELL_BEING1, mac_ssss_02 = WELL_BEING2, 
+    mac_ssss_03 = WELL_BEING3,
+    
+    # HEALTH, MENTAL HEALTH, & HEALTH BEHAVIOR ================================
+    
+    ## Patient Health Questionnaire
+    ### NOT USED V2
+    
+    ## SF 12 Health Survey
+    ### NOT USED V2
+    
+    ## Health Related Quality of Life
+    ### NOT USED V2
+    
+    ## Self-Rated Health
+    ### NOT USED V2
+    
+    ## TCU Drug Screen 5
+    DS1_V2, DS2_V2, DS3_V2, DS4_V2, DS5_V2, DS6_V2, DS7_V2, DS8_V2, DS9_V2, 
+    DS10A_V2, DS10B_V2, DS11A_V2, DS11B_V2,
+    
+    ## Primary Care PTSD Screen (PC-PTSD)
+    ### NOT USED V2
+    
+    ## BRFSS Adverse Childhood Experience (ACE) Module
+    BRAC1, BRAC2, BRAC3, BRAC4, BRAC5, BRAC6, BRAC7, BRAC8, BRAC9, BRAC10, BRAC11,
+    
+    ## Tobacco History 
+    ### NOT USED V2
+    
+    ## Heaviness of Smoking Index
+    ### NOT USED V2
+    
+    ## Behavioral Risk Factor Surveillance System (BRFSS) Inadequate Sleep
+    ### NOT USED V2
+    
+    ## Alcohol Quantity and Frequency Questionnaire
+    ### NOT USED V2
+    
+    ## Alcohol and Drug Timeline Follow-Back (TLFB)
+    ### NOT USED V2
+    
+    ## Personality Beliefs Questionnaire
+    PBQ1, PBQ2, PBQ3, PBQ4, PBQ5, PBQ6, PBQ7, 
+    
+    ## USDA Food Security Survey
+    FSS1_V2, FSS2_V2, FSS3_V2, FSS3A_V2, FSS4_V2, FSS5_V2,
+    
+    ## Meal Survey
+    ### NOT USED V2
+    
+    ## TCU CJ Client Evaluation of Self and Treatment (CJ CEST)
+    CJ1_V2, CJ2_V2, CJ3_V2, CJ4_V2, CJ5_V2, CJ6_V2, CJ7_V2, CJ8_V2, CJ9_V2, 
+    CJ10_V2, CJ11_V2, CJ12_V2, CJ13_V2, CJ14_V2, CJ15_V2, CJ16_V2, CJ17_V2, 
+    CJ18_V2, CJ19_V2, CJ20_V2, CJ21_V2, CJ22_V2, CJ23_V2, CJ24_V2, CJ25_V2, 
+    CJ26_V2, CJ27_V2, CJ28_V2, CJ29_V2, CJ30_V2, CJ31_V2, CJ32_V2, CJ33_V2, 
+    CJ34_V2, CJ35_V2, CJ36_V2, CJ37_V2, CJ38_V2, CJ39_V2, CJ40_V2,
+    
+    ## Sexual Behaviors
+    ### NOT USED V2
+    
+    # STRESS ==================================================================
+    
+    ## Detroit Area Study Assessment of Day-to-Day Discrimination
+    ### NOT USED V2
+    
+    ## MacArthur Major Discrimination
+    MMD1A, MMD1B, MMD1C, MMD1D, MMD1E, MMD1F, MMD1G, MMD1H, MMD1I, MMD1J, MMD1K, 
+    MMD2, MMD3, MMD4,
+    
+    ## Urban Life Stress Scale
+    ULS1_V2, ULS2_V2, ULS3_V2, ULS4_V2, ULS5_V2, ULS6_V2, ULS7_V2, ULS8_V2, 
+    ULS9_V2, ULS10_V2, ULS11_V2, ULS12_V2, ULS13_V2, ULS14_V2, ULS15_V2, 
+    ULS16_V2, ULS17_V2, ULS18_V2, ULS19_V2, ULS20_V2, ULS21_V2,
+    
+    ## Personal Victimization
+    pv_1 = PV1_V2, pv_2 = PV2_V2, pv_3 = PV3_V2,
+    
+    ## Perceived Stress Scale
+    PS1_V2, PS2_V2, PS3_V2, PS4_V2, 
+    
+    ## Distress Tolerance Scale (DTS)
+    DTS1_V2, DTS2_V2, DTS3_V2, DTS4_V2, DTS5_V2, DTS6_V2, DTS7_V2, DTS8_V2, 
+    DTS9_V2, DTS10_V2, DTS11_V2, DTS12_V2, DTS13_V2, DTS14_V2, DTS15_V2, DTS16_V2, 
+    endtime = ENDTIME2, ETIME_V2,
+    
+    ## The Pandemic Stress Index (PSI)
+    ### NOT USED V2
+    
+    # NEGATIVE AFFECT =========================================================
+    
+    ## Aggression Questionnaire (AQ-12)
+    ### NOT USED V2
+    
+    ## Center for Epidemiological Studies Depression (CES-D)
+    ### NOT USED V2
+    
+    # INTERPERSONAL/INTRAPERSONAL RESOURCES ===================================
+    
+    ## Interpersonal Support Evaluation List
+    ### NOT USED V2
+    
+    ## Religious Participation
+    ### NOT USED V2
+    
+    ## Lubben Social Network Scale – 6
+    ### NOT USED V2
+    
+    ## HOMELESS TIMELINE FOLLOW-BACK (TLFB)
+    ### NOT USED V2
+    
+    ## Resource Utilization Questionnaire
+    ### NOT USED V2
+    
+    ## Barriers to Phone Based Case Management
+    ### NOT USED V2
+    
+    # End of sections from the Link2Care appendix =============================
+    
+    # COVID-19 Vaccine
+    ### These variables don't appear in the the Link2Care appendix or the QDS 
+    ### codebooks. They do appear in the REDCap codebook, though.
+    VAC1_V2, VAC2_V2, VAC2_V2Y, VAC2_V2M, VAC2_V2D, VAC3_V2, VAC3_V2Y,
+    VAC3_V2M, VAC3_V2D,
+    
+    ## Add everything() to make sure no columns are lost. Many of these will be
+    ## calculated variables from the SPSS script. 
+    everything()
+)
+```
+
+Data check: Take a look at what comes after `VAC3_V2D`. Over time, if new variables are added to the QDS data, this could change. If it does, we may want to rename or rearrange the new columns. Make sure to use the last column named before `everything()` in the code above as the starting column name in the code below.
+
+```{r}
+#| eval: false
+v2_reorder |>
+  select(VAC3_V2D:last_col()) |> 
+  names()
+```
+
+There are 55 columns after `VAC3_V2D`.
+- One of them is `II_V1`, which we drop below.
+- The remaining 63 columns are calculated variables created in SPSS.
+  - Below, we will create calculated columns in this file instead of relying on the SPSS code. The rationale for this is that it will make the columns easier to updated/maintain. We won't have to switch back and forth between SPSS and R.
+ - However, we will create the calculated variables after merging all of the individual data frames instead of creating them in each visit data frame. Again, this will make the code easier to maintain. If we need to make a change, we will only need to do so once -- not once for each visit.
+
+#### v1: Drop unneeded columns
+
+- Drop the `II_V1` column. I'm not sure why a "V1" column exists in the visit 2 data. There is also a `II_V2`.
+- Drop the `TEST_V2` column. I'm not sure why it exists, but it has a missing value in every row.
+- Drop the SPSS calculated columns for now. We will recreate them later.
+
+```{r}
+# Helpful regex: \[\d*\] 
+# Helpful regex: [ ]{2,}
+# Helpful regex: \" \"
+drop_v2 <- c(
+  "VAC3_V2D", "II_V1", "DS10_V2", "DS11_V2", "TCU_DS_TOTAL_V2", 
+  "TCU_DS_SCORE_V2", "pbq_v2_total", "fss_a_V2", "fss_b_V2", "fss_c_V2", 
+  "fss_d_V2", "fss_e_V2", "fss_f_V2", "FSS_V2_total", "FSS_V2_score", 
+  "FSS_V2_score_dichotomous", "TCU_desire_v2_total", "TCU_tn_v2_total", 
+  "TCU_ts_v2_total", "CJ21r_V2", "CJ22r_V2", "CJ23r_V2", "CJ25r_V2", 
+  "TCU_se_v2_total", "TCU_hs_v2_total", "CJ34r_V2", "CJ35r_V2", "CJ36r_V2", 
+  "TCU_rt_v2_total", "MMD_total", "uls_V2_total", "PS2r_V2", "PS3r_V2", 
+  "PS_V2_total", "DTS1r_V2", "DTS2r_V2", "DTS3r_V2", "DTS4r_V2", "DTS5r_V2", 
+  "DTS6r_V2", "DTS8r_V2", "DTS9r_V2", "DTS10r_V2", "DTS11r_V2", "DTS12r_V2", 
+  "DTS13r_V2", "DTS14r_V2", "DTS15r_V2", "DTS16r_V2", "DTS_tolerance_V2", 
+  "DTS_absorption_V2", "DTS_appraisal_V2", "DTS_regulation_V2", "DTS_total_V2", 
+  "Time_to_complete_V2",
+
+  # Other columns to drop that weren't at the end of the data frame
+  "II_V1", "TEST_V2"
+)
+
+v2_reorder <- v2_reorder |>
+  select(-all_of(drop_v2))
+
+rm(drop_v2)
+```
+
+Data check: Data dimensions
+
+```{r}
+dim(v2_reorder) # 406 157
+```
+
+#### v1: Add source attribute for codebook
+
+```{r}
+for (i in seq_along(names(v2_reorder))) {
+  attr(v2_reorder[[i]], "source") <- "Visit 2"
+}
+
+rm(i)
+```
+
+
+# 🔴 2023-08-30: Left off here...
+
+- I need to import v3-v5 using the same process as above.
+- But first:
+  - Work out the process of combining the v1 and v2.
+  - Work out the process of creating calculated variables in the joined data frame. Borrow code from `data_survey_01_import.Rmd`.
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+    # QDS administrative columns ==============================================
+    SUBJECT, TODAY_V2, II_V2, VISIT_V2, TEST_V2, VISIT_TYPE,
+    
+    # Screening ===============================================================
+    
+    ## Screening Questionnaire
+    ### NOT USED VX
+    
+    ## Mini Mental State Exam
+    ### NOT USED VX
+    
+    ## Rapid Estimate of Adult Literacy in Medicine (REALM)
+    ### NOT USED VX
+    
+    ## Biological/Anthropometric Measures
+    ### NOT USED VX
+    
+    ## Locator Form
+    ### NOT USED VX
+    
+    # SOCIOECONOMIC STATUS/DEMOGRAPHICS/HOMELESSNESS/CRIMINAL HISTORY INFORMATION 
+    
+    ## Demographic/Background Information Questionnaire
+    ### NOT USED VX
+    
+    ## The Brief Homelessness Questionnaire
+    ### NOT USED VX
+    
+    ## MacArthur Scale of Subjective Social Status
+    ### NOT USED VX
+    
+    # HEALTH, MENTAL HEALTH, & HEALTH BEHAVIOR ================================
+    
+    ## Patient Health Questionnaire
+    ### NOT USED VX
+    
+    ## SF 12 Health Survey
+    ### NOT USED VX
+    
+    ## Health Related Quality of Life
+    ### NOT USED VX
+    
+    ## Self-Rated Health
+    ### NOT USED VX
+    
+    ## TCU Drug Screen 5
+    ### NOT USED VX
+    
+    ## Primary Care PTSD Screen (PC-PTSD)
+    ### NOT USED VX
+    
+    ## BRFSS Adverse Childhood Experience (ACE) Module
+    ### NOT USED VX
+    
+    ## Tobacco History
+    ### NOT USED VX
+    
+    ## Heaviness of Smoking Index
+    ### NOT USED VX
+    
+    ## Behavioral Risk Factor Surveillance System (BRFSS) Inadequate Sleep
+    ### NOT USED VX
+    
+    ## Alcohol Quantity and Frequency Questionnaire
+    ### NOT USED VX
+    
+    ## Alcohol and Drug Timeline Follow-Back (TLFB)
+    ### NOT USED VX
+    
+    ## Personality Beliefs Questionnaire
+    ### NOT USED VX
+    
+    ## USDA Food Security Survey
+    ### NOT USED VX
+    
+    ## Meal Survey
+    ### NOT USED VX
+    
+    ## TCU CJ Client Evaluation of Self and Treatment (CJ CEST)
+    ### NOT USED VX
+    
+    ## Sexual Behaviors
+    ### NOT USED VX
+    
+    # STRESS ==================================================================
+    
+    ## Detroit Area Study Assessment of Day-to-Day Discrimination
+    ### NOT USED VX
+    
+    ## MacArthur Major Discrimination
+    ### NOT USED VX
+    
+    ## Urban Life Stress Scale
+    ### NOT USED VX
+    
+    ## Personal Victimization
+    ### NOT USED VX
+    
+    ## Perceived Stress Scale
+    ### NOT USED VX
+    
+    ## Distress Tolerance Scale (DTS)
+    ### NOT USED VX
+    
+    ## The Pandemic Stress Index (PSI)
+    ### NOT USED VX
+    
+    # NEGATIVE AFFECT =========================================================
+    
+    ## Aggression Questionnaire (AQ-12)
+    ### NOT USED VX
+    
+    ## Center for Epidemiological Studies Depression (CES-D)
+    ### NOT USED VX
+    
+    # INTERPERSONAL/INTRAPERSONAL RESOURCES ===================================
+    
+    ## Interpersonal Support Evaluation List
+    ### NOT USED VX
+    
+    ## Religious Participation
+    ### NOT USED VX
+    
+    ## Lubben Social Network Scale – 6
+    ### NOT USED VX
+    
+    ## HOMELESS TIMELINE FOLLOW-BACK (TLFB)
+    ### NOT USED VX
+    
+    ## Resource Utilization Questionnaire
+    ### NOT USED VX
+    
+    ## Barriers to Phone Based Case Management
+    ### NOT USED VX
+
+    # End of sections from the Link2Care appendix =============================
+    
+    ## Add everything() to make sure no columns are lost. Many of these will be
+    ## calculated variables from the SPSS script. 
+    everything()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

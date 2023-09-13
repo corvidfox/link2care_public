@@ -85,23 +85,12 @@ walk(
 # These are expected to change over time as we add more people to the study.
 # However, drastic changes from month-to-month, or even quarter-to-quarter,
 # should initiate an investigation into what's going on.
-# 2022-08-06: v1 imported with 401 rows and 810 columns.
-# 2022-08-06: v2 imported with 369 rows and 213 columns.
-# 2022-08-06: v3 imported with 243 rows and 542 columns.
-# 2022-08-06: v4 imported with 179 rows and 598 columns.
-# 2022-08-06: v5 imported with 152 rows and 649 columns.
-
-# 2023-04-13: v1 imported with 442 rows and 810 columns.
-# 2023-04-13: v2 imported with 406 rows and 213 columns.
-# 2023-04-13: v3 imported with 273 rows and 542 columns.
-# 2023-04-13: v4 imported with 207 rows and 598 columns.
-# 2023-04-13: v5 imported with 173 rows and 649 columns.
+# 2023-08-30: v1 imported with 442 rows and 810 columns.
+# 2023-08-30: v2 imported with 406 rows and 213 columns.
+# 2023-08-30: v3 imported with 273 rows and 542 columns.
+# 2023-08-30: v4 imported with 207 rows and 598 columns.
+# 2023-08-30: v5 imported with 178 rows and 649 columns.
 ```
-
-```{r}
-v1 %>% select(starts_with("phq"))
-```
-
 
 
 # Clean column names
@@ -112,7 +101,7 @@ We have to make the column names match across visits so that we can merge all of
 
 1. The columns in the data are not arranged in the order that they exist in the actual QDS survey for some reason. This makes the data harder to work with, and it will make the codebook we eventually create difficult to use. So, we are going to reorder them. To prevent us from typing out 810 variable names manually, we are going to read-in the variable names from the codebook and then create a blog of text that we copy and paste into a code chunk using `select()` below. Prepping the codebook to be able to do this took a long time and isn't very future-proof. However, we should only have to do this step once. As changes occur to QDS in the future, we can just update the code chunk with the `select()` function.
 
-2. There are some instances where it makes sense to make manual changes to column names now, before the standardization process below. For example, the MMSE columns. It's better to manually change them now because after standardize_col_names you can no longer cut and paste from the Word codebooks. Also, it becomes difficult to be sure which variables in the data correspond to which variables in the codebook (e.g., "mms_4" and "mms_4v").There will also be additional manual changes made after the standardization process. 
+2. There are some instances where it makes sense to make manual changes to column names now, before the standardization process below. For example, the MMSE columns. It's better to manually change them now because after standardize_col_names you can no longer cut and paste from the Word QDS codebooks. Also, it becomes difficult to be sure which variables in the data correspond to which variables in the codebook (e.g., "mms_4" and "mms_4v").There will also be additional manual changes made after the standardization process. 
 
 ### Change log
 
@@ -152,12 +141,14 @@ Remember that because of a naming error with T3B_V1, T26_V1 was already manually
 
 This change affects V1, V3, V4, and V5.
 
-### v1: Reorder column names and manual changes
-
 ```{r}
-v1 <- v1 %>% 
+v1_reorder <- v1 |> 
   select(
-    TODAY_V1, VISIT_TYPE, II_V1, VISIT_V1, TEST_V1, 
+    # Administrative information
+    qds_date_visit = TODAY_V1, 
+    qds_visit_type = VISIT_TYPE, 
+    qds_ii         = II_V1, 
+    qds_visit      = VISIT_V1,
     
     # Add intuitive names to the screening question (demographic) variables
     GENDER, sq_hispanic = SQ_2, sq_race = SQ_3, sq_age = SQ_4, SQ_5, SQ_6, SQ_7, 
@@ -214,6 +205,8 @@ v1 <- v1 %>%
     mms_11 = MMS_10, 
     mms_12 = MMS_11, 
     MMS_S, 
+    # Calculated columns from SPSS
+    mms_score, MMS_total, MMS_severity,
    
     # Realm  
     REALM, 
@@ -231,6 +224,9 @@ v1 <- v1 %>%
     # Biological/Anthropometric Measures
     SQ_23, SUBJECT, WEIGHT, HEIGHT, WAIST_C, CO_V1, READ1_V1, READ2_V1, 
     read_3 = READ3_V5, CTIME_V1,
+    # Calculated columns from SPSS
+    weight_kg_V1, height_meter_V1, height_meter_sq_V1, BMI_V1, 
+    weight_status_V1, obese_V1, ovrwt_obese_V1,
     
     # Demographic/Background Information Questionnaire
     # Use intuitive names for many of these variables.
@@ -256,6 +252,7 @@ v1 <- v1 %>%
     dem_ins_military = DEM7V1C, 
     dem_ins_private = DEM7V1D, 
     dem_ins_none = DEM7V1E, 
+    dem_ins_any = Any_health_insurance, # Calculated in SPSS
     dem_social_security = DEM8V1, 
     dem_social_security_amount = DEM9V1, 
     dem_snap = DEM10V1, 
@@ -357,6 +354,8 @@ v1 <- v1 %>%
     bh_24i = BH18B1V1, 
     bh_25 = BH19V1, 
     bh_26 = BH20V1, 
+    # Calculated columns from SPSS
+    current_months_homeless,
    
     # MacArthur Scale of Subjective Social Status
     SSS1_V1, SSS2_V1,
@@ -364,6 +363,10 @@ v1 <- v1 %>%
     # Patient Health Questionnaire
     PHQ1_V1, PHQ2_V1, PHQ3_V1, PHQ4_V1, PHQ5_V1, PHQ6_V1, PHQ7_V1, PHQ8_V1, 
     PHQ9_V1, PHQ10_V1, PHQ11_V1, PHQ12_V1, PHQ13_V1, PHQ14_V1, PHQ15_V1,
+    # Calculated columns from SPSS
+    PHQ1_V1_dichot, PHQ2_V1_dichot, PHQ3_V1_dichot, PHQ4_V1_dichot, 
+    PHQ5_V1_dichot, PHQ6_V1_dichot, PHQ7_V1_dichot, PHQ8_V1_dichot, 
+    PHQ_dep_dichot_total, PHQ_symp_V1, PHQ_mdd_V1, PHQ_gad_V1,
    
     # SF-12 Health Survey
     HS1_V1, HS2_V1, HS3_V1, HS4_V1, HS5_V1, HS6_V1, HS7_V1, HS8_V1, HS9_V1, 
@@ -564,9 +567,14 @@ v1 <- v1 %>%
     srh_52g = S43_V1G,
     srh_52h = S43_V1H,
     srh_52i = S43_V1I,
+    # Calculated columns from SPSS
+    HS1_V1_dichotomous, Mental_Health_dx, pain, Substance_abuse_hs, 
+    Substance_use_30d,
    
     # PTSD Screen
     PTSD1_V1, PTSD2_V1, PTSD3_V1, PTSD4_V1,
+    # Calculated columns from SPSS
+    PTSD_V1_total, PTSD_V1_postive,
    
     # Tobacco History Questionnaire
     # T3B_V1 should really be t4. This throws off the numbering all the way 
@@ -676,16 +684,30 @@ v1 <- v1 %>%
     t_40 = T38_V1,
     t_41 = T39_V1,
     t_42 = T40_V1,
+    # Calculated columns from SPSS
+    friends_smoke_V1, spouse_smoke,
+    T5_V1val, T6_V1val,
    
     # Heaviness of Smoking Index
-    HSI1_V1, HSI2_V1,
+    HSI1_V1, HSI2_V1, 
+    # Calculated columns from SPSS
+    hsi, HSI_cat, 
    
     # BRFSS - Inadequate Sleep
     BRS1_V1, BRS2_V1, BRS3_V1, BRS4_V1, BRS5_V1,
+    # Calculated columns from SPSS
+    # Changing the name prefix to match the others
+    BRS2_QD_dichot = BRIS2_QD_dichot,
+    BRS4_QD_unintent_slp = QD_unintent_slp,
    
     # Alcohol Quantity, Frequency and Binge Drinking Questionnaire
     AF1_V1, AF2M_V1, AF3TU_V1, AF4W_V1, AF5TH_V1, AF6F_V1, AF6SA_V1, AF8SU_V1, 
     af_drinks = DRINKS, AF9_V1, AF9A_V1, AF9B_V1, AF9C_V1,
+    # Calculated columns from SPSS
+    # Changing the name prefix to match the others
+    af_qf_v1 = AlcQF_V1,
+    af_binge_drinker_v1 = binge_drinker_V1, 
+    af_heavy_drinker_v1 = Heavy_drinker,
    
     # Meal Survey
     MS1_V1, MS2_V1, MS3_V1, ms_4 = MS8_V1,
@@ -697,24 +719,39 @@ v1 <- v1 %>%
     # Detroit Day Discrimination
     DD1_V1, DD2_V1, DD3_V1, DD4_V1, DD5_V1, DD6_V1, DD7_V1, DD8_V1, DD9_V1, 
     DD10_V1,
+    # Calculated columns from SPSS
+    DD_V1_total,
    
     # Aggression Questionnaire
     AQ1_V1, AQ2_V1, AQ3_V1, AQ4_V1, AQ5_V1, AQ6_V1, AQ7_V1, AQ8_V1, AQ9_V1, 
     AQ10_V1, AQ11_V1, AQ12_V1,
+    # Calculated columns from SPSS
+    # Changing the name prefix to match the others
+    AQ_PA = PA, AQ_VA = VA, AQ_A = A, AQ_HA = HA, AQ_total = AQ,
    
     # CES-D
     CES1_V1, CES2_V1, CES3_V1, CES4_V1, CES5_V1, CES6_V1, CES7_V1, CES8_V1, 
     CES9_V1, CES10_V1,
+    # Calculated columns from SPSS
+    CES5_V1r, CES8_V1r, CES_V1_total, CES_V1_total_labelled, CES1_V1_dichot, 
+    CES2_V1_dichot, CES3_V1_dichot, CES4_V1_dichot, CES5_V1r_dichot, 
+    CES6_V1_dichot, CES7_V1_dichot, CES8_V1r_dichot, CES9_V1_dichot, 
+    CES10_V1_dichot, CES_V1_dichot_total, CES_V1_dichot_labelled, 
    
     # Interpersonal Support Evaluation List
     IS1_V1, IS2_V1, IS3_V1, IS4_V1, IS5_V1, IS6_V1, IS7_V1, IS8_V1, IS9_V1, 
     IS10_V1, IS11_V1, IS12_V1,
+    # Calculated columns from SPSS
+    IS1_V1r, IS2_V1r, IS7_V1r, IS8_V1r, IS11_V1r, IS12_V1r, ISEapp_V1, ISEbel_V1, 
+    ISEtan_V1,
    
     # Religious Participation
     RP1_V1, RP2_V1,
    
     # Lubben Social Network Scale
     LSN1_V1, LSN2_V1, LSN3_V1, LSN4_V1, LSN5_V1, LSN6_V1,
+    # Calculated columns from SPSS
+    LSN_V1_family, LSN_V1_friends, LSN_V1_total,
    
     # Resource Utilization
     R1_V1, R2_V1, R3_V1, R4_V1, R5_V1, R6_V1, R7_V1, R8_V1, R9_V1, R10_V1, 
@@ -742,7 +779,8 @@ v1 <- v1 %>%
    
     # Barriers to Phone Based Case Management
     BPM1_V1, BPM2_V1, BPM3_V1, BPM4_V1, BPM5_V1, BPM5_V1A, BPM5_V1B, BPM5_V1C, 
-    BPM5_V1D, BPM5_V1E, BPM5_V1F, BPM5_V1G, endtime = ENDTIME1, ETIME_V1,
+    BPM5_V1D, BPM5_V1E, BPM5_V1F, BPM5_V1G, endtime = ENDTIME1, ETIME_V1, 
+    Time_to_complete_V1,
    
     # Add everything() to make sure no columns are lost. Many of these will be
     # calculated variables from the SPSS script. 
@@ -750,33 +788,65 @@ v1 <- v1 %>%
 )
 ```
 
-Take a look at what comes after `ETIME_V1`. Over time, if new variables are added to the QDS data, this could change. If it does, we may want to rename or rearrange the new columns.
+Data check: Take a look at what comes after `Time_to_complete_V1`. Over time, if new variables are added to the QDS data, this could change. If it does, we may want to rename or rearrange the new columns.
 
-```{r}
-# v1 %>%
-#   select(ETIME_V1:ncol(.))
+```{r eval=FALSE}
+# There should only be one column returned: Time_to_complete_V1
+v1_reorder |>
+  select(Time_to_complete_V1:last_col())
 ```
 
+### v1: Drop unneeded columns
+
+- Drop the `SUBJECT1` column. I'm not sure why it exists, but it has a missing value in every row.
+- Drop the `TEST_V1` column. I'm not sure why it exists, but it has a missing value in every row.
+
 ```{r}
-# v1 %>% 
-#   select(t_4, t_5, T5_V1val)
+v1_reorder <- v1_reorder |> 
+  select(-SUBJECT1, -TEST_V1)
 ```
 
-I'm not sure what T5_V1val is or where it comes from. I think the first thing I'm going to do is just get a complete codebook created. After that's done, I'm sure there will be lots of little issues to clean up. I'm come back and take care of this then.
+Data check: Data dimensions
+
+```{r}
+dim(v1_reorder) # 442 808
+```
 
 ### v1: Add source attribute for codebook
 
 ```{r}
-# Can't pipe the data frame in
-add_source_attr(v1, "Visit 1")
+for (i in seq_along(names(v1_reorder))) {
+  attr(v1_reorder[[i]], "source") <- "Collected at Visit 1"
+}
+
+rm(i)
 ```
+
+# 🔴 2023-08-30: Left off
+
+All the code above works, but I want to try a couple of different things in `data_survey_01_qds_import_v1.qmd` before moving on.
+
+- Aside from where they need to be renumbered, keep the columns names true to the QDS codebook.
+  - Actually, don't mess with this right now. I'm not sure what it will mess up down the line.
+- Break up the code into survey sections instead of one big code chunk.
+  - Actually, I don't think this is worth the time it will take.
+  - Part of the reason for wanting to do this was to add an attribute the columns that says was survey instrument they came from. Don't worry about the codebook too much for now. We will worry about it more later. In fact, we may end up using a Quarto book instead of a codebook anyway.
+- Create calculated columns right here in this file instead of relying on the SPSS code. This makes it easier to update later.
+ - It does. Let's try doing the calculations below after merging all of the individual data frames, though.
+- Order the columns in a natural ordering now.
+ - This is important. However, if we care going to create calculated variables on the merged data frame below, then it seems like a waste of time to reorder the columns now.
 
 ### v2: Reorder column names and manual changes
 
 ```{r}
-v2 <- v2 %>% 
+v2_reorder <- v2 %>% 
   select(
-    TODAY_V2, VISIT_TYPE, II_V2, SUBJECT, VISIT_V2, TEST_V2, READ1_V2, READ2_V2, 
+    # Administrative information
+    qds_date_visit = TODAY_V2, 
+    qds_visit_type = VISIT_TYPE, 
+    qds_ii         = II_V2, 
+    qds_visit      = VISIT_V2,
+    SUBJECT, TEST_V2, READ1_V2, READ2_V2, 
     READ3_V2, CTIME_V2,
     
     # TCU Drug Screen 5
@@ -825,9 +895,25 @@ v2 <- v2 %>%
     # Add everything() to make sure no columns are lost. Many of these will be
     # calculated variables from the SPSS script. 
     everything()
-) %>% 
-  # Drop unneeded columns
-  select(-II_V1)
+)
+```
+
+### v2: Drop unneeded columns
+
+- Drop the `TEST_V2` column. I'm not sure why it exists, but it has a missing value in every row.
+- Drop the `II_V1` column. I'm not sure why there is a v1 column in the v2 data.
+
+```{r}
+v2_reorder <- v2_reorder |> 
+  select(-TEST_V2)
+```
+
+Data check: Take a look at what comes after `ETIME_V2`. Over time, if new variables are added to the QDS data, this could change. If it does, we may want to rename or rearrange the new columns.
+
+```{r eval=FALSE}
+# There should only be one column returned: ETIME_V2
+v2_reorder |>
+  select(ETIME_V2:last_col())
 ```
 
 ### v2: Add attributes for codebook
