@@ -1,6 +1,5 @@
 ---
 title: "Import Link2Care Survey Data - QDS - Visit 1"
-author: "Brad Cannell"
 date: "2020-12-23 <br> Updated: `r Sys.Date()`"
 format: pdf
 editor: 
@@ -10,7 +9,47 @@ editor:
 
 # ⭐️Overview
 
-This file is used to import the Link2Care follow-up visit survey data and do some initial data cleaning.
+This file is used to import the Link2Care follow-up visit survey data and do some initial data cleaning. It drops SPSS calculated variables, recreates these dropped variables, and creates a variable map.
+
+### Change log
+
+**2023-09-27**, the original .RMD version of this file was modified and updated for changing priorities. The new QMD version prioritizes human readability for tracing from QDS data to final data, facilitation of point-fixes, and creation of calculated variables from processing in R rather than SPSS.
+
+On **2021-06-10**, VISIT_TYPE was added to QDS. This change affects V1-V5.
+
+On **2021-06-05**, Joe Waring found a discrepancy between the way Tobacco 26 was being asked in QDS and REDCap. 
+
+In QDS, T26_V1, T26_V3, T26_V4, and T26_V5 read:
+
+Which option would give you the best chance for quitting smoking?
+1	=	Medications
+2	=	Counseling
+3	=	Both medications and counseling
+4	=	Smartphone app
+5	=	Both smartphone app and medications
+6	=	Quitting "cold turkey" - without counseling or medications
+9	=	skipped
+
+And only one answer choice was possible.
+
+In REDCap, t26_v1 reads:
+
+If you were to try to quit smoking, which of the following would you prefer to receive: (select all that apply)
+
+1 t26_v1___1 Medications
+2 t26_v1___2 Group Counseling
+3 t26_v1___3 Smartphone app
+4 t26_v1___4 In person individual counseling
+5 t26_v1___5 Helpline phone counseling
+6 t26_v1___6 None of the above
+
+Where multiple answers are possible and t26_v1___1 - t26_v1___6 are dummy variables.
+
+On 2021-06-30 the QDS survey was changed to be more like the REDCap survey. The QDS data now has T26A_V1, T26A_V1A, T26A_V1B, T26A_V1C, T26A_V1D, T26A_V1E, and T26A_V1F that correspond to t26_v1___1 - t26_v1___6 in REDCap.
+
+Remember that because of a naming error with T3B_V1, T26_V1 was already manually changed to T27 in the QDS Word codebooks (e.g., L2C_V1 Codebook.docx) by MBC. Changing "T26_V1" (the name that appears in the outdated codebook) to "T26A_V1" (the name that actually appears in the data frame now).
+
+This change affects V1, V3, V4, and V5.
 
 [Notes on cleaning individual L2C data sets for merging](https://github.com/brad-cannell/link2care_public/wiki/Notes-on-cleaning-individual-L2C-data-sets-for-merging)
 
@@ -233,7 +272,7 @@ We found that `TEST_V2` contained only missing values, and so it was dropped; `I
 sum(!is.na(v2$II_V2)) == nrow(v2)
 sum(!is.na(v2$TEST_V2))
 
-drop_v2 <- c('II_V2', 'TEST_V2')
+drop_v2 <- c('II_V1', 'TEST_V2')
 
 vars <- v2 %>%
   select(all_of(starts_with("TODAY")), all_of(starts_with("SUBJECT")),
@@ -7634,7 +7673,6 @@ rm(variable_map_vars)
 rm(inst_map)
 rm(sec_map)
 rm(set_tibble)
-rm(set_map)
 rm(checking_cols)
 rm(vars)
 rm(vars_renamed)
@@ -7644,11 +7682,6 @@ rm(v3_remaining)
 rm(v4_remaining)
 rm(v5_remaining)
 rm(dropping)
-rm(drop_v1)
-rm(drop_v2)
-rm(drop_v3)
-rm(drop_v4)
-rm(drop_v5)
 ```
 
 
@@ -7750,15 +7783,13 @@ colnames(v5_reordered) <- set_map$variable
 We then merged and stacked our data sets into a single combined set, where each row represented a unique visit. This combined data set was organized based on our variable map.
 
 ```{r}
-combined_data <- bind_rows(v1_reordered, v2_reordered)
+qds_all_visits <- v1_reordered %>%
+  bind_rows(v2_reordered) %>%
+  bind_rows(v3_reordered) %>%
+  bind_rows(v4_reordered) %>%
+  bind_rows(v5_reordered)
 
-combined_data <- bind_rows(combined_data, v3_reordered)
-
-combined_data <- bind_rows(combined_data, v4_reordered)
-
-combined_data <- bind_rows(combined_data, v5_reordered)
-
-combined_data <- combined_data[,variable_map$variable]
+qds_all_visits <- qds_all_visits[,variable_map$variable]
 ```
 
 ## Purging Temporary Containers
@@ -7766,15 +7797,10 @@ combined_data <- combined_data[,variable_map$variable]
 We purged containers that were no longer necessary.
 
 ```{r}
-rm(v1)
 rm(v1_reordered)
-rm(v2)
 rm(v2_reordered)
-rm(v3)
 rm(v3_reordered)
-rm(v4)
 rm(v4_reordered)
-rm(v5)
 rm(v5_reordered)
 rm(set_map)
 ```
@@ -7807,11 +7833,11 @@ for (step_num in 1:num_vars) {
 
   item_prefix <- paste(inst_prefix, step_num, "_", sep = "")
   
-  item_vars <- combined_data %>%
+  item_vars <- qds_all_visits %>%
     select(all_of(starts_with(item_prefix))) %>%
     names()
   
-  temp_set <- combined_data %>%
+  temp_set <- qds_all_visits %>%
     select(subject, group, visit, all_of(item_vars)
            ) %>%
     select(-c(subject,visit)) %>%
@@ -7839,7 +7865,7 @@ We identified the 18 variables we wished to combine all duplicated questions int
 ```{r}
 survey_vars[1:18]
 
-combined_data %>%
+qds_all_visits %>%
   select(all_of(survey_vars)) %>%
   mutate(across(everything(), typeof)) %>%
   distinct()
@@ -7848,7 +7874,7 @@ combined_data %>%
 We consolidated these variables in our combined data set. We also added a column to our variable map, indicating if a variable was dropped due to consolidation.
 
 ```{r}
-combined_data <- combined_data %>%
+qds_all_visits <- qds_all_visits %>%
   mutate(
     tq_1_1 = rowSums(select(., all_of(starts_with("tq_1_"))), na.rm = TRUE),
     tq_2_1 = rowSums(select(., all_of(starts_with("tq_2_"))), na.rm = TRUE),
@@ -7877,6 +7903,7 @@ combined_data <- combined_data %>%
 select(-survey_vars[19:length(survey_vars)])
 
 variable_map <- variable_map %>%
+  add_column(drop_consolidated = FALSE) %>%
   mutate(drop_consolidated = ifelse(
         variable %in% survey_vars[19:length(survey_vars)], 
         TRUE, 
@@ -7884,8 +7911,2436 @@ variable_map <- variable_map %>%
       )
 ```
 
+We purged containers that were no longer needed.
+
+```{r}
+rm(answer_pattern)
+rm(step_num)
+rm(num_vars)
+rm(survey_vars)
+rm(inst_prefix)
+```
+
+# Creating calculated variables
+
+There were 381 variables dropped from the source data sets, with several of these variables appearing in more than one data set. The vast majority of these variables were calculated in SPSS, and we chose to recreate the calculations in R.
+
+```{r}
+drop_vars <- c(drop_v1, drop_v2, drop_v3, drop_v4, drop_v5)
+
+length(drop_vars)
+```
+
+We added a column to our variable map to indicate if a variable was calculated.
+
+```{r}
+variable_map <- variable_map %>%
+  add_column(calculated = FALSE)
+```
+
+## Administrative Section
+
+We found 9 dropped calculated variables that referenced the administrative variables. We isolated these variables from Visit 1 to assess for labels and other attributes. `SUBJECT1`, `II_V1` and the `TEST_V` variables were previously found to be empty or superfluous values, and remained dropped.
+
+```{r}
+drop_vars[str_detect(drop_vars, "(Time_to)|(SUBJECT)|(TEST)|(II)")]
+
+checking_cols <- v1 %>%
+  select(all_of(drop_v1)) %>%
+  select(all_of(contains("Time_to")), all_of(contains("SUBJECT")),
+         all_of(contains("TEST"))
+         )
+```
+
+We calculated the Time to Complete by subtracting the end time from the start time, and labeled the newly created variable.
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(time_to_complete = endtime - ctime)
+
+attr(qds_all_visits$time_to_complete, 
+     'label') <- "Time to complete (finish time - start time)"
+```
+
+We added this new variable to our variable map.
+
+```{r}
+map_temp_tibble <- tibble::tibble(
+  'variable' = 'time_to_complete',
+  'section' = 'Administrative',
+  'sec_ord' = 1,
+  'instrument' = 'Administrative',
+  'inst_ord' = 1,
+  'item_ord' = 10,
+  'v1' = NA, 'v2' = NA, 'v3' = NA, 'v4' = NA, 'v5' = NA,
+  drop_consolidated = NA,
+  calculated = TRUE
+)
+
+variable_map <- rbind(variable_map, map_temp_tibble) %>%
+  arrange(sec_ord, inst_ord, item_ord)
+
+variable_map[variable_map$section == "Administrative",]
+```
+
+We added these resolved variables to our resolved list.
+
+```{r}
+resolved_vars <- drop_vars[str_detect(drop_vars, 
+                                      "(Time_to)|(SUBJECT)|(TEST)|(II)")]
+
+checking_vars <- setdiff(drop_vars, resolved_vars)
+```
+
+## Screening Section
+
+### Mini-Mental State Exam
+
+We found 6 dropped calculated variables that referenced the Mini-Mental State Exam measures. We isolated these variables from Visit 1 to assess for labels and other attributes.
+
+```{r}
+checking_vars[str_detect(checking_vars, "(mms)|(MMS)")]
+
+checking_cols <- v1 %>%
+  select(all_of(drop_v1)) %>%
+  select(all_of(contains("mms")), all_of(contains("MMS"))
+         )
+```
+
+We calculated the scoring for the Mini-Mental Status exam. There were two possible versions - if subjects were unable to count backwards from 100 by 7s, they were offered the ability to spell WORLD backwards. This resulted in two potential scoring systems (one using `count` when numerically tested, and one using `num` when tested using WORLD). We calculated both of these possible scores.
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(num = ifelse(is.na(mms_4v) & !is.na(mms_4), 0, num)) %>%
+  mutate(mms_s = (mms_1 + mms_2 + recal_1 + count + recal_2 + object + mms_7 +
+           paper + mms_9 + mms_10 + mms_11),
+    mms_s_alt = (mms_1 + mms_2 + recal_1 + num + recal_2 + object +
+           mms_7 + paper + mms_9 + mms_10 + mms_11)
+    )
+
+attr(qds_all_visits$mms_s, 'label') <- 
+  "MINI Mental State Exam Score when participant is able count backwards from 100 by 7s"
+
+attr(qds_all_visits$mms_s_alt, 'label') <- 
+  "MINI Mental State Exam Score when participant is unable to count backwards from 100 by 7s and are asked to spell WORLD backwards"
+```
+
+We determined which score should be dominant, based on if numeric or verbal testing was performed for item 4. We also created a variable which interpreted the results categorically.
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(mms_total = case_when(
+      !is.na(num) & (num != 0) ~ mms_s_alt,
+      (count > 0) & (num == 0 | is.na(num)) ~ mms_s,
+      TRUE ~ NA),
+    mms_severity = case_when(
+      mms_total >= 24 ~ 0,
+      (mms_total >=18) & (mms_total <24) ~ 1,
+      (mms_total < 18) ~ 2,
+      TRUE ~ NA
+    )
+  )
+
+attr(qds_all_visits$mms_total, 
+     'label') <- "MINI Mental State Exam total score"
+
+attr(qds_all_visits$mms_severity, 
+     'label') <- "What is the likelihood of cognitive impairment?"
+attr(qds_all_visits$mms_severity, 'labels') <- c(
+                                        "No cognitive impairment" = 0, 
+                                        'Mild congnitive impairment' = 1,
+                                        'Severe cognitive impairment' = 2)
+```
 
 
-# 🔴 PLACEHOLDER -  BOTOM
+We recalculated the variable map for this instrument, and updated our variable map with the desired order.
+
+```{r}
+map_temp_tibble <- tibble::tibble(
+  'variable' = c('mms_s_alt', 'mms_total', 'mms_severity'),
+  'section' = 'Screening',
+  'sec_ord' = 2,
+  'instrument' = 'Mini Mental State Exam',
+  'inst_ord' = 2,
+  'item_ord' = c(57, 58, 59),
+  'v1' = NA, 'v2' = NA, 'v3' = NA, 'v4' = NA, 'v5' = NA,
+  drop_consolidated = NA,
+  calculated = TRUE
+)
+
+inst_map <- variable_map[variable_map$instrument == "Mini Mental State Exam",]
+
+inst_map <- rbind(inst_map, map_temp_tibble) 
+
+variable_map <- variable_map[variable_map$instrument != "Mini Mental State Exam",] %>%
+  rbind(inst_map) %>%
+  arrange(sec_ord, inst_ord, item_ord)
+
+variable_map[variable_map$instrument == "Mini Mental State Exam",]
+```
+
+We added these resolved variables to our resolved list.
+
+```{r}
+resolved_vars <- c(resolved_vars, 
+                   checking_vars[str_detect(checking_vars, "(mms)|(MMS)")])
+
+checking_vars <- setdiff(drop_vars, resolved_vars)
+```
+
+### Anthropometric Variables
+
+We found 28 dropped calculated variables that referenced the anthropometric measures. We isolated these variables from Visit 1 to assess for labels and other attributes.
+
+```{r}
+checking_vars[str_detect(checking_vars, 
+                         "(height)|(weight)|(obese)|(bmi)|(BMI)")]
+
+checking_cols <- v1 %>%
+  select(all_of(drop_v1)) %>%
+  select(all_of(contains("height")), all_of(contains("weight")),
+         all_of(contains("bmi")), all_of(contains("obese")))
+```
+
+Calculation of BMI requires height in meters squared and weight in kilograms. Height was originally collected in centimeters. We calculated this into meters and meters squared, and labeled these new variables.
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(height_meters = height * 0.01,
+         height_meters_sq = height_meters*height_meters)
+
+attr(qds_all_visits$height_meters, 'label') <- "Height (meters)"
+attr(qds_all_visits$height_meters_sq, 'label') <- "Height (meters squared)"
+```
+
+Weight was originally collected in pounds (lbs). We calculated this into kilograms, and labeled the new variable.
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(weight_kg = weight * 0.453592)
+
+attr(qds_all_visits$weight_kg, 'label') <- "Weight (kilograms)"
+```
+
+We calculated BMI, and labeled the variable.
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(bmi = weight_kg / height_meters_sq)
+
+attr(qds_all_visits$bmi, 'label') <- "BMI (kilograms/square meters)"
+```
+
+We recreated the categorization of subject weight by BMI, into "underweight", "normal", "overweight" and "obese. We also created binary flag variables indicating if a subject was or was not classified as obese, or was classified either obese or overweight.
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(weight_status = case_when(
+      !is.na(bmi) & bmi < 18.5 ~ 0,
+      !is.na(bmi) & (bmi >=18.5) & (bmi < 25) ~ 1,
+      !is.na(bmi) & (bmi >=25) & (bmi < 30) ~ 2,
+      !is.na(bmi) & bmi >=30 ~ 3,
+      is.na(bmi) ~ NA
+      )
+    )
+
+attr(qds_all_visits$weight_status, 'label') <- "BMI categorization"
+
+attr(qds_all_visits$weight_status, 'labels') <- c(
+      "underweight" = 0, 
+      "normal" = 1,
+      "overweight" = 2,
+      "obese" = 3
+    )
+
+qds_all_visits <- qds_all_visits %>%
+    mutate(obese = case_when(
+      is.na(weight_status) ~ NA,
+      weight_status == 3 ~ TRUE,
+      !is.na(weight_status) & (weight_status != 3) ~ FALSE
+    )
+  )
+
+attr(qds_all_visits$obese, 'label') <- "Obese"
+attr(qds_all_visits$obese, 'labels') <- c("obese" = TRUE, 
+                                          'not obese' = FALSE)
+
+qds_all_visits <- qds_all_visits %>%
+    mutate(overweight_obese = case_when(
+      is.na(weight_status) ~ NA,
+      (weight_status == 2) | (weight_status == 3) ~ TRUE,
+      !is.na(weight_status) | (weight_status < 2) ~ FALSE
+    )
+  )
+
+attr(qds_all_visits$overweight_obese, 'label') <- "Overweight or Obese"
+attr(qds_all_visits$overweight_obese, 'labels') <- c(
+                                        "overweight or obese" = TRUE, 
+                                        'neither overweight nor obese' = FALSE)
+```
+
+We recalculated the variable map for this instrument, and updated our variable map with the desired order.
+
+```{r}
+map_temp_tibble <- tibble::tibble(
+  'variable' = c('weight_kg', 'height_meters', 'height_meters_sq', 'bmi', 
+              'weight_status', 'obese', 'overweight_obese'),
+  'section' = 'Screening',
+  'sec_ord' = 2,
+  'instrument' = 'Anthropometrics',
+  'inst_ord' = 4,
+  'item_ord' = c(2, 4, 5, 6, 7, 8, 9 ),
+  'v1' = NA, 'v2' = NA, 'v3' = NA, 'v4' = NA, 'v5' = NA,
+  drop_consolidated = NA,
+  calculated = TRUE
+)
+
+inst_map <- variable_map[variable_map$instrument == "Anthropometrics",] %>%
+  mutate(item_ord = item_ord + 7) %>%
+  mutate(item_ord = case_when(
+    variable == "weight" ~ 1,
+    variable == "height" ~ 3,
+    TRUE ~ item_ord
+  ))
+
+inst_map <- rbind(inst_map, map_temp_tibble) 
+
+variable_map <- variable_map[variable_map$instrument != "Anthropometrics",] %>%
+  rbind(inst_map) %>%
+  arrange(sec_ord, inst_ord, item_ord)
+
+variable_map[variable_map$instrument == "Anthropometrics",]
+```
 
 
+We added these resolved variables to our resolved list.
+
+```{r}
+resolved_vars <- c(resolved_vars, 
+                   checking_vars[str_detect(checking_vars, 
+                         "(height)|(weight)|(obese)|(bmi)|(BMI)")])
+
+checking_vars <- setdiff(drop_vars, resolved_vars)
+```
+
+## Demographic Section
+
+### Demographic Questionnaire
+
+There was a single variable dropped from the SPSS calculations in the demographic questionnaire - `Any_health_insurance`
+
+```{r}
+checking_vars[str_detect(checking_vars, "(insurance)|(dem)")]
+
+checking_cols <- v1 %>%
+  select(all_of(drop_v1)) %>%
+  select(all_of(contains("insurance")))
+```
+
+We calculated if a subject had any form of health insurance by responses to the itemized dummy variables for question 7 - if the subject indicated any form of insurance, the value would be "TRUE", if no insurance was selected or a lack of insurance indicated, "FALSE". 
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(any_health_insurance = case_when(
+      (dem_7a == 1) | (dem_7b == 1) | (dem_7c == 1) | (dem_7d == 1) ~ TRUE,
+      (dem_7a == 0) | (dem_7b == 0) | (dem_7c == 0) | (dem_7d == 0) ~ FALSE,
+      (dem_7e == 1) ~ FALSE,
+      TRUE ~ NA
+      )
+    )
+
+attr(qds_all_visits$any_health_insurance, 
+     'label') <- "Does the participant have health insurance?"
+attr(qds_all_visits$any_health_insurance, 'labels') <- c(
+                                        "some form of insurance" = TRUE, 
+                                        "no insurance" = FALSE)
+```
+
+We recalculated the variable map for this instrument, and updated our variable map with the desired order.
+
+```{r}
+map_temp_tibble <- tibble::tibble(
+  'variable' = c('any_health_insurance'),
+  'section' = 'Demographics',
+  'sec_ord' = 3,
+  'instrument' = 'Demographic Questionnaire',
+  'inst_ord' = 1,
+  'item_ord' = 22,
+  'v1' = NA, 'v2' = NA, 'v3' = NA, 'v4' = NA, 'v5' = NA,
+  drop_consolidated = NA,
+  calculated = TRUE
+)
+
+inst_map <- variable_map[variable_map$instrument == "Demographic Questionnaire",] %>%
+  mutate(item_ord = ifelse(item_ord >=22, item_ord + 1, item_ord))
+
+inst_map <- rbind(inst_map, map_temp_tibble) 
+
+variable_map <- variable_map[variable_map$instrument != 
+                               "Demographic Questionnaire",] %>%
+  rbind(inst_map) %>%
+  arrange(sec_ord, inst_ord, item_ord)
+
+variable_map[variable_map$instrument == "Demographic Questionnaire",]
+```
+
+We added these resolved variables to our resolved list.
+
+```{r}
+resolved_vars <- c(resolved_vars, 
+                   checking_vars[str_detect(checking_vars, "(insurance)|(dem)")])
+
+checking_vars <- setdiff(drop_vars, resolved_vars)
+```
+
+### The Brief Homelessness Questionnaire
+
+There was a single variable dropped from the SPSS calculations in The Brief Homelessness Questionnaire - `current_months_homeless`
+
+```{r}
+checking_vars[str_detect(checking_vars, "(home)|(HOME)")]
+
+checking_cols <- v1 %>%
+  select(all_of(drop_v1)) %>%
+  select(all_of(contains("homeless")))
+```
+
+This variable was a recode from Item 4 of the questionnaire, and thus the calculated variable would be a duplicate. It was not re-added.
+
+```{r}
+resolved_vars <- c(resolved_vars, 
+                   checking_vars[str_detect(checking_vars, "(home)|(HOME)")])
+
+checking_vars <- setdiff(drop_vars, resolved_vars)
+```
+
+## Health Section
+
+### PHQ
+
+We found 48 dropped calculated variables that referenced the Patient Health Questionnaire measures. We isolated these variables from Visit 1 to assess for labels and other attributes.
+
+```{r}
+checking_vars[str_detect(checking_vars, "(phq)|(PHQ)")]
+
+checking_cols <- v1 %>%
+  select(all_of(drop_v1)) %>%
+  select(all_of(contains("PHQ")))
+```
+
+We calculated the total for the PHQ Depression items (Questions 1-8).
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(phq_dep_total = (phq_1 + phq_2 + phq_3 + phq_4 + phq_5 + phq_6 + 
+                            phq_7 + phq_8))
+
+attr(qds_all_visits$phq_dep_total, 
+     'label') <- "Sum of PHQ MDD questions"
+```
+
+We created dichotomous versions of each of the PHQ Depression items (Questions 1-8): a score of 0-1 ("not at all" or "several days") was coded as a 0, and any other answer as a 1. We calculated the total number of items where "More than half the days" or "Nearly every day" were selected. 
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(phq_1_dichot = case_when(
+    (phq_1 == 0) | (phq_1 == 1) ~ 0,
+    phq_1 > 1 ~ 1,
+    TRUE ~ NA
+    ),
+    phq_2_dichot = case_when(
+    (phq_2 == 0) | (phq_2 == 1) ~ 0,
+    phq_2 > 1 ~ 1,
+    TRUE ~ NA
+    ),
+    phq_3_dichot = case_when(
+    (phq_3 == 0) | (phq_3 == 1) ~ 0,
+    phq_3 > 1 ~ 1,
+    TRUE ~ NA
+    ),
+    phq_3_dichot = case_when(
+    (phq_3 == 0) | (phq_3 == 1) ~ 0,
+    phq_3 > 1 ~ 1,
+    TRUE ~ NA
+    ),
+    phq_4_dichot = case_when(
+    (phq_4 == 0) | (phq_4 == 1) ~ 0,
+    phq_4 > 1 ~ 1,
+    TRUE ~ NA
+    ),
+    phq_5_dichot = case_when(
+    (phq_5 == 0) | (phq_5 == 1) ~ 0,
+    phq_5 > 1 ~ 1,
+    TRUE ~ NA
+    ),
+    phq_6_dichot = case_when(
+    (phq_6 == 0) | (phq_6 == 1) ~ 0,
+    phq_6 > 1 ~ 1,
+    TRUE ~ NA
+    ),
+    phq_7_dichot = case_when(
+    (phq_7 == 0) | (phq_7 == 1) ~ 0,
+    phq_7 > 1 ~ 1,
+    TRUE ~ NA
+    ),
+    phq_8_dichot = case_when(
+    (phq_8 == 0) | (phq_8 == 1) ~ 0,
+    phq_8 > 1 ~ 1,
+    TRUE ~ NA
+    ),
+    phq_dep_dichot_total = (phq_1_dichot + phq_2_dichot + phq_3_dichot +
+                              phq_4_dichot + phq_5_dichot + phq_6_dichot + 
+                              phq_7_dichot + phq_8_dichot)
+  )
+
+attr(qds_all_visits$phq_1_dichot, 
+     'label') <- "Little interest or pleasure in doing things dichot"
+attr(qds_all_visits$phq_2_dichot, 
+     'label') <- "Feeling down, depressed, or hopeless dichot"
+attr(qds_all_visits$phq_3_dichot, 
+     'label') <- "Trouble falling or staying asleep, or sleeping too much dichot"
+attr(qds_all_visits$phq_4_dichot, 
+     'label') <- "Feeling tired or having little energy dichot"
+attr(qds_all_visits$phq_5_dichot, 
+     'label') <- "Poor appetite or overeating dichot"
+attr(qds_all_visits$phq_6_dichot, 
+     'label') <- "Failure or have let yourself or your family down dichot"
+attr(qds_all_visits$phq_7_dichot, 
+     'label') <- "Reading the newspaper or watching television dichot"
+attr(qds_all_visits$phq_8_dichot, 
+     'label') <- "Fidgety or restless dichot"
+
+for (i in c(1:8)){
+  attr(qds_all_visits[[paste0("phq_",i,"_dichot")]], 'labels') <- c(
+                            "Not at all and several days" = 0, 
+                            "More than half the days and nearly every day" = 1)
+  
+}
+
+attr(qds_all_visits$phq_dep_dichot_total, 
+     'label') <- "PHQ depression dichotomized total"
+
+```
+
+We determined the categorical score of probable MDD.
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(phq_dep_symp = case_when(
+             ((phq_1_dichot == 1) | (phq_2_dichot == 1)) ~ 1,
+             ((phq_1_dichot == 0) & (phq_2_dichot == 0)) ~ 0,
+           TRUE ~ NA
+           ),
+         phq_mdd = case_when(
+           ((phq_dep_symp == 1) | (phq_dep_dichot_total > 4)) ~ 1,
+           phq_dep_symp == 0 ~ 0,
+           phq_dep_dichot_total < 5 ~ 0,
+           TRUE ~ 0
+           )
+         ) 
+
+
+attr(qds_all_visits$phq_dep_symp, 
+     'label') <- "Does PHQ1 or PHQ2 have more than half the days and nearly every day selected?"
+attr(qds_all_visits$phq_mdd, 
+     'label') <- "Is there probable major depressive disorder?"
+
+for (i in c('phq_dep_symp', 'phq_mdd')){
+  attr(qds_all_visits[[i]], 'labels') <- c(
+                            "No" = 0, 
+                            "Yes" = 1)
+}
+
+```
+
+We calculated the total for the PHQ GAD items (Questions 9-15).
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(phq_gad_total = (phq_9 + phq_10 + phq_11 + phq_12 + phq_13 + 
+                            phq_14 + phq_15))
+
+attr(qds_all_visits$phq_gad_total, 
+     'label') <- "Sum of PHQ GAD questions"
+```
+
+
+We recalculated the variable map for this instrument, and updated our variable map with the desired order.
+
+```{r}
+new_vars <- c('phq_dep_total')
+
+for (i in c(1:8)){
+  new_vars <- c(new_vars, paste0("phq_",i,"_dichot"))
+}
+
+new_vars <- c(new_vars, 'phq_dep_dichot_total', 'phq_dep_symp', 'phq_mdd',
+              'phq_gad_total')
+
+map_temp_tibble <- tibble::tibble(
+  'variable' = new_vars,
+  'section' = 'Health',
+  'sec_ord' = 4,
+  'instrument' = 'Patient Health Questionnaire',
+  'inst_ord' = 1,
+  'item_ord' = c(17, 2, 4, 6, 8, 10, 12, 14, 16, 18, 19, 20, 28),
+  'v1' = NA, 'v2' = NA, 'v3' = NA, 'v4' = NA, 'v5' = NA,
+  drop_consolidated = NA,
+  calculated = TRUE
+)
+
+inst_map <- variable_map[variable_map$instrument == 
+               "Patient Health Questionnaire",] %>%
+    mutate(item_ord = case_when(
+      (item_ord < 9) ~ (item_ord * 2) - 1,
+      (item_ord >= 9) ~ (item_ord + 12)
+      )
+    ) 
+
+inst_map <- rbind(inst_map, map_temp_tibble)
+
+variable_map <- variable_map[variable_map$instrument != 
+                               "Patient Health Questionnaire",] %>%
+  rbind(inst_map) %>%
+  arrange(sec_ord, inst_ord, item_ord)
+
+variable_map[variable_map$instrument == "Patient Health Questionnaire",]
+```
+
+We added these resolved variables to our resolved list.
+
+```{r}
+resolved_vars <- c(resolved_vars, 
+                   checking_vars[str_detect(checking_vars, "(phq)|(PHQ)")])
+
+checking_vars <- setdiff(drop_vars, resolved_vars)
+```
+
+### SF 12 Health Survey
+
+We found 4 dropped calculated variables that referenced the SF 12 Health Survey measures. We isolated these variables from Visit 1 to assess for labels and other attributes.
+
+```{r}
+checking_vars[str_detect(checking_vars, "(^hs)|(^HS)")]
+
+checking_cols <- v1 %>%
+  select(all_of(drop_v1)) %>%
+  select(all_of(starts_with("hs")))
+```
+
+We dichotomized the outcomes for the first question of the instrument.
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(hs_1_dichot = case_when(
+      hs_1 <= 3 ~ 0,
+      hs_1 > 3 ~ 1,
+      TRUE ~ NA
+    )
+  )
+
+attr(qds_all_visits$hs_1_dichot, 'label') <- "Self-Rated health dichot"
+attr(qds_all_visits$hs_1_dichot, 'labels') <- c(
+                                            "excelent to good health" = 0, 
+                                            "fair or poor health" = 1)
+```
+
+We recalculated the variable map for this instrument, and updated our variable map with the desired order.
+
+```{r}
+map_temp_tibble <- tibble::tibble(
+  'variable' = c('hs_1_dichot'),
+  'section' = 'Health',
+  'sec_ord' = 4,
+  'instrument' = 'SF 12 Health Survey',
+  'inst_ord' = 2,
+  'item_ord' = c(2),
+  'v1' = NA, 'v2' = NA, 'v3' = NA, 'v4' = NA, 'v5' = NA,
+  drop_consolidated = NA,
+  calculated = TRUE
+)
+
+inst_map <- variable_map[variable_map$instrument == "SF 12 Health Survey",] %>%
+  mutate(item_ord = ifelse (item_ord > 1, item_ord + 1, item_ord))
+
+inst_map <- rbind(inst_map, map_temp_tibble)
+
+variable_map <- variable_map[variable_map$instrument !=  "SF 12 Health Survey",] %>%
+  rbind(inst_map) %>%
+  arrange(sec_ord, inst_ord, item_ord)
+
+variable_map[variable_map$instrument == "SF 12 Health Survey",]
+```
+
+We added these resolved variables to our resolved list.
+
+```{r}
+resolved_vars <- c(resolved_vars, 
+                   checking_vars[str_detect(checking_vars, "(^hs)|(^HS)")])
+
+checking_vars <- setdiff(drop_vars, resolved_vars)
+```
+
+### Self-Rated Health
+
+We found 4 dropped calculated variables that referenced the Self-Rated Health measures. We isolated these variables from Visit 1 to assess for labels and other attributes.
+
+```{r}
+checking_vars[str_detect(checking_vars,
+             "((Mental_)|(mental_)|(pain)|(PAIN)|(Substance_)|(substance_))")]
+
+checking_cols <- v1 %>%
+  select(all_of(drop_v1)) %>%
+  select(all_of(contains("pain")), all_of(starts_with("s_")), 
+         all_of(contains("substance_")), all_of(contains("mental")))
+```
+
+We dichotomized our items for mental health history, substance abuse history, and pain.
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(
+    s_mental_hx = case_when(
+      ((s_19 == 1) | (s_20 == 1) | (s_21 == 1) | (s_22 == 1) | (s_23 == 1)) ~ 1,
+      ((s_19 == 0) & (s_20 == 0) & (s_21 == 0) & (s_22 == 0) & (s_23 == 0)) ~ 0,
+      TRUE ~ NA
+     ),
+    s_30_dichot = case_when(
+      ((s_30a == 1) | (s_30b == 1) | (s_30c == 1) | (s_30d == 1) | 
+        (s_30e == 1) | (s_30f == 1) | (s_30g == 1)) ~ 1,
+      ((s_30a == 0) & (s_30b == 0) & (s_30c == 0) & (s_30d == 0) | 
+        (s_30e == 0) & (s_30f == 0) & (s_30g == 0)) ~ 0,
+      s_29 == 0 ~ 0,
+      TRUE ~ NA
+    ),
+    s_32_dichot = case_when(
+      ((s_32b == 1) | (s_32c == 1) | (s_32d == 1) | (s_32e == 1) | 
+        (s_32f == 1) | (s_32g == 1) | (s_32h == 1)) ~ 1,
+      ((s_32b == 0) & (s_32c == 0) & (s_32d == 0) & (s_32e == 0) & 
+        (s_32f == 0) & (s_32g == 0) & (s_32h == 0)) ~ 0,
+      TRUE ~ NA
+    ),
+    s_40_dichot = case_when(
+        s_40 > 2 ~ 1,
+        s_40 <=2 ~ 0,
+        TRUE ~ NA
+      )
+  )
+
+attr(qds_all_visits$s_mental_hx, 'label') <- 
+  "If history of depression, anxiety, ptsd, bipolar, or schizo present"
+attr(qds_all_visits$s_mental_hx, 
+     'labels') <- c("has no history of mental illnes" = 0,
+                    "has a history of at least one mental illness" = 1)
+attr(qds_all_visits$s_30_dichot, 'label') <- 
+  "If history of alcohol, cannabis, cocaine, opiate, amphetamine, sedative, hypnotic, anxiolytic or other abuse present"
+attr(qds_all_visits$s_30_dichot, 
+     'labels') <- c("has no history of substance abuse" = 0,
+                    "has a history of at least one substance abuse disorder" = 1)
+attr(qds_all_visits$s_32_dichot, 'label') <- 
+  "If used cannabis, cocaine, opiate, amphetamine, sedative, hypnotic, anxiolytic, K2, or other substance"
+attr(qds_all_visits$s_32_dichot, 
+     'labels') <- c("has not used cannabis, cocaine, opiate, amphetamine, sedative, hypnotic, anxiolytic, K2, or other substance " = 0,
+                    "has used cannabis, cocaine, opiate, amphetamine, sedative, hypnotic, anxiolytic, K2, or other substance " = 1)
+attr(qds_all_visits$s_40_dichot, 'label') <- 
+  "Pain level in last 4 weeks categorized into none-mild and mod-severe"
+attr(qds_all_visits$s_40_dichot, 
+     'labels') <- c("none to mild pain" = 0,
+                    "moderate or severe pain" = 1)
+```
+
+We recalculated the variable map for this instrument, and updated our variable map with the desired order.
+
+```{r}
+map_temp_tibble <- tibble::tibble(
+  'variable' = c('s_mental_hx', 's_30_dichot', 's_32_dichot', 's_40_dichot'),
+  'section' = 'Health',
+  'sec_ord' = 4,
+  'instrument' = 'Self-Rated Health',
+  'inst_ord' = 4,
+  'item_ord' = c(93, 157, 169, 179),
+  'v1' = NA, 'v2' = NA, 'v3' = NA, 'v4' = NA, 'v5' = NA,
+  drop_consolidated = NA,
+  calculated = TRUE
+)
+
+inst_map <- variable_map[variable_map$instrument == "Self-Rated Health",] %>%
+  mutate(item_ord = case_when(
+    item_ord < 93 ~ item_ord,
+    item_ord >= 176 ~ item_ord + 4,
+    (item_ord >= 167) & (item_ord < 176) ~ item_ord + 3,
+    (item_ord >= 156) & (item_ord < 167) ~ item_ord + 2,
+    (item_ord >= 93) & (item_ord < 156) ~ item_ord + 1
+  ))
+
+inst_map <- rbind(inst_map, map_temp_tibble)
+
+variable_map <- variable_map[variable_map$instrument !=  "Self-Rated Health",] %>%
+  rbind(inst_map) %>%
+  arrange(sec_ord, inst_ord, item_ord)
+
+variable_map[variable_map$instrument == "Self-Rated Health",]
+```
+
+We added these resolved variables to our resolved list.
+
+```{r}
+resolved_vars <- c(resolved_vars, 
+                   checking_vars[str_detect(checking_vars,
+             "((Mental_)|(mental_)|(pain)|(PAIN)|(Substance_)|(substance_))")])
+
+checking_vars <- setdiff(drop_vars, resolved_vars)
+```
+
+### TCU Drug Screen 5
+
+We found 8 dropped calculated variables that referenced the TCU Drug Screen 5 measures. We isolated these variables from Visit 2 to assess for labels and other attributes.
+
+```{r}
+checking_vars[str_detect(checking_vars, "((DS)|(ds))")]
+
+checking_cols <- v2 %>%
+  select(all_of(drop_v2)) %>%
+  select(all_of(contains("ds")))
+```
+
+We calculated the total of the items, and categorized the result.
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(ds_10_val = case_when(
+          ((ds_10a == 1) | (ds_10b == 1)) ~ 1,
+          ((ds_10a == 0) & (ds_10b == 0)) ~ 0,
+          TRUE ~ NA
+        ),
+        ds_11_val = case_when(
+          ((ds_11a == 1) | (ds_11b == 1)) ~ 1,
+          ((ds_11a == 0) & (ds_11b == 0)) ~ 0,
+          TRUE ~ NA
+        ),
+        ds_total = ((ds_1 + ds_2 + ds_3 + ds_4 + ds_5 + ds_6 + ds_7 + ds_8 +
+                       ds_9 + ds_10_val + ds_11_val)),
+        ds_cat = case_when(
+          (ds_total <= 1) ~ 0,
+          ((ds_total >= 2) & (ds_total <= 3)) ~ 1,
+          ((ds_total >=4) & (ds_total <= 5)) ~ 2,
+          (ds_total >5) ~ 3,
+          TRUE ~ NA
+        )
+      )
+
+attr(qds_all_visits$ds_10_val, 
+     'label') <- "Combined 10A & 10B, tolerance"
+attr(qds_all_visits$ds_11_val, 
+     'label') <- "Combined 11A & 11B, withdrawal"
+attr(qds_all_visits$ds_total, 
+     'label') <- "Total TCU Drug Screen 5 Score"
+attr(qds_all_visits$ds_cat, 
+     'label') <- "Total TCU Drug Screen 5 Score Category"
+attr(qds_all_visits$ds_10_val, 
+     'labels') <- c("No to both" = 0, 
+                    "Yes to either" = 1)
+attr(qds_all_visits$ds_11_val, 
+     'labels') <- c("No to both" = 0, 
+                    "Yes to either" = 1)
+attr(qds_all_visits$ds_cat, 
+     'labels') <- c("Score <= 1" = 0, 
+                    "Mild disorder" = 1,
+                    "Moderate disorder" = 2,
+                    "Severe disorder" = 3)
+```
+
+We recalculated the variable map for this instrument, and updated our variable map with the desired order.
+
+```{r}
+map_temp_tibble <- tibble::tibble(
+  'variable' = c('ds_10_val', 'ds_11_val', 'ds_total', 'ds_cat'),
+  'section' = 'Health',
+  'sec_ord' = 4,
+  'instrument' = 'TCU Drug Screen 5',
+  'inst_ord' = 5,
+  'item_ord' = c(12, 15, 16, 17),
+  'v1' = NA, 'v2' = NA, 'v3' = NA, 'v4' = NA, 'v5' = NA,
+  drop_consolidated = NA,
+  calculated = TRUE
+)
+
+inst_map <- variable_map[variable_map$instrument == 
+               "TCU Drug Screen 5",] %>%
+  mutate(item_ord = case_when(
+    (item_ord <= 11) ~ item_ord,
+    ((item_ord > 11)) ~ item_ord + 1
+  ))
+
+inst_map <- rbind(inst_map, map_temp_tibble)
+
+variable_map <- variable_map[variable_map$instrument != 
+                               "TCU Drug Screen 5",] %>%
+  rbind(inst_map) %>%
+  arrange(sec_ord, inst_ord, item_ord)
+
+variable_map[variable_map$instrument == "TCU Drug Screen 5",]
+```
+
+We added these resolved variables to our resolved list.
+
+```{r}
+resolved_vars <- c(resolved_vars, 
+                   checking_vars[str_detect(checking_vars, "((DS)|(ds))")])
+
+checking_vars <- setdiff(drop_vars, resolved_vars)
+```
+
+### Primary Care PTSD Screen (PC-PTSD)
+
+We found 2 dropped calculated variables that referenced the Primary Care PTSD Screen (PC-PTSD) measures. We isolated these variables from Visit 1 to assess for labels and other attributes.
+
+```{r}
+checking_vars[str_detect(checking_vars, "(ptsd)|(PTSD)")]
+
+checking_cols <- v1 %>%
+  select(all_of(drop_v1)) %>%
+  select(all_of(contains("PTSD")))
+```
+
+We calculated the total of the items, and categorized the result.
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(ptsd_total = (ptsd_1 + ptsd_2 + ptsd_3 + ptsd_4),
+         ptsd_positive = case_when(
+           ptsd_total >= 3 ~ 1,
+           ptsd_total < 3 ~ 0,
+           TRUE ~ NA
+           )
+         )
+
+attr(qds_all_visits$ptsd_total, 
+     'label') <- "Sum of PC-PTSD"
+attr(qds_all_visits$ptsd_positive, 
+     'label') <- "Probable PTSD"
+attr(qds_all_visits$ptsd_positive, 
+     'labels') <- c("No PTSD" = 0, 
+                    "Probable PTSD" = 1)
+```
+
+We recalculated the variable map for this instrument, and updated our variable map with the desired order.
+
+```{r}
+map_temp_tibble <- tibble::tibble(
+  'variable' = c('ptsd_total', 'ptsd_positive'),
+  'section' = 'Health',
+  'sec_ord' = 4,
+  'instrument' = 'Primary Care PTSD Screen (PC-PTSD)',
+  'inst_ord' = 6,
+  'item_ord' = c(5,6),
+  'v1' = NA, 'v2' = NA, 'v3' = NA, 'v4' = NA, 'v5' = NA,
+  drop_consolidated = NA,
+  calculated = TRUE
+)
+
+inst_map <- variable_map[variable_map$instrument == 
+               "Primary Care PTSD Screen (PC-PTSD)",]
+
+inst_map <- rbind(inst_map, map_temp_tibble)
+
+variable_map <- variable_map[variable_map$instrument != 
+                               "Primary Care PTSD Screen (PC-PTSD)",] %>%
+  rbind(inst_map) %>%
+  arrange(sec_ord, inst_ord, item_ord)
+
+variable_map[variable_map$instrument == "Primary Care PTSD Screen (PC-PTSD)",]
+```
+
+We added these resolved variables to our resolved list.
+
+```{r}
+resolved_vars <- c(resolved_vars, 
+                   checking_vars[str_detect(checking_vars, "(ptsd)|(PTSD)")])
+
+checking_vars <- setdiff(drop_vars, resolved_vars)
+```
+
+### Tobacco History
+
+We found 8 dropped calculated variables that referenced the Tobacco History. We isolated these variables from Visit 1 to assess for labels and other attributes.
+
+```{r}
+checking_vars[str_detect(checking_vars, "((^t[0-9])|(^T[0-9])|(smoke))")]
+
+checking_cols <- v1 %>%
+  select(all_of(drop_v1)) %>%
+  select(all_of(starts_with("t")), all_of(contains("smoke")))
+```
+
+We calculated the values of Questions 5 and 6. We also calculated the ratio of friends that smoke, and created a dichotomous if a spouse smokes.
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(t_5_val = case_when(
+    (t_5 == 0) ~ 0,
+    (t_5 == 1) ~ t_5a1,
+    (t_5 == 2) ~ t_5a2,
+    (t_5 == 3) ~ t_5a3,
+    (t_5 == 4) ~ t_5a4,
+    (t_5 == 5) ~ t_5a5,
+    (t_5 == 6) ~ t_5a6,
+    TRUE ~ NA
+  ),
+  t_6_val = case_when(
+    (t_6 == 0) ~ 0,
+    (t_6 == 1) ~ t_6a1,
+    (t_6 == 2) ~ t_6a2,
+    (t_6 == 3) ~ t_6a3,
+    (t_6 == 4) ~ t_6a4,
+    (t_6 == 5) ~ t_6a5,
+    (t_6 == 6) ~ t_6a6,
+    TRUE ~ NA
+  ),
+  t_spouse = case_when(
+    ((t_34 == 1) & (t_35 == 1)) ~ 1,
+    ((t_34 == 1) & (t_35) == 1) ~ 0,
+    TRUE ~ NA
+  ),
+  t_friends = case_when(
+    (t_38 > 0) ~ (t_39 / t_38),
+    TRUE ~ NA
+  )
+         )
+
+attr(qds_all_visits$t_5_val, 
+     'label') <- "Exact number of cigarettes smoked in the last 24 hours"
+attr(qds_all_visits$t_6_val, 
+     'label') <- "Exact number of cigarettes usually smoked in a day"
+attr(qds_all_visits$t_spouse, 
+     'label') <- "if a participant has a spouse that smokes"
+attr(qds_all_visits$t_spouse, 
+     'labels') <- c("participant does not have spouse who smokes" = 0, 
+                    "participant does have spouse who smokes" = 1)
+attr(qds_all_visits$t_friends, 
+     'label') <- "Ratio of close friends who smoke"
+```
+
+We recalculated the variable map for this instrument, and updated our variable map with the desired order.
+
+```{r}
+map_temp_tibble <- tibble::tibble(
+  'variable' = c('t_5_val', 't_6_val', 't_spouse', 't_friends'),
+  'section' = 'Health',
+  'sec_ord' = 4,
+  'instrument' = 'Tobacco History',
+  'inst_ord' = 8,
+  'item_ord' = c(15, 23, 102, 107),
+  'v1' = NA, 'v2' = NA, 'v3' = NA, 'v4' = NA, 'v5' = NA,
+  drop_consolidated = NA,
+  calculated = TRUE
+)
+
+inst_map <- variable_map[variable_map$instrument ==  "Tobacco History",] %>%
+  mutate(item_ord = case_when(
+    item_ord < 15 ~ item_ord,
+    item_ord >= 104 ~ item_ord + 4,
+    (item_ord < 104) & (item_ord >= 100) ~ item_ord + 3,
+    (item_ord >= 22) & (item_ord < 100) ~ item_ord + 2,
+    (item_ord < 22) & (item_ord >= 15) ~ item_ord + 1
+  ))
+
+inst_map <- rbind(inst_map, map_temp_tibble)
+
+variable_map <- variable_map[variable_map$instrument != "Tobacco History",] %>%
+  rbind(inst_map) %>%
+  arrange(sec_ord, inst_ord, item_ord)
+
+variable_map[variable_map$instrument == "Tobacco History",]
+```
+
+We added these resolved variables to our resolved list.
+
+```{r}
+resolved_vars <- c(resolved_vars, checking_vars[str_detect(checking_vars,
+                                  "((^t[0-9])|(^T[0-9])|(smoke))")])
+
+checking_vars <- setdiff(drop_vars, resolved_vars)
+```
+
+
+### Heaviness of Smoking Index (HSI)
+
+We found 8 dropped calculated variables that referenced the Heaviness of Smoking Index (HSI) measures. We isolated these variables from Visit 1 to assess for labels and other attributes.
+
+```{r}
+checking_vars[str_detect(checking_vars, "(hsi)|(HSI)")]
+
+checking_cols <- v1 %>%
+  select(all_of(drop_v1)) %>%
+  select(all_of(contains("hsi")))
+```
+
+We calculated the total of the items, and categorized the result.
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(hsi_score = (hsi_1 + hsi_2),
+         hsi_cat = case_when(
+           hsi_score < 3 ~ 0,
+           hsi_score == 3 ~ 1,
+           hsi_score == 4 ~ 2,
+           hsi_score > 4 ~ 3,
+           TRUE ~ NA
+           )
+         )
+
+attr(qds_all_visits$hsi_score, 
+     'label') <- "HSI score"
+attr(qds_all_visits$hsi_cat, 
+     'label') <- "HSI score recoded into categories"
+attr(qds_all_visits$hsi_cat, 
+     'labels') <- c("very low dependence" = 0, 
+                    "low to moderate dependence" = 1,
+                    "moderate dependence" = 2,
+                    "high dependence" = 3)
+```
+
+We recalculated the variable map for this instrument, and updated our variable map with the desired order.
+
+```{r}
+map_temp_tibble <- tibble::tibble(
+  'variable' = c('hsi_score', 'hsi_cat'),
+  'section' = 'Health',
+  'sec_ord' = 4,
+  'instrument' = 'Heaviness of Smoking Index (HSI)',
+  'inst_ord' = 9,
+  'item_ord' = c(3,4),
+  'v1' = NA, 'v2' = NA, 'v3' = NA, 'v4' = NA, 'v5' = NA,
+  drop_consolidated = NA,
+  calculated = TRUE
+)
+
+inst_map <- variable_map[variable_map$instrument == 
+               "Heaviness of Smoking Index (HSI)",]
+
+inst_map <- rbind(inst_map, map_temp_tibble)
+
+variable_map <- variable_map[variable_map$instrument != 
+                               "Heaviness of Smoking Index (HSI)",] %>%
+  rbind(inst_map) %>%
+  arrange(sec_ord, inst_ord, item_ord)
+
+variable_map[variable_map$instrument == "Heaviness of Smoking Index (HSI)",]
+```
+
+We added these resolved variables to our resolved list.
+
+```{r}
+resolved_vars <- c(resolved_vars, 
+                   checking_vars[str_detect(checking_vars, "(hsi)|(HSI)")])
+
+checking_vars <- setdiff(drop_vars, resolved_vars)
+```
+
+### BRFSS Inadequate Sleep
+
+We found 8 dropped calculated variables that referenced the BRFSS Inadequate Sleep measures. We isolated these variables from Visit 1 to assess for labels and other attributes.
+
+```{r}
+checking_vars[str_detect(checking_vars, 
+                         "((brs)|(BRS)|(bris)|(BRIS)|(qd)|(QD)|(unintent_slp))")]
+
+checking_cols <- v1 %>%
+  select(all_of(drop_v1)) %>%
+  select(all_of(contains("brs")), all_of(contains("qd")), 
+         all_of(contains("bris")), all_of(contains("unintent_slp")))
+```
+
+We dichotomized the results for question 2 and question 4, and labeled the categories.
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(brs_2_dichot = case_when(
+          brs_2 >= 7 ~ 0,
+          brs_2 < 7 ~ 1,
+          TRUE ~ NA
+        ),
+        brs_4_dichot = case_when(
+          brs_4 == 0 ~ 0,
+          brs_4 > 0 ~ 1,
+          TRUE ~ NA
+        )
+      )
+
+attr(qds_all_visits$brs_2_dichot, 'label') <- "Average Hours of Sleep dichot"
+attr(qds_all_visits$brs_4_dichot, 'label') <- "Unintentional sleep dichot"
+attr(qds_all_visits$brs_2_dichot, 
+     'labels') <- c("7 hours or more" = 0, 
+                    "less than 7 hours" = 1)
+attr(qds_all_visits$brs_4_dichot, 
+     'labels') <- c("No unintentional sleeping" = 0, 
+                    "at least one day of unintentional sleeping" = 1)
+```
+
+We recalculated the variable map for this instrument, and updated our variable map with the desired order.
+
+```{r}
+map_temp_tibble <- tibble::tibble(
+  'variable' = c('brs_2_dichot', 'brs_4_dichot'),
+  'section' = 'Health',
+  'sec_ord' = 4,
+  'instrument' = 'BRFSS Inadequate Sleep',
+  'inst_ord' = 10,
+  'item_ord' = c(3,6),
+  'v1' = NA, 'v2' = NA, 'v3' = NA, 'v4' = NA, 'v5' = NA,
+  drop_consolidated = NA,
+  calculated = TRUE
+)
+
+inst_map <- variable_map[variable_map$instrument == "BRFSS Inadequate Sleep",] %>%
+  mutate(item_ord = case_when(
+    (item_ord > 2) & (item_ord < 5) ~ item_ord + 1,
+    (item_ord > 4) ~ item_ord + 2,
+    TRUE ~ item_ord
+  ))
+
+inst_map <- rbind(inst_map, map_temp_tibble)
+
+variable_map <- variable_map[variable_map$instrument != 
+                               "BRFSS Inadequate Sleep",] %>%
+  rbind(inst_map) %>%
+  arrange(sec_ord, inst_ord, item_ord)
+
+variable_map[variable_map$instrument == "BRFSS Inadequate Sleep",]
+```
+
+We added these resolved variables to our resolved list.
+
+```{r}
+resolved_vars <- c(resolved_vars, checking_vars[str_detect(checking_vars, 
+                       "((brs)|(BRS)|(bris)|(BRIS)|(qd)|(QD)|(unintent_slp))")])
+
+checking_vars <- setdiff(drop_vars, resolved_vars)
+```
+
+### Alcohol Quantity and Frequency Questionnaire
+
+We found 12 dropped calculated variables that referenced the Alcohol Quantity and Frequency Questionnaire measures. We isolated these variables from Visit 1 to assess for labels and other attributes.
+
+```{r}
+checking_vars[str_detect(checking_vars, 
+                         "(((^Alc)|(^ALC)|(^alc))|((drink)|(DRINK)))")]
+
+checking_cols <- v1 %>%
+  select(all_of(drop_v1)) %>%
+  select(all_of(starts_with("af")), all_of(starts_with("alc")),
+         all_of(contains("drink")))
+```
+
+We calculated the total for item 1. We also calculated if each subject was or was not a heavy drinker, number of days binge drinking, and a binary category indicating if a subject engaged in binge drinking in the past 30 days.
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(
+      af_1_val = case_when(
+        af_1 == 0 ~ 0,
+        af_1 > 0 ~ (af_2m + af_3tu + af_4w + af_5th + af_6f + af_7sa + af_8su),
+        TRUE ~ NA
+      ),
+      af_1_heavy = case_when(
+        ((gender == 0) & (af_1_val <= 14)) ~ 0,
+        ((gender == 0) & (af_1_val > 14)) ~ 1,
+        ((gender == 1) & (af_1_val <= 7)) ~ 0,
+        ((gender == 1) & (af_1_val > 7)) ~ 1,
+        TRUE ~ NA
+      ),
+      af_9_val = case_when(
+        (af_9 == 0) ~ af_9a,
+        (af_9 == 1) ~ af_9b,
+        (af_9 == 2) ~ af_9c,
+        TRUE ~ NA
+      ),
+      af_9_binge = case_when(
+        af_9_val >= 1 ~ 1,
+        af_9_val == 0 ~ 0,
+        TRUE ~ NA
+      )
+    )
+
+attr(qds_all_visits$af_1_val, 'label') <- "Total drinks in an average week"
+attr(qds_all_visits$af_1_heavy, 
+     'label') <- "Heavy drinking (men > 14 drinks per week, women > 7 drinks per week)"
+attr(qds_all_visits$af_9_val, 
+     'label') <- "How often in the past 30 days have you consumed (4 if female; 5 if male) or more STANDARD DRINKS?"
+attr(qds_all_visits$af_9_binge, 'label') <- "Binge drinking in the past 30 days"
+
+
+attr(qds_all_visits$af_1_heavy, 'labels') <- c("not a heavy drinker" = 0, 
+                                                "heavy drinker" = 1)
+attr(qds_all_visits$af_9_binge, 
+     'labels') <- c("no binge drinking in the past 30 days" = 0,
+                    "binge drinking in the past 30 days" = 1)
+```
+
+We recalculated the variable map for this instrument, and updated our variable map with the desired order.
+
+```{r}
+map_temp_tibble <- tibble::tibble(
+  'variable' = c('af_1_val', 'af_1_heavy', 'af_9_val', 'af_9_binge'),
+  'section' = 'Health',
+  'sec_ord' = 4,
+  'instrument' = 'Alcohol Quantity and Frequency Questionnaire',
+  'inst_ord' = 11,
+  'item_ord' = c(3, 4, 13, 14),
+  'v1' = NA, 'v2' = NA, 'v3' = NA, 'v4' = NA, 'v5' = NA,
+  drop_consolidated = NA,
+  calculated = TRUE
+)
+
+inst_map <- variable_map[variable_map$instrument == 
+               "Alcohol Quantity and Frequency Questionnaire",] %>%
+  mutate(item_ord = case_when(
+    item_ord < 3 ~ item_ord,
+    item_ord > 10 ~ item_ord + 4,
+    (item_ord <= 10) & (item_ord > 2) ~ item_ord + 2
+  ))
+
+inst_map <- rbind(inst_map, map_temp_tibble)
+
+variable_map <- variable_map[variable_map$instrument != 
+                               "Alcohol Quantity and Frequency Questionnaire",] %>%
+  rbind(inst_map) %>%
+  arrange(sec_ord, inst_ord, item_ord)
+
+variable_map[variable_map$instrument == 
+               "Alcohol Quantity and Frequency Questionnaire",]
+```
+
+We added these resolved variables to our resolved list.
+
+```{r}
+resolved_vars <- c(resolved_vars, checking_vars[str_detect(checking_vars, 
+                         "(((^Alc)|(^ALC)|(^alc))|((drink)|(DRINK)))")])
+
+checking_vars <- setdiff(drop_vars, resolved_vars)
+```
+
+### Personality Beliefs Questionnaire
+
+We found 1 dropped calculated variable that referenced the Personality Beliefs Questionnaire measures. We isolated that variable from Visit 2 to assess for labels and other attributes.
+
+```{r}
+checking_vars[str_detect(checking_vars, 
+                         "((pbq)|(PBQ))")]
+
+checking_cols <- v2 %>%
+  select(all_of(drop_v2)) %>%
+  select(all_of(starts_with("pbq")))
+```
+
+We calculated the total for the instrument
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(
+      pbq_total = (pbq_1 + pbq_2 + pbq_3 + pbq_4 + pbq_5 + pbq_6 + pbq_7)
+    )
+
+attr(qds_all_visits$pbq_total, 
+     'label') <- "Personality Beliefs Questionaire Antisocial Subscale total"
+
+```
+
+We recalculated the variable map for this instrument, and updated our variable map with the desired order.
+
+```{r}
+map_temp_tibble <- tibble::tibble(
+  'variable' = c('pbq_total'),
+  'section' = 'Health',
+  'sec_ord' = 4,
+  'instrument' = 'Personality Beliefs Questionnaire',
+  'inst_ord' = 13,
+  'item_ord' = c(8),
+  'v1' = NA, 'v2' = NA, 'v3' = NA, 'v4' = NA, 'v5' = NA,
+  drop_consolidated = NA,
+  calculated = TRUE
+)
+
+inst_map <- variable_map[variable_map$instrument == 
+               "Personality Beliefs Questionnaire",]
+
+inst_map <- rbind(inst_map, map_temp_tibble)
+
+variable_map <- variable_map[variable_map$instrument != 
+                               "Personality Beliefs Questionnaire",] %>%
+  rbind(inst_map) %>%
+  arrange(sec_ord, inst_ord, item_ord)
+
+variable_map[variable_map$instrument == 
+               "Personality Beliefs Questionnaire",]
+```
+
+We added these resolved variables to our resolved list.
+
+```{r}
+resolved_vars <- c(resolved_vars, checking_vars[str_detect(checking_vars, 
+                         "((PBQ)|(pbq))")])
+
+checking_vars <- setdiff(drop_vars, resolved_vars)
+```
+
+### USDA Food Security Survey
+
+We found 37 dropped calculated variables that referenced the USDA Food Security Survey measures. We isolated these variables from Visit 2 to assess for labels and other attributes.
+
+```{r}
+checking_vars[str_detect(checking_vars,  "((^FSS)|(^fss))")]
+
+checking_cols <- v2 %>%
+  select(all_of(drop_v2)) %>%
+  select(all_of(starts_with("fss")))
+```
+
+We calculated scoring for each item, the total scale, and the category interpretations of the scores for this instrument.
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(
+      fss_1_dichot = case_when(
+        ((fss_1 == 0) | (fss_1 == 1)) ~ 1,
+        ((fss_1 == 2) | (fss_1 == 99)) ~ 0,
+        TRUE ~ NA
+      ),
+      fss_2_dichot = case_when(
+        ((fss_2 == 0) | (fss_2 == 1)) ~ 1,
+        ((fss_2 == 2) | (fss_2 == 99)) ~ 0,
+        TRUE ~ NA
+      ),
+      fss_3_dichot = case_when(
+        (fss_3 == 1) ~ 1,
+        ((fss_3 == 0) | (fss_3 == 9)) ~ 0,
+        TRUE ~ NA
+      ),
+      fss_3a_dichot = case_when(
+        ((fss_3a == 0) | (fss_3a == 1)) ~ 1,
+        ((fss_3a == 1) | (fss_3a == 9) | (fss_3 == 0)) ~ 0,
+        TRUE ~ NA
+      ),
+      fss_4_dichot = case_when(
+        (fss_4 == 1) ~ 1,
+        ((fss_4 == 0) | (fss_4 == 9)) ~ 0,
+        TRUE ~ NA
+      ),
+     fss_5_dichot = case_when(
+        (fss_5 == 1) ~ 1,
+        ((fss_5 == 0) | (fss_5 == 9)) ~ 0,
+        TRUE ~ NA
+      ),
+     fss_total = (fss_1_dichot + fss_2_dichot + fss_3_dichot + fss_3a_dichot +
+                    fss_4_dichot + fss_5_dichot),
+     fss_cat = case_when(
+       (fss_total <= 1) ~ 1,
+       ((fss_total < 5) & (fss_total > 1)) ~ 2,
+       (fss_total >=5) ~ 3,
+       TRUE ~ NA
+     ),
+     fss_cat_dichot = case_when(
+       fss_total <= 1 ~ 1,
+       fss_total > 1 ~ 2,
+       TRUE ~ NA
+     )
+    )
+
+attr(qds_all_visits$fss_1_dichot, 
+     'label') <- "food didn't last dichot"
+attr(qds_all_visits$fss_2_dichot, 
+     'label') <- "unable to afford balanced meals dichot"
+attr(qds_all_visits$fss_3_dichot, 
+     'label') <- "cut/skip meal due to cost dichot"
+attr(qds_all_visits$fss_3a_dichot, 
+     'label') <- "frequency of cutting/skipping meals dichot"
+attr(qds_all_visits$fss_4_dichot, 
+     'label') <- "ate less than felt one should due to cost dichot"
+attr(qds_all_visits$fss_5_dichot, 
+     'label') <- "hungry but didn't eat due to cost dichot"
+attr(qds_all_visits$fss_total, 
+     'label') <- "Total USDA Food Security Survey score"
+attr(qds_all_visits$fss_cat, 
+     'label') <- "Food security status"
+attr(qds_all_visits$fss_cat_dichot, 
+     'label') <- "Food security status dichot"
+
+for (i in c(1:5)) {
+  attr(qds_all_visits[[paste0("fss_", i, "_dichot")]], 
+       "labels") <- c("no" = 0, "affirmative yes" = 1)
+  
+}
+
+attr(qds_all_visits$fss_3a_dichot, 'labels') <- 
+  c("1 to 2 days per month or less" = 0, "some days to every day" = 1)
+
+attr(qds_all_visits$fss_cat, 'labels') <- c("High or marginal food security" = 1, 
+                                            "Low food security" = 2,
+                                            "Very low food security" = 3)
+attr(qds_all_visits$fss_cat_dichot, 'labels') <- c("food secure" = 1, 
+                                                   "food insecure" = 2)
+```
+
+We recalculated the variable map for this instrument, and updated our variable map with the desired order.
+
+```{r}
+map_temp_tibble <- tibble::tibble(
+  'variable' = c('fss_1_dichot', 'fss_2_dichot', 'fss_3_dichot', 'fss_3a_dichot',
+                 'fss_4_dichot', 'fss_5_dichot', 'fss_total', 'fss_cat', 
+                 'fss_cat_dichot'),
+  'section' = 'Health',
+  'sec_ord' = 4,
+  'instrument' = 'USDA Food Security Survey',
+  'inst_ord' = 14,
+  'item_ord' = c(2, 4, 6, 8, 10, 12, 13, 14, 15),
+  'v1' = NA, 'v2' = NA, 'v3' = NA, 'v4' = NA, 'v5' = NA,
+  drop_consolidated = NA,
+  calculated = TRUE
+)
+
+inst_map <- variable_map[variable_map$instrument == 
+                           "USDA Food Security Survey",] %>%
+  mutate(item_ord = (item_ord *2) -1
+  )
+
+inst_map <- rbind(inst_map, map_temp_tibble)
+
+variable_map <- variable_map[variable_map$instrument != 
+                               "USDA Food Security Survey",] %>%
+  rbind(inst_map) %>%
+  arrange(sec_ord, inst_ord, item_ord)
+
+variable_map[variable_map$instrument == 
+               "USDA Food Security Survey",]
+```
+
+We added these resolved variables to our resolved list.
+
+```{r}
+resolved_vars <- c(resolved_vars, checking_vars[str_detect(checking_vars,  
+                                                           "((^FSS)|(^fss))")])
+
+checking_vars <- setdiff(drop_vars, resolved_vars)
+```
+
+### TCU CJ Client Evaluation of Self and Treatment (CJ CEST)
+
+We found 16 dropped calculated variables that referenced the TCU CJ Client Evaluation of Self and Treatment (CJ CEST) measures. We isolated these variables from Visit 2 to assess for labels and other attributes.
+
+```{r}
+checking_vars[str_detect(checking_vars, 
+         "((CJ)|(cj)|(TCU_[^Dd])|(tcu_[^Dd])|(TCU_[Dd][Ee])|(tcu_[Dd][Ee]))")]
+
+checking_cols <- v2 %>%
+  select(all_of(drop_v2)) %>%
+  select(all_of(contains("cj")), all_of(starts_with("TCU_de")),
+         all_of(starts_with("TCU_t")), all_of(starts_with("TCU_h")),
+         all_of(starts_with("TCU_te")))
+```
+
+We calculated the subscores, with care taken for reverse scoring of Questions 21-25 and 34-36.
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(cj_desire = ifelse(cj_1 == 0, 
+                            ((cj_2 + cj_3 + cj_4 + cj_5 + cj_6 + cj_7)*10/6),
+                            NA
+                            ),
+        cj_needs = ((cj_8 + cj_9 + cj_10 + cj_11 + cj_12)*10/5),
+        cj_satisfaction = ((cj_13 + cj_14 + cj_15 + cj_16 + cj_17 + cj_18 + 
+                       cj_19) *10/7),
+        cj_selfesteem = ((cj_20 + (6 - cj_21) + (6 - cj_22) + (6 - cj_23) +
+                            (6 - cj_24) + (6 - cj_25))*10/6),
+        cj_hostility = ((cj_26 + cj_27 + cj_28 + cj_29 + cj_30 + cj_31 + cj_32 
+                         + cj_33)*10/8),
+        cj_risktaking = (((6 - cj_34) + (6 - cj_35) + (6 - cj_36) + cj_37 +
+                             cj_38 + cj_39 + cj_40)*10/7)
+      )
+
+attr(qds_all_visits$cj_desire, 
+     'label') <- "TCU CJ desire for help subscale score"
+attr(qds_all_visits$cj_needs, 
+     'label') <- "TCU CJ treatment needs subscale score"
+attr(qds_all_visits$cj_satisfaction, 
+     'label') <- "TCU CJ treatment satisfaction subscale score"
+attr(qds_all_visits$cj_selfesteem, 
+     'label') <- "TCU CJ self-esteem subscale score"
+attr(qds_all_visits$cj_hostility, 
+     'label') <- "TCU CJ hostility subscale score"
+attr(qds_all_visits$cj_risktaking, 
+     'label') <- "TCU CJ risk taking subscale score"
+```
+
+We recalculated the variable map for this instrument, and updated our variable map with the desired order.
+
+```{r}
+map_temp_tibble <- tibble::tibble(
+  'variable' = c('cj_desire', 'cj_needs', 'cj_satisfaction', 'cj_selfesteem',
+                 'cj_hostility', 'cj_risktaking'),
+  'section' = 'Health',
+  'sec_ord' = 4,
+  'instrument' = 'TCU CJ Client Evaluation of Self and Treatment (CJ CEST)',
+  'inst_ord' = 16,
+  'item_ord' = c(41, 42, 43, 44, 45, 46),
+  'v1' = NA, 'v2' = NA, 'v3' = NA, 'v4' = NA, 'v5' = NA,
+  drop_consolidated = NA,
+  calculated = TRUE
+)
+
+inst_map <- variable_map[variable_map$instrument == 
+               "TCU CJ Client Evaluation of Self and Treatment (CJ CEST)",]
+
+inst_map <- rbind(inst_map, map_temp_tibble)
+
+variable_map <- variable_map[variable_map$instrument != 
+             "TCU CJ Client Evaluation of Self and Treatment (CJ CEST)",] %>%
+  rbind(inst_map) %>%
+  arrange(sec_ord, inst_ord, item_ord)
+
+variable_map[variable_map$instrument == 
+               "TCU CJ Client Evaluation of Self and Treatment (CJ CEST)",]
+```
+
+We added these resolved variables to our resolved list.
+
+```{r}
+resolved_vars <- c(resolved_vars, checking_vars[str_detect(checking_vars, 
+         "((CJ)|(cj)|(TCU_[^Dd])|(tcu_[^Dd])|(TCU_[Dd][Ee])|(tcu_[Dd][Ee]))")])
+
+checking_vars <- setdiff(drop_vars, resolved_vars)
+```
+
+## Stress
+
+### Detroit Area Study Assessment of Day-to-Day Discrimination
+
+We found 4 dropped calculated variables that referenced the Detroit Area Study Assessment of Day-to-Day Discrimination measures. We isolated these variables from Visit 1 to assess for labels and other attributes.
+
+```{r}
+checking_vars[str_detect(checking_vars, "(^dd)|(^DD)")]
+
+checking_cols <- v1 %>%
+  select(all_of(drop_v1)) %>%
+  select(all_of(starts_with("dd")))
+```
+
+We calculated the total score for the instrument.
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(dd_total = (dd_1 + dd_2 + dd_3 + dd_4 + dd_5 + dd_6 + dd_7 + 
+                       dd_8 + dd_9)
+         )
+
+attr(qds_all_visits$dd_total, 'label') <- "DD total"
+```
+
+We recalculated the variable map for this instrument, and updated our variable map with the desired order.
+
+```{r}
+map_temp_tibble <- tibble::tibble(
+  'variable' = c('dd_total'),
+  'section' = 'Stress',
+  'sec_ord' = 5,
+  'instrument' = 'Detroit Area Study Assessment of Day-to-Day Discrimination',
+  'inst_ord' = 1,
+  'item_ord' = c(11),
+  'v1' = NA, 'v2' = NA, 'v3' = NA, 'v4' = NA, 'v5' = NA,
+  drop_consolidated = NA,
+  calculated = TRUE
+)
+
+inst_map <- variable_map[variable_map$instrument == 
+               "Detroit Area Study Assessment of Day-to-Day Discrimination",]
+
+inst_map <- rbind(inst_map, map_temp_tibble)
+
+variable_map <- variable_map[variable_map$instrument != 
+           "Detroit Area Study Assessment of Day-to-Day Discrimination",] %>%
+  rbind(inst_map) %>%
+  arrange(sec_ord, inst_ord, item_ord)
+
+variable_map[variable_map$instrument == 
+               "Detroit Area Study Assessment of Day-to-Day Discrimination",]
+```
+
+We added these resolved variables to our resolved list.
+
+```{r}
+resolved_vars <- c(resolved_vars, 
+                   checking_vars[str_detect(checking_vars, "(^dd)|(^DD)")])
+
+checking_vars <- setdiff(drop_vars, resolved_vars)
+```
+
+### MacArthur Major Discrimination
+
+We found 1 dropped calculated variable that referenced the MacArthur Major Discrimination measures. We isolated this variable from Visit 2 to assess for labels and other attributes.
+
+```{r}
+checking_vars[str_detect(checking_vars, "(^mmd)|(^MMD)")]
+
+checking_cols <- v2 %>%
+  select(all_of(drop_v2)) %>%
+  select(all_of(starts_with("mmd")))
+```
+
+We calculated the total score for the instrument.
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(mmd_total = (mmd_1a + mmd_1b + mmd_1c + mmd_1d + mmd_1f + mmd_1g +
+                        mmd_1h + mmd_1i + mmd_1j + mmd_1k)
+         )
+
+attr(qds_all_visits$mmd_total, 'label') <- "MacArthur Major Discrimination total"
+```
+
+We recalculated the variable map for this instrument, and updated our variable map with the desired order.
+
+```{r}
+map_temp_tibble <- tibble::tibble(
+  'variable' = c('mmd_total'),
+  'section' = 'Stress',
+  'sec_ord' = 5,
+  'instrument' = 'MacArthur Major Discrimination',
+  'inst_ord' = 2,
+  'item_ord' = c(12),
+  'v1' = NA, 'v2' = NA, 'v3' = NA, 'v4' = NA, 'v5' = NA,
+  drop_consolidated = NA,
+  calculated = TRUE
+)
+
+inst_map <- variable_map[variable_map$instrument == 
+               "MacArthur Major Discrimination",] %>%
+  mutate(item_ord = ifelse((item_ord >= 12), item_ord + 1, item_ord))
+
+inst_map <- rbind(inst_map, map_temp_tibble)
+
+variable_map <- variable_map[variable_map$instrument != 
+           "MacArthur Major Discrimination",] %>%
+  rbind(inst_map) %>%
+  arrange(sec_ord, inst_ord, item_ord)
+
+variable_map[variable_map$instrument == 
+               "MacArthur Major Discrimination",]
+```
+
+We added these resolved variables to our resolved list.
+
+```{r}
+resolved_vars <- c(resolved_vars, 
+                   checking_vars[str_detect(checking_vars, "(^mmd)|(^MMD)")])
+
+checking_vars <- setdiff(drop_vars, resolved_vars)
+```
+
+### Urban Life Stress Scale
+
+We found 4 dropped calculated variables that referenced the Urban Life Stress Scale measures. We isolated these variables from Visit 2 to assess for labels and other attributes.
+
+```{r}
+checking_vars[str_detect(checking_vars, "(^uls)|(^ULS)")]
+
+checking_cols <- v2 %>%
+  select(all_of(drop_v2)) %>%
+  select(all_of(starts_with("uls")))
+```
+
+We calculated the score for the item.
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(uls_total = (uls_1 + uls_2 + uls_3 + uls_4 + uls_5 + uls_6 + uls_7 +
+                        uls_8 + uls_9 + uls_10 + uls_11 + uls_12 + uls_13 + 
+                        uls_14 + uls_15 + uls_16 + uls_17 + uls_18 + uls_19 +
+                        uls_20 + uls_21)
+         )
+
+attr(qds_all_visits$uls_total, 'label') <- "Urban Life Stress Scale Total"
+
+```
+
+We recalculated the variable map for this instrument, and updated our variable map with the desired order.
+
+```{r}
+map_temp_tibble <- tibble::tibble(
+  'variable' = c('uls_total'),
+  'section' = 'Stress',
+  'sec_ord' = 5,
+  'instrument' = 'Urban Life Stress Scale',
+  'inst_ord' = 3,
+  'item_ord' = c(22),
+  'v1' = NA, 'v2' = NA, 'v3' = NA, 'v4' = NA, 'v5' = NA,
+  drop_consolidated = NA,
+  calculated = TRUE
+)
+
+inst_map <- variable_map[variable_map$instrument ==  
+                           "Urban Life Stress Scale",]
+
+inst_map <- rbind(inst_map, map_temp_tibble)
+
+variable_map <- variable_map[variable_map$instrument != 
+           "Urban Life Stress Scale",] %>%
+  rbind(inst_map) %>%
+  arrange(sec_ord, inst_ord, item_ord)
+
+variable_map[variable_map$instrument == 
+               "Urban Life Stress Scale",]
+```
+
+We added these resolved variables to our resolved list.
+
+```{r}
+resolved_vars <- c(resolved_vars, 
+                  checking_vars[str_detect(checking_vars, "(^uls)|(^ULS)")])
+
+checking_vars <- setdiff(drop_vars, resolved_vars)
+```
+
+### Perceived Stress Scale
+
+We found 12 dropped calculated variables that referenced the Perceived Stress Scale measures. We isolated these variables from Visit 2 to assess for labels and other attributes.
+
+```{r}
+checking_vars[str_detect(checking_vars, "(^PS)|(^ps)")]
+
+checking_cols <- v2 %>%
+  select(all_of(drop_v2)) %>%
+  select(all_of(starts_with("ps")))
+```
+
+We calculated the score for the item, taking care to reverse scoring for Questions 2 and 3.
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(ps_total = (ps_1 + (4 - ps_2) + (4 - ps_3) + ps_4)
+         )
+
+attr(qds_all_visits$ps_total, 'label') <- "Percieved Stress Score Total"
+
+```
+
+We recalculated the variable map for this instrument, and updated our variable map with the desired order.
+
+```{r}
+map_temp_tibble <- tibble::tibble(
+  'variable' = c('ps_total'),
+  'section' = 'Stress',
+  'sec_ord' = 5,
+  'instrument' = 'Perceived Stress Scale',
+  'inst_ord' = 5,
+  'item_ord' = c(5),
+  'v1' = NA, 'v2' = NA, 'v3' = NA, 'v4' = NA, 'v5' = NA,
+  drop_consolidated = NA,
+  calculated = TRUE
+)
+
+inst_map <- variable_map[variable_map$instrument ==  
+                           "Perceived Stress Scale",]
+
+inst_map <- rbind(inst_map, map_temp_tibble)
+
+variable_map <- variable_map[variable_map$instrument != 
+           "Perceived Stress Scale",] %>%
+  rbind(inst_map) %>%
+  arrange(sec_ord, inst_ord, item_ord)
+
+variable_map[variable_map$instrument == 
+               "Perceived Stress Scale",]
+```
+
+We added these resolved variables to our resolved list.
+
+```{r}
+resolved_vars <- c(resolved_vars, 
+                   checking_vars[str_detect(checking_vars, "(^PS)|(^ps)")])
+
+checking_vars <- setdiff(drop_vars, resolved_vars)
+```
+
+
+### Distress Tolerance Scale (DTS) 
+
+We found 20 dropped calculated variables that referenced the Distress Tolerance Scale (DTS) measures. We isolated these variables from Visit 2 to assess for labels and other attributes.
+
+```{r}
+checking_vars[str_detect(checking_vars, "(^dts)|(^DTS)")]
+
+checking_cols <- v2 %>%
+  select(all_of(drop_v2)) %>%
+  select(all_of(starts_with("dts")))
+```
+
+All QDS variables were written with reverse coding, with the exception of Question 7. We calculated subscales within the instrument. Question 6 is not used in scoring, and was a reversal of Question 8.
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(dts_tolerance = ( ((6 - dts_1) + (6 - dts_3) + (6 - dts_5))/3),
+         dts_absorption = ( ((6 - dts_2) + (6 - dts_4) + (6 - dts_16))/3),
+         dts_appraisal =( (dts_7 + (6 - dts_8) + (6 - dts_10) +(6 - dts_11) + 
+                             (6 - dts_12) + (6 - dts_13))/6),
+         dts_regulation = ( ((6 - dts_9) + (6 - dts_14) + (6 - dts_15))/3),
+         dts_total = ((dts_tolerance + dts_absorption + dts_appraisal + 
+                         dts_regulation)/4)
+         )
+
+attr(qds_all_visits$dts_tolerance, 'label') <- "DTS Tolerance Subscale Mean"
+attr(qds_all_visits$dts_absorption, 'label') <- "DTS Absorption Subscale Mean"
+attr(qds_all_visits$dts_appraisal, 'label') <- "DTS Appraisal Subscale Mean"
+attr(qds_all_visits$dts_regulation, 'label') <- "DTS Regulation Subscale Mean"
+attr(qds_all_visits$dts_total, 'label') <- "DTS Total Mean"
+```
+
+We recalculated the variable map for this instrument, and updated our variable map with the desired order.
+
+```{r}
+map_temp_tibble <- tibble::tibble(
+  'variable' = c('dts_tolerance', 'dts_absorption', 'dts_appraisal',
+                 'dts_regulation', 'dts_total'),
+  'section' = 'Stress',
+  'sec_ord' = 5,
+  'instrument' = 'Distress Tolerance Scale (DTS)',
+  'inst_ord' = 6,
+  'item_ord' = c(17, 18, 19, 20, 21),
+  'v1' = NA, 'v2' = NA, 'v3' = NA, 'v4' = NA, 'v5' = NA,
+  drop_consolidated = NA,
+  calculated = TRUE
+)
+
+inst_map <- variable_map[variable_map$instrument ==  
+                           "Distress Tolerance Scale (DTS)",]
+
+inst_map <- rbind(inst_map, map_temp_tibble)
+
+variable_map <- variable_map[variable_map$instrument != 
+           "Distress Tolerance Scale (DTS)",] %>%
+  rbind(inst_map) %>%
+  arrange(sec_ord, inst_ord, item_ord)
+
+variable_map[variable_map$instrument == 
+               "Distress Tolerance Scale (DTS)",]
+```
+
+We added these resolved variables to our resolved list.
+
+```{r}
+resolved_vars <- c(resolved_vars, 
+                   checking_vars[str_detect(checking_vars, "(^dts)|(^DTS)")])
+
+checking_vars <- setdiff(drop_vars, resolved_vars)
+```
+
+## Negative Affect
+
+### Aggression Questionnaire (AQ-12)
+
+We found 20 dropped calculated variables that referenced the Aggression Questionnaire (AQ-12) measures. We isolated these variables from Visit 1 to assess for labels and other attributes.
+
+```{r}
+checking_vars[str_detect(checking_vars, 
+"(^((pa_)|(aq)|(va)|(ha)|(PA_)|(AQ)|(VA)|(HA)|(A_)|(a_)))|(^(a)|(A)$)|(^(pa)$)|(^(PA)$)")]
+
+checking_cols <- v1 %>%
+  select(all_of(drop_v1)) %>%
+  select(AQ, PA, VA, A, HA)
+```
+
+We calculated the total of the items, and categorized the result.
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(aq_physical = (aq_1 + aq_2 + aq_3),
+         aq_verbal = (aq_4 + aq_5 + aq_6),
+         aq_anger = (aq_7 + aq_8 + aq_9),
+         aq_hostility = (aq_10 + aq_11 + aq_12),
+         aq_total = (aq_physical + aq_verbal + aq_anger + aq_hostility)
+         )
+
+attr(qds_all_visits$aq_physical, 
+     'label') <- "AQ Physical Aggression subscale"
+attr(qds_all_visits$aq_verbal, 
+     'label') <- "AQ Verbal Aggression subscale"
+attr(qds_all_visits$aq_anger, 
+     'label') <- "AQ Anger subscale"
+attr(qds_all_visits$aq_hostility, 
+     'label') <- "AQ Hostility subscale"
+attr(qds_all_visits$aq_total, 
+     'label') <- "AQ Total"
+```
+
+We recalculated the variable map for this instrument, and updated our variable map with the desired order.
+
+```{r}
+map_temp_tibble <- tibble::tibble(
+  'variable' = c('aq_physical', 'aq_verbal', 'aq_anger', 'aq_hostility',
+                 'aq_total'),
+  'section' = 'Negative Affect',
+  'sec_ord' = 6,
+  'instrument' = 'Aggression Questionnaire (AQ-12)',
+  'inst_ord' = 1,
+  'item_ord' = c(13, 14, 15, 16, 17),
+  'v1' = NA, 'v2' = NA, 'v3' = NA, 'v4' = NA, 'v5' = NA,
+  drop_consolidated = NA,
+  calculated = TRUE
+)
+
+inst_map <- variable_map[variable_map$instrument == 
+               "Aggression Questionnaire (AQ-12)",]
+
+inst_map <- rbind(inst_map, map_temp_tibble)
+
+variable_map <- variable_map[variable_map$instrument != 
+                               "Aggression Questionnaire (AQ-12)",] %>%
+  rbind(inst_map) %>%
+  arrange(sec_ord, inst_ord, item_ord)
+
+variable_map[variable_map$instrument == "Aggression Questionnaire (AQ-12)",]
+```
+
+We added these resolved variables to our resolved list.
+
+```{r}
+resolved_vars <- c(resolved_vars, checking_vars[str_detect(checking_vars, 
+"(^((pa_)|(aq)|(va)|(ha)|(PA_)|(AQ)|(VA)|(HA)|(A_)|(a_)))|(^(a)|(A)$)|(^(pa)$)|(^(PA)$)")])
+
+checking_vars <- setdiff(drop_vars, resolved_vars)
+```
+
+### Center for Epidemiological Studies Depression (CES-D)
+
+We found 64 dropped calculated variables that referenced the Center for Epidemiological Studies Depression (CES-D) measures. We isolated these variables from Visit 1 to assess for labels and other attributes.
+
+```{r}
+checking_vars[str_detect(checking_vars, "((ces)|(CES))")]
+
+checking_cols <- v1 %>%
+  select(all_of(drop_v1)) %>%
+  select(starts_with("ces"))
+```
+
+We calculated the overall total, taking care to ensure reverse scoring of items 5 and 8, and the resulting category based on this score.
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(ces_total = (ces_1 + ces_2 + ces_3 + ces_4 + (3-ces_5) + ces_6 +
+                         ces_7 + (3-ces_8) + ces_9 + ces_10),
+         ces_total_cat = case_when(
+           ces_total >= 10 ~ 1,
+           ces_total < 10 ~ 0,
+           TRUE ~ NA
+         ))
+
+attr(qds_all_visits$ces_total, 'label') <- "CESD Total"
+attr(qds_all_visits$ces_total_cat, 'label') <- "CESD outcome categorized"
+attr(qds_all_visits$ces_total_cat, 'labels') <- c("not depressed" = 0, 
+                                                  "depressed" = 1)
+```
+
+We also dichotomized all of the variables, taking care to ensure reverse scoring of items 5 and 8.
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(
+    ces_1_dichot = case_when(
+      (ces_1 == 0) | (ces_1 == 1) ~ 0,
+      (ces_1 == 2) | (ces_1 == 3) ~ 1,
+      TRUE ~ NA
+      ),
+    ces_2_dichot = case_when(
+      (ces_2 == 0) | (ces_2 == 1) ~ 0,
+      (ces_2 == 2) | (ces_2 == 3) ~ 1,
+      TRUE ~ NA
+      ),
+    ces_3_dichot = case_when(
+      (ces_3 == 0) | (ces_3 == 1) ~ 0,
+      (ces_3 == 2) | (ces_3 == 3) ~ 1,
+      TRUE ~ NA
+      ),         
+    ces_4_dichot = case_when(
+      (ces_4 == 0) | (ces_4 == 1) ~ 0,
+      (ces_4 == 2) | (ces_4 == 3) ~ 1,
+      TRUE ~ NA
+      ),
+    # Reverse score Q5
+    ces_5_dichot = case_when(
+      (ces_5 == 2) | (ces_5 == 3) ~ 0,
+      (ces_5 == 0) | (ces_5 == 1) ~ 1,
+      TRUE ~ NA
+      ),
+    ces_6_dichot = case_when(
+      (ces_6 == 0) | (ces_6 == 1) ~ 0,
+      (ces_6 == 2) | (ces_6 == 3) ~ 1,
+      TRUE ~ NA
+      ),
+    ces_7_dichot = case_when(
+      (ces_7 == 0) | (ces_7 == 1) ~ 0,
+      (ces_7 == 2) | (ces_7 == 3) ~ 1,
+      TRUE ~ NA
+      ),
+    # Reverse score Q8
+    ces_8_dichot = case_when(
+      (ces_8 == 2) | (ces_8 == 3) ~ 0,
+      (ces_8 == 0) | (ces_8 == 1) ~ 1,
+      TRUE ~ NA
+      ),
+    ces_9_dichot = case_when(
+      (ces_9 == 0) | (ces_9 == 1) ~ 0,
+      (ces_9 == 2) | (ces_9 == 3) ~ 1,
+      TRUE ~ NA
+      ),
+    ces_10_dichot = case_when(
+      (ces_10 == 0) | (ces_10 == 1) ~ 0,
+      (ces_10 == 2) | (ces_10 == 3) ~ 1,
+      TRUE ~ NA
+      ),
+    ces_dichot_total = (ces_1_dichot + ces_2_dichot + ces_3_dichot + 
+      ces_4_dichot + ces_5_dichot + ces_6_dichot + ces_7_dichot + ces_8_dichot
+      + ces_9_dichot + ces_10_dichot),
+    ces_dichot_cat = case_when(
+      ces_dichot_total >= 4 ~ 1,
+      ces_dichot_total < 4 ~ 0,
+      TRUE ~ NA
+    )
+  )
+
+for (i in c(1:10)){
+  attr(qds_all_visits[[paste0('ces_',i,'_dichot')]], 'label') <-
+    paste0("CES-",i," dichot")
+}
+
+attr(qds_all_visits$ces_dichot_total, 
+     'label') <- "Sum of CESD Dichotomized items"
+
+attr(qds_all_visits$ces_dichot_cat, 
+     'label') <- "CESD Dichotomized outcome categorized"
+attr(qds_all_visits$ces_dichot_cat, 'labels') <- c("not depressed" = 0, 
+                                                  "depressed" = 1)
+```
+
+We recalculated the variable map for this instrument, and updated our variable map with the desired order.
+
+```{r}
+new_vars <- c('ces_total', 'ces_total_cat')
+
+for (i in c(1:10)){
+  new_vars <- c(new_vars, paste0("ces_",i,"_dichot"))
+}
+
+new_vars <- c(new_vars, 'ces_dichot_total', 'ces_dichot_cat')
+
+map_temp_tibble <- tibble::tibble(
+  'variable' = new_vars,
+  'section' = 'Negative Affect',
+  'sec_ord' = 6,
+  'instrument' = 'Center for Epidemiological Studies Depression (CES-D)',
+  'inst_ord' = 2,
+  'item_ord' = c(21, 22, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 23, 24),
+  'v1' = NA, 'v2' = NA, 'v3' = NA, 'v4' = NA, 'v5' = NA,
+  drop_consolidated = NA,
+  calculated = TRUE
+)
+
+inst_map <- variable_map[variable_map$instrument == 
+               "Center for Epidemiological Studies Depression (CES-D)",] %>%
+  mutate(item_ord = (item_ord *2) - 1)
+
+inst_map <- rbind(inst_map, map_temp_tibble)
+
+variable_map <- variable_map[variable_map$instrument != 
+                 "Center for Epidemiological Studies Depression (CES-D)",] %>%
+  rbind(inst_map) %>%
+  arrange(sec_ord, inst_ord, item_ord)
+
+variable_map[variable_map$instrument == 
+               "Center for Epidemiological Studies Depression (CES-D)",]
+```
+
+We added these resolved variables to our resolved list.
+
+```{r}
+resolved_vars <- c(resolved_vars, 
+                   checking_vars[str_detect(checking_vars, "((ces)|(CES))")])
+
+checking_vars <- setdiff(drop_vars, resolved_vars)
+```
+
+## Interpersonal Resources
+
+### Interpersonal Support Evaluation List
+
+We found 36 dropped calculated variables that referenced the Interpersonal Support Evaluation List measures. We isolated these variables from Visit 1 to assess for labels and other attributes.
+
+```{r}
+checking_vars[str_detect(checking_vars, "(^is)|(^IS)")]
+
+checking_cols <- v1 %>%
+  select(all_of(drop_v1)) %>%
+  select(all_of(starts_with("is")))
+```
+
+We calculated subscales within the instrument, with care taken to reverse score for items 1, 5, 7, 8, 11 and 12.
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(is_app = ( (5 - is_2) + is_4 + is_6 + (5 - is_11)),
+         is_bel = ( (5 - is_1) + is_5 + (5 - is_7) + is_9),
+         is_tan = (is_3 + (5 - is_8) + is_10 + (5 - is_12))
+         )
+
+attr(qds_all_visits$is_app, 'label') <- "ISE appraisal"
+attr(qds_all_visits$is_bel, 'label') <- "ISE belonging"
+attr(qds_all_visits$is_tan, 'label') <- "ISE tangible"
+```
+
+We recalculated the variable map for this instrument, and updated our variable map with the desired order.
+
+```{r}
+map_temp_tibble <- tibble::tibble(
+  'variable' = c('is_app', 'is_bel', 'is_tan'),
+  'section' = 'Interpersonal/Intrapersonal Resources',
+  'sec_ord' = 7,
+  'instrument' = 'Interpersonal Support Evaluation List',
+  'inst_ord' = 1,
+  'item_ord' = c(13, 14, 15),
+  'v1' = NA, 'v2' = NA, 'v3' = NA, 'v4' = NA, 'v5' = NA,
+  drop_consolidated = NA,
+  calculated = TRUE
+)
+
+inst_map <- variable_map[variable_map$instrument == 
+               "Interpersonal Support Evaluation List",]
+
+inst_map <- rbind(inst_map, map_temp_tibble)
+
+variable_map <- variable_map[variable_map$instrument != 
+                               "Interpersonal Support Evaluation List",] %>%
+  rbind(inst_map) %>%
+  arrange(sec_ord, inst_ord, item_ord)
+
+variable_map[variable_map$instrument == "Interpersonal Support Evaluation List",]
+```
+
+We added these resolved variables to our resolved list.
+
+```{r}
+resolved_vars <- c(resolved_vars, 
+                   checking_vars[str_detect(checking_vars, "(^is)|(^IS)")])
+
+checking_vars <- setdiff(drop_vars, resolved_vars)
+```
+
+
+### Lubben Social Network Scale 6
+
+We found 12 dropped calculated variables that referenced the Lubben Social Network Scale 6 measures. We isolated these variables from Visit 1 to assess for labels and other attributes.
+
+```{r}
+checking_vars[str_detect(checking_vars, "(^lsn)|(^LSN)")]
+
+checking_cols <- v1 %>%
+  select(all_of(drop_v1)) %>%
+  select(all_of(starts_with("lsn")))
+```
+
+We calculated the subscales and categories within the instrument.
+
+```{r}
+qds_all_visits <- qds_all_visits %>%
+  mutate(lsn_family = (lsn_1 + lsn_2 + lsn_3),
+         lsn_family_cat = case_when(
+           lsn_family < 6 ~ 0,
+           lsn_family >= 6 ~ 1,
+           TRUE ~ NA
+         ),
+         lsn_friends = (lsn_4 + lsn_5 + lsn_6),
+         lsn_friends_cat = case_when(
+           lsn_friends < 6 ~ 0,
+           lsn_family >= 6 ~ 1,
+           TRUE ~ NA
+         ),
+         lsn_total = lsn_family + lsn_friends,
+         lsn_total_cat = case_when(
+           lsn_total <= 12 ~ 0,
+           lsn_total > 12 ~ 1
+         )
+         )
+
+attr(qds_all_visits$lsn_family, 'label') <- "LSN Family subscale"
+attr(qds_all_visits$lsn_family_cat, 'label') <- "LSN Family category"
+attr(qds_all_visits$lsn_friends, 'label') <- "LSN Friends subscale"
+attr(qds_all_visits$lsn_friends_cat, 'label') <- "LSN Friends category"
+attr(qds_all_visits$lsn_total, 'label') <- "LSN Total"
+attr(qds_all_visits$lsn_total_cat, 'label') <- "LSN Total category"
+
+attr(qds_all_visits$lsn_family_cat, 'labels') <- c("marginal support" = 0, 
+                                                  "social engagement" = 1)
+attr(qds_all_visits$lsn_friends_cat, 'labels') <- c("marginal support" = 0, 
+                                                  "social engagement" = 1)
+attr(qds_all_visits$lsn_total_cat, 'labels') <- c("marginal support" = 0, 
+                                                  "social engagement" = 1)
+```
+
+We recalculated the variable map for this instrument, and updated our variable map with the desired order.
+
+```{r}
+map_temp_tibble <- tibble::tibble(
+  'variable' = c('lsn_family', 'lsn_family_cat', 'lsn_friends', 
+                 'lsn_friends_cat', 'lsn_total', 'lsn_total_cat'),
+  'section' = 'Interpersonal/Intrapersonal Resources',
+  'sec_ord' = 7,
+  'instrument' = 'Lubben Social Network Scale 6',
+  'inst_ord' = 3,
+  'item_ord' = c(7, 8, 9, 10, 11, 12),
+  'v1' = NA, 'v2' = NA, 'v3' = NA, 'v4' = NA, 'v5' = NA,
+  drop_consolidated = NA,
+  calculated = TRUE
+)
+
+inst_map <- variable_map[variable_map$instrument == 
+               "Lubben Social Network Scale 6",]
+
+inst_map <- rbind(inst_map, map_temp_tibble)
+
+variable_map <- variable_map[variable_map$instrument != 
+                               "Lubben Social Network Scale 6",] %>%
+  rbind(inst_map) %>%
+  arrange(sec_ord, inst_ord, item_ord)
+
+variable_map[variable_map$instrument == "Lubben Social Network Scale 6",]
+```
+
+We added these resolved variables to our resolved list.
+
+```{r}
+resolved_vars <- c(resolved_vars, 
+                   checking_vars[str_detect(checking_vars, "(^lsn)|(^LSN)")])
+
+checking_vars <- setdiff(drop_vars, resolved_vars)
+```
+
+## Data Check
+
+We ensured that `drop_consolidated` was FALSE for any variable in the variable map that was missing a value for this variable.
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(drop_consolidated  = ifelse(is.na(drop_consolidated), 
+                                     FALSE, 
+                                     drop_consolidated))
+```
+
+We checked to see if there were any remaining variables that had not been resolved.
+
+```{r}
+length(setdiff(drop_vars, resolved_vars)) == 0
+# TRUE
+```
+
+We checked the final dimensions of our data frames.
+
+```{r}
+dim(qds_all_visits)
+# 1506 1000
+dim(variable_map)
+# 1013 13
+```
+
+We verified that there were no duplicated variables in our variable map.
+
+```{r}
+length(unique(variable_map$variable)) == nrow(variable_map)
+# TRUE
+```
+
+We verified that there were no variables present in our combined QDS data set that were missing from our variable map.
+
+```{r}
+length(setdiff(colnames(qds_all_visits), variable_map$variable)) == 0
+
+# TRUE
+```
+
+We verified that the only variables present in the variable map, which were not also present in the combined data set, were variables that had been intentionally dropped.
+
+```{r}
+length(setdiff(variable_map$variable, colnames(qds_all_visits)))
+
+# 13
+
+unique(variable_map[variable_map$variable %in% 
+                      setdiff(variable_map$variable, colnames(qds_all_visits)),
+                    ]$drop_consolidated)
+
+# TRUE
+```
+
+We reordered our combined data set based on our variable map.
+
+```{r}
+var_order <- pull(variable_map %>%
+  filter(!drop_consolidated) %>%
+  select(variable))
+
+length(var_order) == length(unique(var_order)) 
+# TRUE
+length(var_order) == length(colnames(qds_all_visits))
+# TRUE
+length(setdiff(var_order, colnames(qds_all_visits)))
+# 0
+length(setdiff(colnames(qds_all_visits), var_order))
+# 0
+
+qds_all_visits <- qds_all_visits[,var_order]
+```
+
+We purged items that were no longer needed.
+
+```{r}
+rm(v1)
+rm(v2)
+rm(v3)
+rm(v4)
+rm(v5)
+rm(drop_v1)
+rm(drop_v2)
+rm(drop_v3)
+rm(drop_v4)
+rm(drop_v5)
+rm(drop_vars)
+rm(i)
+rm(resolved_vars)
+rm(checking_vars)
+rm(checking_cols)
+rm(map_temp_tibble)
+rm(inst_map)
+rm(new_vars)
+rm(var_order)
+```
+
+# 💾 Save the data frame
+
+```{r}
+rds_path <- "data/qds/qds_all_visits_import.rds"
+write_rds(qds_all_visits, rds_path)
+write_rds(variable_map, here("data","variable_map.rds"))
+
+# Michael also wants an SPSS version
+spss_path <- "data/qds/qds_all_visits_import.SAV"
+write_sav(qds_all_visits, spss_path)
+```
+ 
+ 
+# Print a message for when this file is being sourced
+ 
+```{r}
+cat(
+  paste0(Sys.Date(), ":"),
+  "QDS data saved to", rds_path, " and ", spss_path
+)
+```
+
+
+ 
