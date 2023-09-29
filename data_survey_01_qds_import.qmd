@@ -61,6 +61,8 @@ library(purrr, warn.conflicts = FALSE)
 library(haven, warn.conflicts = FALSE)
 library(here, warn.conflicts = FALSE)
 library(tidyverse, warn.conflicts = FALSE)
+library(readr, warn.conflicts = FALSE)
+library(readxl, warn.conflicts = FALSE)
 ```
 
 ```{r}
@@ -69,13 +71,15 @@ source("R/standardize_col_names.R")
 
 # 📥 Import data
 
+## QDS
+
 -   Import all 5 QDS data frames.
 -   These datasets were exported directly from QDS as SPSS files (.SAV), and they have already been run through an SPSS syntax file (`spss_syntax/Visit 1.sps`, `spss_syntax/Visit 2.sps`, etc.).
 -   The data was exported from QDS by someone other than MBC.
 -   The SPSS syntax files were created by someone other than MBC.
 
 ```{r}
-qds_spss_path <- "data/qds/"
+qds_spss_path <- here("data", "qds")
 qds_spss_paths <- paste0(qds_spss_path, "Visit_", 1:5, "_Data.SAV")
 ```
 
@@ -102,12 +106,10 @@ walk(
   .f = function(x) {
     new_nm <- paste0("v", x)
     sav_nm <- paste0("Visit_", x, "_Data.SAV")
-    path <- paste0(qds_spss_path, sav_nm)
+    path <- here(qds_spss_path, sav_nm)
     assign(new_nm, read_sav(path), envir = .GlobalEnv)
   }
 )
-
-rm(qds_spss_path)
 ```
 
 Print a message for when this file is being sourced
@@ -132,6 +134,77 @@ walk(
 # 2023-08-30: v3 imported with 273 rows and 542 columns.
 # 2023-08-30: v4 imported with 207 rows and 598 columns.
 # 2023-08-30: v5 imported with 178 rows and 649 columns.
+```
+
+## REDCap
+
+To ensure group assignment was consistent for subjects, we imported the subject, visit, and group assignments from the REDCap data. The remainder of the REDCap data would be utilized to supplement the QDS data at a later stage.
+
+```{r}
+redcap_spss_path <- here("data", "redcap", "All_Visits_Redcap.sav")
+```
+
+Import the data. Check the most recent file modification dates and print for user when this file is being sourced.
+
+```{r message=FALSE}
+redcap <- read_sav(redcap_spss_path) %>% 
+  select(id = record_id, visit, group) %>% 
+  arrange(id, visit)
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "REDCap imported with", nrow(redcap), "rows and", ncol(redcap), "columns.\n"
+)
+
+# 2021-01-28: REDCap imported with 12 rows and 3 columns.
+# 2023-09-28: REDCap imported with 119 rows and 3 columns.
+```
+
+## Excel Master Log
+
+To ensure group assignment was consistent for subjects, we imported the subject and group assignments from the Excel Master log data. Group membership is randomly assigned at visit 2, but it is not recorded in QDS until visit 3 and beyond. Therefore, if we only rely on QDS data, it appears as though many participants haven't been randomized to a group even though they have. The study staff manually tracks group assignment in the Excel Master Log. We can use that data to cross-check and impute group membership when QDS and REDCap data are not otherwise sufficient. It is not ideal, but it seems to be the best option we have.
+
+```{r}
+master_log_path  <- here("data", "master_log", "master_log.xlsx")
+```
+
+Import the data. Check the most recent file modification dates and print for user when this file is being sourced.
+
+```{r}
+master_log <- read_excel(
+  master_log_path, 
+  sheet = "Screened In",
+  col_names = c("id", "group"),
+  col_types = c("text", rep("skip", 22), "text", rep("skip", 31)),
+  skip = 1
+) %>% 
+  # Coerce group to numeric so that it can be combined with the QDS data.
+  mutate(
+    group = case_when(
+      group == "UCM"    ~ 1,
+      group == "UCM+SP" ~ 2,
+      group == "L2C"    ~ 3
+    )
+  )
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "Master log imported with", nrow(master_log), "rows and", ncol(master_log),
+  "columns.\n"
+)
+
+# 2021-01-28: Master log imported with 263 rows and 2 columns.
+# 2023-09-28: Master log imported with 501 rows and 2 columns.
+```
+
+We removed containers that were no longer necessary.
+
+```{r}
+rm(qds_spss_path)
+rm(master_log_path)
+rm(redcap_spss_path)
 ```
 
 # Clean column names
@@ -7792,18 +7865,74 @@ qds_all_visits <- v1_reordered %>%
 qds_all_visits <- qds_all_visits[,variable_map$variable]
 ```
 
-## Purging Temporary Containers
-
-We purged containers that were no longer necessary.
+We checked for variables that were missing attributes after merging. We found 143 such variables.
 
 ```{r}
-rm(v1_reordered)
-rm(v2_reordered)
-rm(v3_reordered)
-rm(v4_reordered)
-rm(v5_reordered)
-rm(set_map)
+null_vars <- c()
+
+for (i in colnames(qds_all_visits)){
+  if (is.null(attributes(qds_all_visits[[i]]))){
+    null_vars <- c(null_vars, i)
+  }
+  
+}
+
+length(null_vars)
+# 143
 ```
+
+We first attempted to apply attributes from the reordered V1 data set. There were 22 variables remaining that lacked attributes.
+
+```{r}
+for (i in null_vars){
+  if ((i %in% colnames(v1_reordered)) & 
+       !(is.null(attributes(v1_reordered[[i]]))) ) {
+    
+    attributes(qds_all_visits[[i]]) <- attributes(v1_reordered[[i]])
+    null_vars <- null_vars[null_vars != i]
+  }
+  
+}
+
+length(null_vars)
+# 22
+```
+
+We next attempted to apply attributes from the reordered V2 data set. There were 5 variables remaining that lacked attributes.
+
+```{r}
+for (i in null_vars){
+  if ((i %in% colnames(v2_reordered)) & 
+       !(is.null(attributes(v2_reordered[[i]]))) ) {
+    
+    attributes(qds_all_visits[[i]]) <- attributes(v2_reordered[[i]])
+    null_vars <- null_vars[null_vars != i]
+  }
+  
+}
+
+length(null_vars)
+# 5
+```
+
+We then attempted to apply attributes from the reordered V3 data set. This resolved the variables that lacked attributes.
+
+```{r}
+for (i in null_vars){
+  if ((i %in% colnames(v3_reordered)) & 
+       !(is.null(attributes(v3_reordered[[i]]))) ) {
+    
+    attributes(qds_all_visits[[i]]) <- attributes(v3_reordered[[i]])
+    null_vars <- null_vars[null_vars != i]
+  }
+  
+}
+
+rm(i)
+length(null_vars)
+# 0
+```
+
 
 ## Resolving Duplicate Variables
 
@@ -7990,6 +8119,332 @@ resolved_vars <- drop_vars[str_detect(drop_vars,
                                       "(Time_to)|(SUBJECT)|(TEST)|(II)")]
 
 checking_vars <- setdiff(drop_vars, resolved_vars)
+```
+
+#### Group Assignment
+
+Group assignment was not made until Visit 3, and was not recorded in the QDS data prior to this point. However, we would like for this value to be present on all of a subject's visits.
+
+We consolidated the Master log's data regarding group assignment for each subject. We excluded any rows that were missing a value for ID, as well as any duplicate combinations of subject ID and group. Finally, we converted both columns to numeric. We verified that this data set now contained only one group assignment for each unique Subject ID, and that there were were no Subject ID values in the QDS data that were absent from the Master Log.
+
+```{r}
+master_log <- master_log %>%
+  filter(!is.na(id)) %>%
+  distinct() %>%
+  mutate(across(everything(), as.numeric))
+
+length(unique(master_log$id)) == nrow(master_log)
+# TRUE
+
+length(setdiff(qds_all_visits$subject, master_log$id)) == 0
+# TRUE
+```
+
+The REDCap data contained three IDs that were text-based, used for testing: "-948_TEST", "TEST", and "test2". We excluded observations that were missing a subject ID, or had one of these testing values. We converted all columns to numeric. We checked to see if each subject ID was associated with only one group assignment (excluding visits without a recorded assignment), and discovered there were subject IDs with more than one group assignment. We verified that there were were no Subject ID values in the REDCap data that were absent from the Master Log.
+
+```{r}
+redcap <- redcap %>%
+  filter(!(id %in% c('-948_TEST', 'TEST', 'test2'))
+         ) %>%
+  filter(!is.na(id)
+         ) %>%
+  mutate(across(everything(), as.numeric))
+
+checking_cols <- redcap %>%
+  select(id, group) %>%
+  filter(!is.na(group)
+         ) %>%
+  distinct()
+
+length(unique(checking_cols$id)) == nrow(checking_cols)
+# FALSE
+
+length(setdiff(redcap$id, master_log$id)) == 0
+# TRUE
+```
+
+We found Subject IDs with more than one Group ID in the REDCap data, and subsequently checked their values against the Master Log. The following list is present to maintain a record:
+
+2023-09-28:
+* P2331: V5 grouping entered as 'UCM+SP' (2), V3 and V4 entered as 'L2C' (3)
+                **'L2C' (3) in Master Log**
+* P2398: V4 grouping entered as 'UCM+SP' (2), V3 and V5 entered as 'L2C' (3)
+                **'L2C' (3) in Master Log**
+* P2426: V5 grouping entered as 'UCM+SP' (2), V4 entered as 'L2C' (3)
+                **'L2C' (3) in Master Log**
+
+```{r}
+check_ids <- unique(pull(redcap %>%
+  group_by(id) %>%
+  filter(length(unique(group)) > 1) %>%
+  select(id)))
+
+check_ids
+# 2331 2398 2426
+
+for (i in check_ids){
+  print(i)
+  for (row in nrow(redcap[redcap$id == i,])){
+    visit_id <- redcap[redcap$id == i,]$visit
+    group_id <- redcap[redcap$id == i,]$group
+    print(paste0('V', visit_id, ': ', group_id))
+    rm(visit_id)
+    rm(group_id)
+  }
+  rm(row)
+}
+rm(i)
+# 2331
+# "V3: 3" "V4: 3" "V5: 2"
+# 2398
+# "V3: 3" "V4: 2" "V5: 3"
+# 2426
+# "V4: 3" "V5: 2"
+
+for (i in check_ids) {
+  m_log_g <- master_log[master_log$id == i,]$group
+  print(paste(i, ":", m_log_g, sep = " "))
+}
+
+rm(i)
+# "2331 : 3"
+# "2398 : 3"
+# "2426 : 3"
+```
+
+We corrected these Subject IDs manually, correcting the group assignment to the one most consistent with both the REDCap and Master Log data.
+
+```{r}
+redcap[redcap$id %in% check_ids, 'group'] <- 3
+```
+
+We ensured each subject in the REDCap data had the same group ID listed at all occurences. We verified each subject ID was associated with only one group assignment.
+
+```{r}
+redcap <- redcap %>%
+  select(id, group) %>%
+  group_by(id) %>%
+  mutate(group = ifelse(n_distinct(group, na.rm = TRUE) == 1, 
+                        unique(group[!is.na(group)]), 
+                        group)
+         ) %>%
+  ungroup() %>%
+  distinct()
+
+length(unique(redcap$id)) == nrow(redcap)
+# TRUE
+```
+
+We isolated the subject ID, visit number, and group assignment from the QDS data. We converted all columns to numeric. We checked to see if each subject ID was associated with only one group assignment (excluding visits without a recorded assignment), and discovered there were subject IDs with more than one group assignment. We verified that there were were no Subject ID values in the QDS data that were absent from the Master Log.
+
+```{r}
+qds_ids <- qds_all_visits %>%
+  select(subject, visit, group) %>%
+  rename_at('subject', ~'id') %>%
+  mutate(across(everything(), as.numeric))
+
+checking_cols <- qds_ids %>%
+  select(id, group) %>%
+  filter(!is.na(group)
+         ) %>%
+  distinct()
+
+length(unique(checking_cols$id)) == nrow(checking_cols)
+# FALSE
+
+length(setdiff(qds_all_visits$subject, master_log$id)) == 0
+# TRUE
+```
+
+We found Subject IDs with more than one Group ID in the QDS data, and subsequently checked their values against the Master Log and REDCap data. The following list is present to maintain a record:
+
+2021-01-11: 
+* P2023: V5 grouping entered incorrectly on QDS. Entered 'L2C' (3) instead of 'UCM+SP' (2) 
+* P2136: V5 grouping entered incorrectly on QDS. Entered 'UCM+SP' (2) instead of 'L2C' (3)
+* P2057: V3 grouping entered incorrectly on QDS. Entered 'UCM' (1) instead of 'L2C' (3) 
+
+2023-09-28:
+* P2057: continues to show previously noted erroneous entry in V3.
+                **'L2C' (3) in Master Log, absent in REDCap**
+* P2356: V3 grouping of 'SPCM'(3), V4 and V5 grouping of 'UCM+SP' (2)
+                **'UCM+SP' (2) in Master Log, absent in REDCap**
+
+```{r}
+check_ids <- unique(pull(qds_ids %>%
+  filter(!is.na(group)) %>%
+  group_by(id) %>%
+  filter(length(unique(group)) > 1) %>%
+  select(id)))
+
+check_ids
+# 2057 2356
+
+for (i in check_ids){
+  print(i)
+  for (row in nrow(qds_ids[qds_ids$id == i,])){
+    visit_id <- qds_ids[qds_ids$id == i,]$visit
+    group_id <- qds_ids[qds_ids$id == i,]$group
+    print(paste0('V', visit_id, ': ', group_id))
+    rm(visit_id)
+    rm(group_id)
+  }
+  rm(row)
+}
+rm(i)
+# 2057
+# "V1: NA" "V2: NA" "V3: 1"  "V4: 3" 
+# 2356
+# "V1: NA" "V2: NA" "V3: 3"  "V4: 2"  "V5: 2" 
+
+for (i in check_ids) {
+  m_log_g <- master_log[master_log$id == i,]$group
+  print(paste(i, ":", m_log_g, sep = " "))
+  rm(m_log_g)
+}
+
+# "2507 : 3"
+# "2356 : 2"
+
+for (i in check_ids) {
+  red_g <- redcap[redcap$id == i,]$group
+  print(paste(i, ":", red_g, sep = " "))
+  rm(red_g)
+}
+rm(i)
+# "2507 : "
+# "2356 : "
+```
+
+We corrected these Subject IDs manually, correcting the group assignment to the one most consistent with the QDS, REDCap, and Master Log data.
+
+```{r}
+qds_ids[qds_ids$id == 2057, 'group'] <- 3
+qds_ids[qds_ids$id == 2356, 'group'] <- 2
+```
+
+We ensured each subject in the QDS data had the same group ID listed at all occurences. We verified each subject ID was associated with only one group assignment.
+
+```{r}
+qds_ids <- qds_ids %>%
+  select(id, group) %>%
+  group_by(id) %>%
+  mutate(group = ifelse(n_distinct(group, na.rm = TRUE) == 1, 
+                        unique(group[!is.na(group)]), 
+                        group)
+         ) %>%
+  ungroup() %>%
+  distinct()
+
+length(unique(qds_all_visits$subject)) == nrow(qds_ids)
+# TRUE
+```
+
+We combined the three data sets, and calculated if all group assignments present for a subject were consistent across the data sets. We verified that each subject was represented by a single row, that no subject IDs were either gained or lost in combining the sets, that any subject missing a group assignment in the Master Log was also missing a group assignment in both the REDCap and QDS data sets, and that any subject that had a group assignment in either the REDCap or QDS data sets also had a group assignment in the Master Log.
+
+```{r}
+group_ids <- full_join(
+  master_log %>%
+    rename_at('group', ~'m_group'), 
+  redcap %>%
+    rename_at('group', ~'r_group'),
+  by = 'id'
+) %>%
+  full_join(
+    qds_ids %>%
+      rename_at('group', ~'q_group'),
+    by = 'id'
+    ) %>%
+  arrange(id) %>%
+  mutate(all_missing = ifelse(
+       (is.na(m_group)&is.na(r_group)&is.na(q_group)),
+       TRUE,
+       FALSE)
+    ) %>%
+  mutate(
+    m_r = case_when(
+      (is.na(m_group)|is.na(r_group)) ~ TRUE,
+      (!(is.na(m_group)|is.na(r_group)) & m_group == r_group) ~ TRUE,
+      TRUE ~ FALSE
+      ),
+    m_q = case_when(
+      (is.na(m_group)|is.na(q_group)) ~ TRUE,
+      (!(is.na(m_group)|is.na(q_group)) & m_group == q_group) ~ TRUE,
+      TRUE ~ FALSE
+      ),
+    r_q = case_when(
+      (is.na(r_group)|is.na(q_group)) ~ TRUE,
+      (!(is.na(r_group)|is.na(q_group)) & r_group == q_group) ~ TRUE,
+      TRUE ~ FALSE
+      )
+    ) %>%
+  mutate(all_equal = ifelse((m_r + m_q + r_q) == 3, TRUE, FALSE)
+    ) %>%
+  select(-c('m_r', 'm_q', 'r_q'))
+
+length(unique(qds_ids$id)) == nrow(qds_ids)
+# TRUE
+
+length(setdiff(c(redcap$id, master_log$id, qds_ids$id), qds_ids$id)) == 0
+# TRUE
+
+length(setdiff(qds_ids$id, c(redcap$id, master_log$id, qds_ids$id))) == 0
+# TRUE
+
+length(setdiff(group_ids[is.na(group_ids$m_group),]$id, 
+        group_ids[group_ids$all_missing, ]$id)) == 0
+# TRUE
+       
+length(setdiff(group_ids[!is.na(group_ids$m_group),]$id, 
+        group_ids[!group_ids$all_missing, ]$id)) == 0  
+# TRUE
+```
+
+We found Subject IDs with inconsistent group assignments between the data sets, and subsequently checked their values. The following list is present to maintain a record:
+
+2023-09-28:
+* P2336: Grouping of 'L2C' (3) in Master Log and QDS, 'UCM+SP' (2) in REDCap
+* P2349: Grouping of 'UCM+SP' (2) in Master Log and QDS, 'UCM' (1) in REDCap
+
+```{r}
+check_ids <- pull(unique(group_ids %>%
+  filter(!all_equal) %>%
+  select(id)))
+
+check_ids
+# 2335 2349
+
+for (i in check_ids){
+  print(paste0(i, ": Master (", group_ids[group_ids$id == i,]$m_group, ") QDS (",
+              group_ids[group_ids$id == i,]$q_group, ") REDCap (", 
+              group_ids[group_ids$id == i,]$r_group, ")"))
+}
+rm(i)
+# "2336: Master (3) QDS (3) REDCap (2)"
+# "2349: Master (2) QDS (2) REDCap (1)"
+```
+
+The Master Log assignments were thus considered to be complete and take prescedence over any other assignment. We isolated these values, and utilized them to update group assignments by subject ID for all occurences in the QDS data set.
+
+```{r}
+group_ids <- group_ids %>%
+  select(id, m_group) %>%
+  rename_at('m_group', ~'group') %>%
+  rename_at('id', ~'subject')
+
+qds_all_visits <- rows_update(qds_all_visits, group_ids, by="subject", 
+                        unmatched = "ignore") %>%
+  arrange(subject, visit)
+```
+
+We purged containers which were no longer necessary.
+
+```{r}
+rm(redcap)
+rm(master_log)
+rm(qds_ids)
+rm(check_ids)
+rm(checking_cols)
+rm(group_ids)
 ```
 
 ## Screening Section
@@ -10221,6 +10676,90 @@ resolved_vars <- c(resolved_vars,
 checking_vars <- setdiff(drop_vars, resolved_vars)
 ```
 
+## Fixing Loss of Attributes
+
+We checked for variables that were missing attributes after calculation and cleaning. We found 19 such variables.
+
+```{r}
+null_vars <- c()
+
+for (i in colnames(qds_all_visits)){
+  if (is.null(attributes(qds_all_visits[[i]]))){
+    null_vars <- c(null_vars, i)
+  }
+  
+}
+
+length(null_vars)
+# 19
+```
+
+We first attempted to apply attributes from the reordered V1 data set. There were 18 variables remaining that lacked attributes.
+
+```{r}
+for (i in null_vars){
+  if ((i %in% colnames(v1_reordered)) & 
+       !(is.null(attributes(v1_reordered[[i]]))) ) {
+    
+    attributes(qds_all_visits[[i]]) <- attributes(v1_reordered[[i]])
+    null_vars <- null_vars[null_vars != i]
+  }
+  
+}
+
+length(null_vars)
+# 18
+```
+
+We next attempted to apply attributes from the reordered V2 data set. There were 18 variables remaining that lacked attributes.
+
+```{r}
+for (i in null_vars){
+  if ((i %in% colnames(v2_reordered)) & 
+       !(is.null(attributes(v2_reordered[[i]]))) ) {
+    
+    attributes(qds_all_visits[[i]]) <- attributes(v2_reordered[[i]])
+    null_vars <- null_vars[null_vars != i]
+  }
+  
+}
+
+length(null_vars)
+# 18
+```
+
+We then attempted to apply attributes from the reordered V3 data set. This resolved the variables that lacked attributes.
+
+```{r}
+for (i in null_vars){
+  if ((i %in% colnames(v3_reordered)) & 
+       !(is.null(attributes(v3_reordered[[i]]))) ) {
+    
+    attributes(qds_all_visits[[i]]) <- attributes(v3_reordered[[i]])
+    null_vars <- null_vars[null_vars != i]
+  }
+  
+}
+
+rm(i)
+length(null_vars)
+# 0
+```
+
+### Purging Temporary Containers
+
+We purged containers that were no longer necessary.
+
+```{r}
+rm(v1_reordered)
+rm(v2_reordered)
+rm(v3_reordered)
+rm(v4_reordered)
+rm(v5_reordered)
+rm(set_map)
+rm(null_vars)
+```
+
 ## Data Check
 
 We ensured that `drop_consolidated` was FALSE for any variable in the variable map that was missing a value for this variable.
@@ -10310,7 +10849,6 @@ rm(drop_v3)
 rm(drop_v4)
 rm(drop_v5)
 rm(drop_vars)
-rm(i)
 rm(resolved_vars)
 rm(checking_vars)
 rm(checking_cols)
@@ -10320,15 +10858,15 @@ rm(new_vars)
 rm(var_order)
 ```
 
-# 💾 Save the data frame
+# 💾 Save the data frames
 
 ```{r}
-rds_path <- "data/qds/qds_all_visits_import.rds"
+rds_path <- here("data", "qds", "qds_all_visits_import.rds") 
 write_rds(qds_all_visits, rds_path)
 write_rds(variable_map, here("data","variable_map.rds"))
 
 # Michael also wants an SPSS version
-spss_path <- "data/qds/qds_all_visits_import.SAV"
+spss_path <- here("data", "qds", "qds_all_visits_import.SAV")
 write_sav(qds_all_visits, spss_path)
 ```
  
