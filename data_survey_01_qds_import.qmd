@@ -1,5 +1,5 @@
 ---
-title: "Import Link2Care Survey Data - QDS - Visit 1"
+title: "Import Link2Care Survey Data - QDS"
 date: "2020-12-23 <br> Updated: `r Sys.Date()`"
 format: pdf
 editor: 
@@ -11,7 +11,9 @@ editor:
 
 This file is used to import the Link2Care follow-up visit survey data and do some initial data cleaning. It drops SPSS calculated variables, recreates these dropped variables, and creates a variable map.
 
-### Change log
+## Change log
+
+# 🔴 Note for Morri: We can probably delete all of this (or move it to the Wiki or something) after we know that the data is good. This will likely be unnecessary, irrelevant information to a new person reviewing this file for the first time once the data is good.
 
 **2023-09-27**, the original .RMD version of this file was modified and updated for changing priorities. The new QMD version prioritizes human readability for tracing from QDS data to final data, facilitation of point-fixes, and creation of calculated variables from processing in R rather than SPSS.
 
@@ -71,12 +73,10 @@ source("R/standardize_col_names.R")
 
 # 📥 Import data
 
-## QDS
-
--   Import all 5 QDS data frames.
--   These datasets were exported directly from QDS as SPSS files (.SAV), and they have already been run through an SPSS syntax file (`spss_syntax/Visit 1.sps`, `spss_syntax/Visit 2.sps`, etc.).
--   The data was exported from QDS by someone other than MBC.
--   The SPSS syntax files were created by someone other than MBC.
+- Import all 5 QDS data frames.
+- These datasets were exported directly from QDS as SPSS files (.SAV), and they have already been run through an SPSS syntax file (`spss_syntax/Visit 1.sps`, `spss_syntax/Visit 2.sps`, etc.).
+- The data was exported from QDS by someone other than MBC.
+- The SPSS syntax files were created by someone other than MBC.
 
 ```{r}
 qds_spss_path <- here("data", "qds")
@@ -215,34 +215,44 @@ We have to make the column names match across visits so that we can merge all of
 
 1.  The columns in the data are not arranged in the order that they exist in the actual QDS survey for some reason. This makes the data harder to work with, and it will make the codebook we eventually create difficult to use. So, we are going to reorder them in the order that they appear in the Link2Care appendix (`codebooks/from_qds/Link2Care_Appendix.pdf`).
 
--   The Link2Care appendix is organized by section, then instrument. Ordering of the variables in the combined data should mirror this as closely and reasonably as possible.
+  - The Link2Care appendix is organized by section, then instrument. Ordering of the variables in the combined data should mirror this as closely and reasonably as possible.
+  
+# 🔴 Note for Morri: I'm not sure what the comment below means. If I wrote it, then let's just delete it. If you wrote, please clarify.
 
--   With the "human readable" variables for section and instrument, we can add some of the codebook organization attribute values associated with each variables.
+  - With the "human readable" variables for section and instrument, we can add some of the codebook organization attribute values associated with each variables.
 
--   Some variables in the data do not belong to an instrument in the Link2Care appendix. For example, the questions about COVID vaccines. We will order them after the columns that do appear in the Link2Care appendix following the base logic of the Link2Care appendix.
+  - Some variables in the data do not belong to an instrument in the Link2Care appendix. For example, the questions about COVID vaccines. We will order them after the columns that do appear in the Link2Care appendix following the base logic of the Link2Care appendix.
 
-2.  Each data set has different names for the same variables, including unique typos.
+2. Each data set has different names for the same variables, including unique typos.
 
--   By creating a map that translates the variable name in each data set to a single variable, we can batch the renaming, make additional point-fixes that may arise from later changes without re-doing larger chunks of code, and rename variables as needed with a single change in the map.
+  - By creating a map that translates the variable name in each data set to a single variable, we can batch the renaming, make additional point-fixes that may arise from later changes without re-doing larger chunks of code, and rename variables as needed with a single change in the map.
 
--   We can similarly insert new variables into this map, and otherwise adjust ordering as needed.
+  - We can similarly insert new variables into this map, and otherwise adjust ordering as needed.
 
-3.  We want to re-create variables that were calculated in SPSS, rather than relying on their imported values.
+3. We want to re-create variables that were calculated in SPSS, rather than relying on their imported values.
 
--   The map organization system allows us to insert variables to ensure a human-readable ordering.
+  - The map organization system allows us to insert variables to ensure a human-readable ordering.
 
 ## Initiating Variable Map
 
+# 🔴 Note for Morri: We use talk about "standardizing" the variables here and below. Do we ever define what that means? 
+
 We initiated a tibble that would contain our initial standardized variables, the name and order of each section and instrument each variable belongs to, and the order of the item in the instrument. It would also collect the names of the variables as they were originally present in each of the visit data sets.
 
+# 🔴 Note for Morri: It looks like you are taking a totally difference approach to this than I did, which is fine. I looks like your code is organized by section and then visit is nested under each section. I think this is a cool approach. However, it seems like the variable map is super important in this approach. I think we should write out definitions for each of the columns in the variable map.
+
+# 🔴 Note for Morri: Notice how I changed the style of code lines that are longer than 80 characters in the code chunk below. Please see here: https://style.tidyverse.org/syntax.html#long-lines. Do you mind changing the style of the rest of the code chunks below, please?
+
 ```{r}
-variable_map_vars <- c('variable','section', 'sec_ord', 'instrument', 
-                       'inst_ord', 'var_ord', 'v1', 'v2', 'v3', 'v4', 'v5')
+variable_map_vars <- c(
+  'variable','section', 'sec_ord', 'instrument', 'inst_ord', 'var_ord', 'v1', 
+  'v2', 'v3', 'v4', 'v5'
+)
 
-variable_map <- tibble::tibble(!!!variable_map_vars, .rows = 0,
-                               .name_repair = ~variable_map_vars)
+variable_map <- tibble::tibble(
+  !!!variable_map_vars, .rows = 0, .name_repair = ~variable_map_vars
+)
 ```
-
 
 ## Administrative Variables
 
@@ -251,8 +261,9 @@ variable_map <- tibble::tibble(!!!variable_map_vars, .rows = 0,
 We initiated a tibble that would serve for the subsection of the overall variable map.
 
 ```{r}
-sec_map <- tibble::tibble(!!!variable_map_vars, .rows = 0,
-                               .name_repair = ~variable_map_vars)
+sec_map <- tibble::tibble(
+  !!!variable_map_vars, .rows = 0, .name_repair = ~variable_map_vars
+)
 ```
 
 ### V1
@@ -272,7 +283,20 @@ vars <- v1 %>%
 vars
 ```
 
+# 🔴 Note for Morri: There's a lot of repeated code above. Does this code work just as well?
+
+```{r}
+admin_col_name_terms <- c(
+  "TODAY", "SUBJECT", "II", "VISIT", "TEST", "VISIT_TYPE", "ENDTIME", "ETIME",
+  "CTIME", "GROUP"
+)
+vars <- v1 |> select(starts_with(admin_col_name_terms)) |> names()
+vars
+```
+
 We found that `SUBJECT1` and `TEST_V1` contained only missing values, and so they were dropped. There was no variable for GROUP assignment in the first visit data set.
+
+# 🔴 Note for Morri: My preference is for each code chunk to print no more than one value to the screen. The code chunk below prints three values to the screen, for example. Do you mind breaking it (and others like it) up, please? If you are just doint some sort of little data check, as I suspect you are below with sum(!is.na(v1$SUBJECT1)) and sum(!is.na(v1$TEST_V1)), you can simply type a comment like, "Data check: Count the number of non-missing values" or something like that.
 
 ```{r}
 sum(!is.na(v1$SUBJECT1))
@@ -294,7 +318,9 @@ vars <- setdiff(vars, drop_v1)
 vars
 ```
 
-We standardized these variable names. We add a null value for a "group" variable from V1, as it was not present in the visit 2 data set. We added these values to the section variable map.
+We standardized these variable names. We add a missing value for a "group" variable in V1, as it was not present in the visit 1 data set. We added these values to the section variable map.
+
+# 🔴 Note for Morri: I don't think I'm crazy about setting the item order with numbers like this. I can't look at this code and tell what order the variables are in. Let's chat about this. 
 
 ```{r}
 vars_renamed <- standardize_col_names(vars)
@@ -311,7 +337,7 @@ set_tibble <- tibble::tibble(
   'instrument' = 'Administrative',
   'inst_ord' = 1,
   'item_ord' = c(5,1,6,4,3,8,9,7,2),
-  'v1' = c(vars,NA),
+  'v1' = c(vars, NA),
 )
 
 set_tibble <- set_tibble %>% 
