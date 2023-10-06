@@ -1,0 +1,717 @@
+---
+title: "Overview and Guide - Variable Map Creation, Modification, and Utility"
+date: "2022-10-02 <br> Updated: `r Sys.Date()`"
+format: pdf
+editor: 
+  markdown: 
+    wrap: sentence
+---
+
+# ⭐️Overview
+
+This file is intended to provide a high-level overview of the **variable map** structure utilized in the processing of the Link2Care data sets and creation of a combined data set. It includes a rationale for why the variable map structure was created, an example of how to read and interpret the variable map, and example uses of the related functions/scripts written for this structure.
+
+## Note
+
+This file is a work in progress. The helper functions are being revised as the data is being processed, and additional challenges/needs are noted. This file will be finalized and polished at the end of the project process. If one of the helper functions fails to work as expected, the most up-to-date information will be in the script itself.
+
+# 📦Load Packages & Functions
+
+```{r message=FALSE}
+library(dplyr, warn.conflicts = FALSE)
+library(tibble, warn.conflicts = FALSE)
+library(here, warn.conflicts = FALSE)
+```
+
+```{r}
+source(here("R", "standardize_col_names.R"))
+source(here("R", "vm_check.R"))
+source(here("R", "vm_create_for_instrument.R"))
+source(here("R", "vm_join_inst_section.R"))
+source(here("R", "vm_join_sections.R"))
+source(here("R", "vm_add_variable.R"))
+source(here("R", "vm_delete_variable.R"))
+source(here("R", "vm_process_source_df.R"))
+source(here("R", "vm_process_many_source.R"))
+```
+
+# Why create a variable map?
+
+1.  This file explains the **variable map**. This variable map is used to facilitate batch processing of the Link2Care variables in other files in the data pipeline.
+
+-   The variable map allows for a single "map" to trace data from the source data set to the final combined/processed data set.
+-   The variable map allows for further changes, such as renaming a variable, to be accounted for with a single point modification rather than multiple fixes.
+
+2.  This is beneficial because the columns in the data are not arranged in the order that they exist in the actual surveys. This makes the data harder to work with, and it will make the codebook we eventually create difficult to use. So, we need to reorder them in the order that they appear in the Link2Care appendix (`codebooks/from_qds/Link2Care_Appendix.pdf`). We create the **variable map** to facilitate the variable ordering process.
+
+-   The Link2Care appendix is organized by section, then instrument, then individual items within an instrument. Ordering of the variables in the combined data should mirror this as closely and reasonably as possible.
+
+    -   The variable map contains 6 primary variables reflecting this desired order:
+
+        -   `variable`: the desired standardized variable name (string)
+
+        -   `section`: the human-readable section name (string)
+
+            -   This human-readable value may also be useful in a codebook, if the section name is desired.
+
+        -   `sec_ord`: the number indicating the order of the **section** within the appendix (integer)
+
+            -   1 is the first section, 2 is the second, and so on
+
+        -   `instrument`: human-readable instrument name (string)
+
+            -   This human-readable value may also be useful in a codebook, if the instrument name is desired.
+
+        -   `inst_ord`: the number indicating the order of the **instrument** within the **section** in the appendix (integer)
+
+            -   1 is the first instrument within a section, 2 is the second, and so on
+
+        -   `item_ord`: the number indicating the order of the **item** within the **instrument**.
+
+            -   1 is the first item within an instrument, 2 is the second, and so on.
+
+-   Some variables in the data do not belong to an instrument in the Link2Care appendix. For example, the questions about COVID vaccines. We can initially order them after the columns that do appear in the Link2Care appendix following the base logic of the Link2Care appendix. However, we must anticipate needing to reorder instruments, sections, or individual variables.
+
+-   The **variable map** structure will facilitate future changes by acting as a single 'choke point'.
+
+    -   Insertion or deletion of a variable may be achieved by changing/shifting values of `item_ord`
+
+        -   This is particularly useful for positioning calculated variables.
+
+    -   Sections may be reordered by changing/shifting `sec_ord`
+
+    -   Instruments may be reordered within sections by changing/shifting `inst_ord`
+
+    -   Moving an instrument to another section will require changing/shifting `section`, `sec_ord`, and `inst_ord`
+
+3.  Each data set has different names for the same variables, including unique typos.
+
+-   The **variable map** accounts for this constraint. For *n* number of source data sets, we require *n+1* columns.
+
+    -   `variable`: the desired standardized variable name (string). This column should only appear once.
+
+    -   `(descriptive name for the source data set)`: the variable name in the source data set (string)
+
+
+4.  We want to re-create variables that were calculated in SPSS, rather than relying on their imported values.
+
+-   The map organization system allows us to insert variables to ensure a human-readable ordering.
+-   The map organization system also allows us to delete variables or exclude them from batch processing.
+
+## Example of reading, manipulating, and utilizing the variable map
+
+# Examples
+
+## Example Data Structures
+
+The following is a small set of dummy data that takes the form of a variable map.
+
+```{r}
+example_map <- vm_join_sections(list(
+                  vm_join_inst_section('section A', list(
+                      vm_create_for_instrument('example', 
+                              c('ex_1', 'ex_2', 'ex_3', 'ex_4', 'ex_5')),
+                      vm_create_for_instrument('learning', 
+                              c('lrn_1', 'lrn_2', 'lrn_3', 'lrn_4', 'lrn_5'))
+                        )
+                      ),
+                  vm_join_inst_section('section B', list(
+                      vm_create_for_instrument('teaching', 
+                              c('tch_1', 'tch_2', 'tch_3', 'tch_4', 'tch_5')),
+                      vm_create_for_instrument('visualizing', 
+                              c('vis_1', 'vis_2', 'vis_3', 'vis_4', 'vis_5'))
+                        )
+                      )
+                    )
+                  ) %>%
+  add_column('exdf_v1' = c('EX_1_V1','EX_2_V1', 'EX_3_V1', 'EX4_V1','EX_5_V1',
+                          'LEARN1_V1', 'LEARN2_V1', 'LEAN3V1', 'LEARN4_V1', 
+                          'LEARN_5_V1', 'TEA1V1', 'TEA2V1', 'TEA3V1', 'TEA4V1', 
+                          'TEA_5V1', 'V_1_1', 'V_2_V1', 'V_3_V1', 'V_4_V', 
+                          'V5_V1'),
+             'exdf_v2' = c('EX_1_V2','EX_2_V2', 'EXAMP_3_V2', 'EX_4_V2','EX_5_V2',
+                          'LEARN1_V2', 'LEARN2_V2', 'LEARN_3_V2', 'LEARN4_V2', 
+                          'LEARN_5_V2', 'TEA1V2', 'TEA2V2', 'TEA3V2', 'TEA4V2', 
+                          'TEA_5V2', 'V_1_V2', 'V_2_V2', 'V_3_V2', 'V4_V2', 
+                          'V5_V2'),
+             'exdf_v3' = c('EX_1_V3','EX_2_V3', 'EXAMP_3_V3', 'EX_4_V3','EX_5_V3',
+                          'LN1_V3', 'LN2_V3', 'LN_3_V3', 'LN4_V3', 
+                          'LN_5_V3', 'TEA1V3', 'TEA2V3', 'TEA3V3', 'TEA4V3', 
+                          'TEA5V3', 'V_1_V3', 'V_2_V3', 'V_3_V3', 'V_4_V3', 
+                          'V_5V3')
+             )
+```
+
+
+The following are small sets of dummy data that represent the source data frames in our examples.
+
+```{r}
+exdf_v1 <- tibble::tibble(
+  'TEA4V1' = c('challenge', 'notebook', 'doctor', 'frantic', 'organic'), 
+  'TEA_5V1' = c(48, 253, 272, 313, 477), 
+  'V_1_1' = c('coast', 'unsightly', 'purpose', 'condemned', 'drag'),
+  'EX_3_V1' = c('2020-10-01', '2020-10-02', '2020-10-03', '2020-10-04',
+                '2020-10-05'), 
+  'EX4_V1' = c('AAA', 'BBB', 'CCC', 'DDD', 'EEE'),
+  'EX_5_V1' = c('in person', 'in person', 'telephone', 'mail', 'telephone'),
+  'LEARN1_V1' = c(TRUE, TRUE, FALSE, FALSE, TRUE), 
+  'LEARN2_V1' = c(1, 4, 8, 16, 18), 
+  'V_4_V' = c(FALSE, TRUE, TRUE, FALSE, TRUE), 
+  'V5_V1' = c(FALSE, FALSE, TRUE, FALSE, FALSE),
+  'LEAN3V1' = c('#69b1c3', '#40d449', '#02dda0', '#0775d4', '#77fe9d'), 
+  'LEARN_5_V1' = c(2, 4, 16, 17, 20), 
+  'EX_1_V1' = c(1, 2, 3, 4, 5),
+  'EX_2_V1' = c(1, 1, 1, 1, 1), 
+  'TEA1V1' = c('#4443f7', '#71702b', '#4635a9', '#aad37a', '#aeb8c4'), 
+  'TEA2V1' = c('allow', 'ad hoc', 'cheer', 'float', 'rhythm'), 
+  'TEA3V1' = c(4, 7, 8, 15, 20), 
+  'V_2_V1' = c(1, 7, 15, 16, 19), 
+  'V_3_V1' = c(TRUE, FALSE, FALSE, TRUE, TRUE), 
+  'LEARN4_V1' = c('fail', 'stir', 'sharp', 'trite', 'concern')
+)
+
+exdf_v2 <- tibble::tibble(
+  'EXAMP_3_V2' = c('2020-11-01', '2020-11-02', '2020-11-03', '2020-11-04',
+                   '2020-11-05'), 
+  'EX_4_V2' = c('AAA', 'BBB', 'CCC', 'DDD', 'EEE'),  
+  'EX_1_V2' = c(5, 2, 3, 1, 4),
+  'V_3_V2' = c(FALSE, TRUE, TRUE, TRUE, FALSE), 
+  'V4_V2' = c(FALSE, TRUE, FALSE, TRUE, TRUE), 
+  'LEARN1_V2' = c(TRUE, TRUE, FALSE, FALSE, TRUE), 
+  'LEARN2_V2' = c(2, 3, 9, 18, 19), 
+  'EX_2_V2' = c(2, 2, 2, 2, 2), 
+  'EX_5_V2' = c('mail', 'telephone', 'in person', 'in person', 'in person'),
+
+  'LEARN_3_V2' = c('#f9ab20', '#41d85c', '#62b9e2', '#ff5eb1', '#d62fe1'), 
+  'LEARN4_V2' = c('ablaze', 'scrub', 'gaudy', 'reaction', 'abandoned'), 
+  'LEARN_5_V2' = c(2, 5, 12, 14, 15), 
+
+  'TEA3V2' = c(5, 7, 11, 15, 16), 
+  'TEA4V2' = c('sedate', 'unkempt', 'zealous', 'copy', 'launch'),
+  'TEA_5V2' = c(221, 237, 397, 401, 405), 
+  'V_1_V2' = c('wasteful', 'popcorn', 'sordid', 'simple', 'whine'), 
+  'V_2_V2' = c(1, 2, 5, 12, 19), 
+  'TEA1V2' = c('#e2999e', '#41d5b7', '#ec1c4d', '#ec1c4d', '#8a2f1f'), 
+  'TEA2V2' = c('disgusted', 'hard-to-find', 'interesting', 
+               'important', 'uttermost'), 
+  'V5_V2' = c(TRUE, TRUE, TRUE, TRUE, FALSE),
+)
+
+exdf_v3 <- tibble::tibble(
+  'EX_1_V3' = c(2, 3, 4, 5, 1),
+  'EX_2_V3' = c(3, 3, 3, 3, 3),
+  'V_3_V3' = c(TRUE, TRUE, FALSE, FALSE, TRUE), 
+  'TEA4V3' = c('icicle', 'window', 'apparel', 'spooky', 'swanky'),
+  'TEA5V3' = c(49, 130, 322, 372, 470), 
+  'V_4_V3' = c(TRUE, TRUE, TRUE, FALSE, FALSE), 
+  'V_5V3' = c(FALSE, TRUE, TRUE, TRUE, FALSE),
+  'LN_3_V3' = c('#9eb25a', '#7ef5ea', '#d5cd00', '#96ee8c', '#facd88'), 
+  'LN4_V3' = c('hideous', 'entertain', 'married', 'base', 'rice'), 
+  'EXAMP_3_V3' = c('2020-12-01', '2020-12-02', '2020-12-03', '2020-12-04',
+                   '2020-12-05'), 
+  'EX_4_V3' = c('AAA', 'BBB', 'CCC', 'DDD', 'EEE'),
+  'LN_5_V3' = c(4, 8, 12, 13, 19), 
+  'TEA1V3' = c('#ae226b', '#74ac37', '#c088be', '#ebec20', '#03496e'), 
+  'TEA2V3' = c('nippy', 'base', 'mix', 'zoo', 'trousers'), 
+  'TEA3V3' = c(8, 14, 18, 19, 20), 
+  'V_1_V3' = c('bang', 'kittens', 'rambunctious', 'stove', 'ethereal'), 
+  'V_2_V3' = c(1, 8, 11, 12, 15), 
+  'EX_5_V3' = c('telephone', 'telephone', 'telephone', 'mail', 'in person'),
+  'LN1_V3' = c(TRUE, TRUE, FALSE, FALSE, TRUE), 
+  'LN2_V3' = c(8, 10, 14, 15, 17), 
+)
+```
+
+
+## Reading a Variable Map
+
+The variable map was intended to be human readable, such as if it were exported as an excel file. We created a small set of dummy data to provide an example on how to read this variable map.
+
+```{r}
+example_map
+```
+
+To orient, we examine the first row:
+
+The standardized variable name is `ex_1` (`variable`). It is the first item (`item_ord`) a part of the 'example' instrument (`instrument`), which is the first instrument (`inst_ord`) in the section 'section A' (`section`), the first section overall (`sec_ord`). The remaining columns tell us where this value originated: the name of the variable in the source data set(s).
+
+In this case, `ex_1` came from the variable `EX_1_V1` in "exdf_v1", `EX_1_V2` in "exdf_v2", and `EX_1_V3` in "exdf_v3". 
+
+```{r}
+example_map[1,]
+```
+
+While the source variables for `ex_1` appeared standardized, this is not always the case. In looking at the third row, for variable `ex_3`, we see several variations in how the corresponding variable was named in the source data sets. In this case, `ex_2` came from the variable `EX_3_V1` in "exdf_v1", `EXAMP_3_V2` in "exdf_v2", and `EXAMP_3_V3` in "exdf_v3".
+
+Despite this variation, this map helps us ensure all of those source values map appropriately into `ex_3` in the combined data set.
+
+```{r}
+example_map[3,]
+```
+
+## Checking Variable Map Structure (`vm_check()`)
+
+There is a required structure for a variable map to be valid and effective. A function was created to perform this check, return a boolean/logical value indicating if it is valid or invalid, and provide description of the issue if the variable map is invalid.
+
+The function checks that:
+1. Each 'variable' is unique
+2. Each 'section' is consistently represented by a single value of 'sec_ord', and no two sections share the same order
+3. Each 'instrument' is consistently represented by a single value of 'inst_ord'
+There is only one 'instrument' for each 'inst_ord' within the same 'section'
+5. That each 'instrument' only appears within one 'section'
+
+```{r}
+vm_check(example_map)
+```
+
+## Creating a Variable Map
+
+### Creating a Map for an Instrument (`vm_create_for_instrument()`)
+
+In `example_map` created above, we nested several of our creation functions at once. Now that the overall structure is demonstrated, the creation may be understood in greater detail.
+
+Creation starts at the instrument level. For our example, let's say our source data has an instrument called "example" with 5 items. When looking at our column names in each of the data sets, it becomes clear that the variables are in different orders and contain different typos or other variations that may be challenging for simple standardization. 
+
+```{r}
+colnames(exdf_v1)
+```
+
+```{r}
+colnames(exdf_v2)
+```
+
+```{r}
+colnames(exdf_v3)
+```
+
+From careful review of the variable names and the original source data labels and values, we may identify trends that allow us to isolate potential matching variables. We demonstrate this with the first example source data set.
+
+```{r}
+contains_keys <- c("EX_", "EXAMP_")
+starts_with_keys <- c("EX")
+
+exdf_v1_vars <- exdf_v1 %>%
+  select(all_of(contains(contains_keys)), all_of(starts_with(starts_with_keys))
+         ) %>%
+  names()
+
+exdf_v1_vars
+```
+
+In demonstrating with our second example source data set, we see that we have a marked variation: the third item in the instrument has the prefix "EXAMP" instead of "EX". 
+
+```{r}
+exdf_v2_vars <- exdf_v2 %>%
+  select(all_of(contains(contains_keys)), all_of(starts_with(starts_with_keys))
+         ) %>%
+  names()
+
+exdf_v2_vars
+```
+
+We may apply our standardization function to these variables, which give us desired standardized variable names. However, they are not in our desired order.
+
+```{r}
+standardize_col_names(exdf_v1_vars)
+```
+
+We also see that the function is limited when there are marked deviations, such as the "EXAMP" vs "EX" deviation noted in the source set 2 variables.
+
+```{r}
+standardize_col_names(exdf_v2_vars)
+```
+
+We reorder the source variables prior to passing through standardization. This is largely performed manually to avoid future typos shifting the order without raising a warning. So long as the variables from the source data sets are passed in the same order, they will correspond in the final mapping.
+
+```{r}
+exdf_v1_vars <- c("EX_1_V1", "EX_2_V1", "EX_3_V1", "EX4_V1", "EX_5_V1")
+desired_vars <- standardize_col_names(exdf_v1_vars)
+
+desired_vars
+```
+
+In the case of marked deviation, we would also be required to point-fix the desired standardization variables if we were to use them to establish the standardization.
+
+```{r}
+exdf_v2_vars <- c("EX_1_V2", "EX_2_V2", "EXAMP_3_V2", "EX_4_V2", "EX_5_V2")
+
+desired_vars <- standardize_col_names(exdf_v2_vars)
+desired_vars
+```
+
+```{r}
+desired_vars[desired_vars == 'examp_3'] <- 'ex_3'
+
+desired_vars
+```
+
+For simplicity, we have the identified and ordered source variables, and desired end variables, defined below.
+
+```{r}
+exdf_v1_vars <- c('EX_1_V1','EX_2_V1', 'EX_3_V1', 'EX4_V1','EX_5_V1')
+exdf_v2_vars <- c('EX_1_V2','EX_2_V2', 'EXAMP_3_V2', 'EX_4_V2','EX_5_V2')
+exdf_v3_vars <- c('EX_1_V3','EX_2_V3', 'EXAMP_3_V3', 'EX_4_V3','EX_5_V3')
+
+desired_vars <- c('ex_1', 'ex_2', 'ex_3', 'ex_4', 'ex_5')
+```
+
+We simply pass the name of our instrument, and the desired variables in order, to obtain the initial frame of our instrument map. This initial structure only contains `variable`, `instrument`, and `item_ord`.
+
+```{r}
+example_inst <- vm_create_for_instrument('example', desired_vars)
+
+example_inst
+```
+
+To add the variable names from the sources, we simply add their columns to this frame. We do this here for source data from the first and second example sources.
+
+This demonstrates the importance of identifying and ordering the variables in the sources during creation of the variable map. If a variable were absent in one source, remember to add a missing value in that source's list.
+
+```{r}
+example_inst <- example_inst %>%
+  add_column(exdf_v1 = exdf_v1_vars,
+             exdf_v2 = exdf_v2_vars)
+
+example_inst
+```
+
+#### Alternative Methods of Adding Additional Source Data Variables to the Instrument Map
+
+While much simpler at this point, the process of adding a new data source to an existing map can also be demonstrated. We create a basic miniature map of our third example data set, where one column is the name of the variable in the source data and the other is the desired standardized variable we wish to match it to.
+
+```{r}
+exdf_v3_vars <- c('EX_1_V3','EX_2_V3', 'EXAMP_3_V3', 'EX_4_V3','EX_5_V3')
+key_vars <- standardize_col_names(exdf_v3_vars)
+key_vars[key_vars == 'examp_3'] <- 'ex_3'
+
+mini_map <- tibble::tibble(
+  'source_vars' = exdf_v3_vars,
+  'std_vars' = key_vars
+)
+
+mini_map
+```
+
+From there, we can do a simple dplyr mutation using this key-value map.
+
+```{r}
+modified_map <- example_inst %>%
+  mutate(exdf_v3 = mini_map[mini_map$std_vars == variable,]$source_vars)
+
+modified_map
+```
+
+Or, if we have our miniature map named so that the standardized variables are in 'variable', and the source data frame variables are in a column of the desired name, we can simply perform a join.
+
+```{r}
+mini_map <- tibble::tibble(
+  'exdf_v3' = exdf_v3_vars,
+  'variable' = key_vars
+)
+
+modified_map <- left_join(example_inst, mini_map, by = "variable")
+modified_map
+```
+
+Either way, we may perform a simple check to additionally verifiy the variables in our miniature map were all accounted for from our modification:
+
+```{r}
+(length(setdiff(mini_map$exdf_v3, 
+                modified_map$exdf_v3)) == 0) & 
+  (length(setdiff(mini_map$variable, 
+                  modified_map$variable)) == 0)
+
+# TRUE
+```
+
+### Joining Instruments into Sections (`vm_join_inst_section()`)
+
+Instruments are joined together into sections. To demonstrate this, let us say that the instruments "example" and "learning" belong to "section A". For brevity, we establish both instruments below using previously discussed methods.
+
+```{r}
+example_inst <- vm_create_for_instrument('example', 
+                              c('ex_1', 'ex_2', 'ex_3', 'ex_4', 'ex_5')
+                              ) %>%
+  add_column('exdf_v1' = c('EX_1_V1','EX_2_V1', 'EX_3_V1', 'EX4_V1','EX_5_V1'),
+             'exdf_v2' = c('EX_1_V2','EX_2_V2', 'EXAMP_3_V2', 'EX_4_V2', 
+                           'EX_5_V2'),
+             'exdf_v3' = c('EX_1_V3','EX_2_V3', 'EXAMP_3_V3', 'EX_4_V3', 
+                           'EX_5_V3'))
+
+learning_inst <- vm_create_for_instrument('learning', 
+                              c('lrn_1', 'lrn_2', 'lrn_3', 'lrn_4', 'lrn_5')
+                              ) %>%
+  add_column('exdf_v1' = c('LEARN1_V1', 'LEARN2_V1', 'LEAN3V1', 'LEARN4_V1', 
+                          'LEARN_5_V1'),
+             'exdf_v2' = c('LEARN1_V2', 'LEARN2_V2', 'LEARN_3_V2', 'LEARN4_V2', 
+                          'LEARN_5_V2'),
+             'exdf_v3' = c('LN1_V3', 'LN2_V3', 'LN_3_V3', 'LN4_V3', 
+                          'LN_5_V3'))
+```
+
+Joining the instruments into sections is simple. We pass the desired name of the section and a list of the instruments to our function.
+
+```{r}
+example_sec <- vm_join_inst_section('section A', list(example_inst, learning_inst))
+```
+
+### Joining Sections into a Full Map (`vm_join_sections()`)
+
+Joining sections together into a full map is much the same as joining instruments into a section. Let us say our final map has two sections: 'section A' and 'section B'. The instruments 'example' and 'learning' should be in 'section A'. The instruments 'teaching' and 'visualizing' belong to 'section B'.
+
+For brevity, we establish all four instruments utilizing previously discussed methods.
+
+```{r}
+example_inst <- vm_create_for_instrument('example', 
+                              c('ex_1', 'ex_2', 'ex_3', 'ex_4', 'ex_5')
+                              ) %>%
+  add_column('exdf_v1' = c('EX_1_V1','EX_2_V1', 'EX_3_V1', 'EX4_V1','EX_5_V1'),
+             'exdf_v2' = c('EX_1_V2','EX_2_V2', 'EXAMP_3_V2', 'EX_4_V2', 
+                           'EX_5_V2'),
+             'exdf_v3' = c('EX_1_V3','EX_2_V3', 'EXAMP_3_V3', 'EX_4_V3', 
+                           'EX_5_V3'))
+
+learning_inst <- vm_create_for_instrument('learning', 
+                              c('lrn_1', 'lrn_2', 'lrn_3', 'lrn_4', 'lrn_5')
+                              ) %>%
+  add_column('exdf_v1' = c('LEARN1_V1', 'LEARN2_V1', 'LEAN3V1', 'LEARN4_V1', 
+                          'LEARN_5_V1'),
+             'exdf_v2' = c('LEARN1_V2', 'LEARN2_V2', 'LEARN_3_V2', 'LEARN4_V2', 
+                          'LEARN_5_V2'),
+             'exdf_v3' = c('LN1_V3', 'LN2_V3', 'LN_3_V3', 'LN4_V3', 
+                          'LN_5_V3'))
+
+teaching_inst <- vm_create_for_instrument('teaching', 
+                              c('tch_1', 'tch_2', 'tch_3', 'tch_4', 'tch_5')
+                              ) %>%
+  add_column('exdf_v1' = c('TEA1V1', 'TEA2V1', 'TEA3V1', 'TEA4V1', 
+                          'TEA_5V1'),
+             'exdf_v2' = c('TEA1V2', 'TEA2V2', 'TEA3V2', 'TEA4V2', 
+                          'TEA_5V2'),
+             'exdf_v3' = c('TEA1V3', 'TEA2V3', 'TEA3V3', 'TEA4V3', 
+                          'TEA5V3'))
+
+visualizing_inst <- vm_create_for_instrument('visualizing', 
+                              c('vis_1', 'vis_2', 'vis_3', 'vis_4', 'vis_5')
+                              ) %>%
+  add_column('exdf_v1' = c('V_1_1', 'V_2_V1', 'V_3_V1', 'V_4_V', 
+                          'V5_V1'),
+             'exdf_v2' = c('V_1_V2', 'V_2_V2', 'V_3_V2', 'V4_V2', 
+                          'V5_V2'),
+             'exdf_v3' = c('V_1_V3', 'V_2_V3', 'V_3_V3', 'V_4_V3', 
+                          'V_5V3'))
+```
+
+And we establish both of our sections utilizing previously described methods.
+
+```{r}
+section_a_map <- vm_join_inst_section('section A', 
+                                      list(example_inst, learning_inst))
+
+section_b_map <- vm_join_inst_section('section B', 
+                                      list(teaching_inst, visualizing_inst))
+```
+
+Joining these sections into a single map is as simple as passing a list of sections into our defined function.
+
+```{r}
+created_map <- vm_join_sections(list(section_a_map, section_b_map))
+
+created_map
+```
+
+## Modifications of a Variable Map
+
+### Modifying Standardized Variable Names (`variable`)
+
+This map structure also facilitates modifications of standardized variable names, without having to rename every variable manually.
+
+If the third item of the "learning" instrument was renamed in "exdf_v3" for any reason, and we needed to keep the data pipeline intact, we can first check the original standardized name and values:
+
+```{r}
+example_map %>%
+  filter(instrument == "learning") %>%
+  filter(item_ord == 3)
+```
+
+And then use this to make a point-fix. In this example, the new variable in "exdf_v3" is "LEARNING_3_V3".
+
+```{r}
+modifying_map <- example_map
+
+modifying_map[modifying_map$variable == "lrn_3", "exdf_v3"]<- "LEARNING_3_V3"
+
+modifying_map %>%
+  filter(instrument == "learning") %>%
+  filter(item_ord == 3)
+```
+
+We could also rename our standardized variables, such as if we want to move from sequential names to descriptive names. We could do this for a single variable with a point-modification:
+
+```{r}
+modifying_map[modifying_map$variable == "lrn_3", "variable"] <- "enjoys_learning"
+
+modifying_map %>%
+  filter(instrument == "learning") %>%
+  filter(item_ord == 3)
+```
+
+Or for an entire instrument:
+
+```{r}
+modifying_map <- modifying_map %>%
+  arrange(sec_ord, inst_ord, item_ord) %>%
+  mutate(variable = ifelse(instrument == "teaching",
+         case_when(item_ord == 1 ~ "years_teaching",
+                   item_ord == 2 ~ "employed_teaching",
+                   item_ord == 3 ~ "enjoys_teaching",
+                   item_ord == 4 ~ "cert_teaching",
+                   item_ord == 5 ~ "plan_to_teach"), variable)
+  )
+
+modifying_map %>%
+  filter(section == 'section B')
+```
+
+### Obtaining Desired Variable Order
+
+In general, order within the appendix for all items may be obtained by ordering the map by section order, then instrument order, then item order.
+
+```{r}
+modifying_map <- modifying_map %>%
+  arrange(sec_ord, inst_ord, item_ord)
+
+modifying_map
+```
+
+### Inserting Variables `vm_add_variable()`
+
+We may also insert items within our set. Lets say we create a variable, `ex_2_calc`, which we want to appear just after `ex_2`. 
+
+```{r}
+modifying_map <- vm_add_variable(modifying_map, 'example', 'ex_2_calc', 'ex_2')
+
+modifying_map
+```
+
+By using the function, it forbids us from adding a variable name that has already been used.
+
+```{r}
+# Code commented out as it throws an error and stops the document:
+
+# vm_add_variable(modifying_map, 'example', 'ex_2', 'ex_2')
+
+# Error in vm_add_variable(modifying_map, "example", "ex_2", "ex_2") :
+# ex_2 also appears in the map for instrument: example
+```
+
+### Reordering Instruments Within a Section (`inst_ord`)
+
+We can also reorder our instruments within a section. By examining 'section A' we can see two instruments, 'example' and 'learning', which are the first and second instruments in the section.
+
+```{r}
+modifying_map %>%
+  filter(section == 'section A') %>%
+  select(instrument, inst_ord) %>%
+  distinct()
+```
+
+We can change this order by targeting `inst_ord` with respect to `instrument` and `section`. Say we wish for 'learning' to be the first instrument, and 'example' the 3rd, with a place held for an instrument that is not yet part of the map.
+
+```{r}
+modifying_map <- modifying_map %>%
+  mutate(inst_ord = ifelse(section == 'section A',
+                           case_when(
+                             instrument == 'example' ~ 3,
+                             instrument == 'learning' ~ 1
+                           ), inst_ord)
+         ) %>%
+  arrange(sec_ord, inst_ord, item_ord)
+
+modifying_map
+```
+
+### Deleting a Variable (`vm_delete_variable()`)
+
+We can also delete a variable, while shifting the map to close the gap seamlessly.
+
+```{r}
+vm_delete_variable(modifying_map, 'lrn_2')
+```
+
+## Utilizing the Variable Map
+
+Finally, the primary utility of the variable map is how we can utilize this variable map in the initial extraction of the variables into a consolidated data set. The variable map is a single "choke point" for any further modifications that are created.
+
+We could process a single data set using our variable map to achieve our standardized names.
+
+```{r}
+vm_process_source_df(example_map, exdf_v1, 'exdf_v1', c())
+```
+
+Or we could process all of our data sets at once and stack them.
+
+```{r}
+packaged_sources <- tibble::tibble(
+  'source_df' = list(exdf_v1, exdf_v2, exdf_v3),
+  'source_df_col' = c('exdf_v1', 'exdf_v2', 'exdf_v3'),
+  'excluding_vars' = list(c(), c(), c()),
+)
+
+vm_process_many_source(example_map, packaged_sources)
+```
+
+The power of the map is that if, for example, we realized `ex_1` was a subject id and `ex_1` was a collection number, we could rename them on the map *once*. Then any future extracting using the map would utilize these new names without requiring any further modification.
+
+```{r}
+modified_map <- example_map %>%
+  mutate(variable = case_when(
+    variable == 'ex_1' ~ 'id',
+    variable == 'ex_2' ~ 'collection',
+    TRUE ~ variable
+  ))
+
+vm_process_many_source(modified_map, packaged_sources)
+```
+
+Similarly, if a variable is renamed in one of our source data sets, we would be notified by our function.
+
+```{r}
+exdf_v1 <- exdf_v1 %>%
+  rename_at('EX_5_V1', ~'EX5V_1')
+
+packaged_sources <- tibble::tibble(
+  'source_df' = list(exdf_v1, exdf_v2, exdf_v3),
+  'source_df_col' = c('exdf_v1', 'exdf_v2', 'exdf_v3'),
+  'excluding_vars' = list(c(), c(), c()),
+)
+
+# Code commented out as it throws an error and stops the document:
+
+# vm_process_many_source(modified_map, packaged_sources)
+
+# Error in vm_process_source_df(var_map, source_df, source_df_col, excluding_vars) :
+# Variables missing from exdf_v1: EX_5_V1
+# Variables missing from var_map & excluding_vars: EX5V_1
+```
+
+But if we make a single point-fix to our variable map, we can process without issue.
+
+```{r}
+modified_map <- modified_map %>%
+  mutate(exdf_v1 = case_when(
+    exdf_v1 == 'EX_5_V1' ~'EX5V_1',
+    TRUE ~ exdf_v1
+  ))
+  
+  
+packaged_sources <- tibble::tibble(
+  'source_df' = list(exdf_v1, exdf_v2, exdf_v3),
+  'source_df_col' = c('exdf_v1', 'exdf_v2', 'exdf_v3'),
+  'excluding_vars' = list(c(), c(), c()),
+)
+
+vm_process_many_source(modified_map, packaged_sources)
+```
+
+
