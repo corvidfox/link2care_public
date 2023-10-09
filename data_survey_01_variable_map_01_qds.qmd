@@ -176,13 +176,19 @@ walk(
   .x = c(1:5),
   .f = function(x) {
     sav_nm <- paste0("Visit_", x, "_Data.SAV")
-    path <- paste0(qds_spss_path, sav_nm)
+    path <- here(qds_spss_path, sav_nm)
     cat(
       sav_nm, "last modified on OneDrive", 
       as.character(file.info(path)$mtime), "\n"
     )
   }
 )
+
+# Visit_1_Data.SAV last modified on OneDrive 2023-08-25 10:55:05 
+# Visit_2_Data.SAV last modified on OneDrive 2023-08-25 10:55:05 
+# Visit_3_Data.SAV last modified on OneDrive 2023-08-25 10:55:05 
+# Visit_4_Data.SAV last modified on OneDrive 2023-08-25 10:55:05 
+# Visit_5_Data.SAV last modified on OneDrive 2023-08-25 10:55:05
 ```
 
 Import the data
@@ -216,11 +222,11 @@ walk(
 )
 
 # Data check:
-# 2023-08-30: v1 imported with 442 rows and 810 columns.
-# 2023-08-30: v2 imported with 406 rows and 213 columns.
-# 2023-08-30: v3 imported with 273 rows and 542 columns.
-# 2023-08-30: v4 imported with 207 rows and 598 columns.
-# 2023-08-30: v5 imported with 178 rows and 649 columns.
+# 2023-10-09: v1 imported with 442 rows and 810 columns.
+# 2023-10-09: v2 imported with 406 rows and 213 columns.
+# 2023-10-09: v3 imported with 273 rows and 542 columns.
+# 2023-10-09: v4 imported with 207 rows and 598 columns.
+# 2023-10-09: v5 imported with 178 rows and 649 columns.
 ```
 
 ## REDCap 🔴 - PLACEHOLDER - POSSIBLY REMOVING
@@ -244,7 +250,16 @@ cat(
   "REDCap imported with", nrow(redcap), "rows and", ncol(redcap), "columns.\n"
 )
 
-# 2023-10-05: REDCap imported with 119 rows and 845 columns.
+# Check the most recent file modification dates and print for user when this
+# file is being sourced.
+
+cat(
+      "REDCap data last modified on OneDrive", 
+      as.character(file.info(redcap_spss_path)$mtime), "\n"
+    )
+
+# 2023-10-09: REDCap imported with 119 rows and 845 columns.
+# REDCap data last modified on OneDrive 2023-08-25 10:56:25 
 ```
 
 ## Excel Master Log 🔴 - PLACEHOLDER - POSSIBLY REMOVING
@@ -287,7 +302,16 @@ cat(
   "columns.\n"
 )
 
-# 2023-10-05: Master log imported with 501 rows and 2 columns.
+# Check the most recent file modification dates and print for user when this
+# file is being sourced.
+
+cat(
+      "Master log last modified on OneDrive", 
+      as.character(file.info(master_log_path)$mtime), "\n"
+    )
+
+# 2023-10-09: Master log imported with 501 rows and 2 columns.
+# Master log last modified on OneDrive 2023-09-28 11:52:59 
 ```
 
 We removed containers that were no longer necessary.
@@ -341,7 +365,9 @@ This function:
 We kept a running list of variables to exclude from each data set during processing.
 
 ```{r}
-dropping <- list('v1' = c(), 'v2' = c(), 'v3' = c(), 'v4' = c(), 'v5' = c())
+dropping <- list(
+  'v1' = c(), 'v2' = c(), 'v3' = c(), 'v4' = c(), 'v5' = c(), 'redcap' = c()
+  )
 ```
 
 ### Source List
@@ -349,7 +375,9 @@ dropping <- list('v1' = c(), 'v2' = c(), 'v3' = c(), 'v4' = c(), 'v5' = c())
 The list of sources is used by the helper function `flag_unmatching_variables()`
 
 ```{r}
-source_list <- list('v1' = v1, 'v2' = v2, 'v3' = v3, 'v4' = v4, 'v5' = v5)
+source_list <- list(
+  'v1' = v1, 'v2' = v2, 'v3' = v3, 'v4' = v4, 'v5' = v5, 'redcap' = redcap
+  )
 ```
 
 ### List of Section Maps
@@ -366,7 +394,7 @@ all_sections <- list("placeholder" = c())
 The Administrative section is composed of the variables that primarily served administrative and/or bookkeeping purposes, such as subject ID, visit number, and group assignment.
 It is not a specific instrument.
 
-We identified our keys and identified the matching variables in the visit 1 set.
+We identified our keys and identified the matching variables in the QDS Visit 1 set.
 
 ```{r}
 # Must be a "non-empty string", but no valid variable name is a single space
@@ -445,7 +473,7 @@ desired_vars
 # "ctime"      "endtime_1" "etime"
 ```
 
-We checked for any variables that would either standardize differently, or were absent from the visit 1 source data set.
+We checked for any QDS variables that would either standardize differently, or were not present in the Visit 1 source data variables.
 
 ```{r}
 # DATA CHECK: Meant to have human-legible output. 
@@ -489,7 +517,7 @@ for (source_name in unique(flagged_vars$source)){
 ```
 
 We added these 'TEST' variables to the list of variables to exclude.
-We manually checked TEST_V4 in the visit 4 data set, and determined it should be dropped as well.
+We manually checked TEST_V4 in the QDS Visit 4 data set, and determined it should be dropped as well.
 
 ```{r}
 dropping[['v2']] <- c(dropping[['v2']], 'TEST_V2')
@@ -507,10 +535,86 @@ dropping[['v2']] <- c(dropping[['v2']], 'II_V1')
 desired_vars <- append(desired_vars, 'group', 1)
 
 desired_vars
+# [1] "subject"    "group"      "visit"      "visit_type" "today"      "ii"         "ctime"      "endtime"    "etime" 
+```
+
+We manually explored and identified the pertinent REDCap variables for the Administrative Section.
+
+```{r}
+red_vars <- redcap %>%
+  select(
+    'record_id', 'visit_date', 'ii', 'group', 'visit', 'redcap_event_name',
+    'ii_v1', 'visit_v1', 'email',
+    'macarthur_major_discrimination_timestamp',
+    'macarthur_major_discrimination_timestamp', 
+    'macarthur_major_discrimination_complete',
+    'perceived_stress_scale_timestamp', 
+    'perceived_stress_scale_complete'
+    ) %>%
+  names()
+
+red_vars
+
+#  [1] "record_id"                               
+#  [2] "visit_date"                              
+#  [3] "ii"                                      
+#  [4] "group"                                   
+#  [5] "visit"                                   
+#  [6] "redcap_event_name"                       
+#  [7] "ii_v1"                                   
+#  [8] "visit_v1"                                
+#  [9] "email"                                   
+# [10] "macarthur_major_discrimination_timestamp"
+# [11] "macarthur_major_discrimination_complete" 
+# [12] "perceived_stress_scale_timestamp"        
+# [13] "perceived_stress_scale_complete"    
+```
+
+We checked to see if any of these REDCap variables were only missing values.
+
+```{r}
+# DATA CHECK: checking if variable only contains missing values.
+
+for (var in red_vars){
+  if(sum(!is.na(redcap[,var])) == 0){
+    print(paste(var, "is only missing values"))
+  }
+}
+
+# [1] "ii_v1 is only missing values"
+# [1] "visit_v1 is only missing values"
+# [1] "macarthur_major_discrimination_timestamp is only missing values"
+```
+
+We dropped the variables that only contained missing values. We updated our desired variables to include the variables introduced in the REDCap data set, in our desired order.
+
+```{r}
+dropping[['redcap']] <- c(
+  dropping[['redcap']], 'ii_v1', 'visit_v1',
+  'macarthur_major_discrimination_timestamp'
+)
+
+desired_vars <- append(desired_vars, 'redcap_event_name', 3)
+desired_vars <- append(
+  desired_vars, 
+  c('maca_mdd_complete', 'ps_timestamp', 'ps_complete', 'email'), 
+  length(desired_vars)
+  )
+
+desired_vars
+#  [1] "subject"           "group"             "visit"            
+#  [4] "redcap_event_name" "redcap_event_name" "visit_type"       
+#  [7] "today"             "ii"                "ctime"            
+# [10] "endtime"           "etime"             "maca_mdd_complete"
+# [13] "ps_timestamp"      "ps_complete"       "maca_mdd_complete"
+# [16] "ps_timestamp"      "ps_complete"       "email"   
 ```
 
 We created our source maps, linking each source data set variable to the desired initially standardized variable name.
-Each 'ENDTIME' variable required point-modification to ensure correct maping, as it evaded our standardization function.
+
+Each 'ENDTIME' variable in the QDS data required point-modification to ensure correct maping, as it evaded our standardization function.
+
+As the REDCap variable naming was significantly different from the QDS variable naming, we manually created our source map for this set.
 
 ```{r}
 source_maps <- vm_make_source_map(
@@ -548,6 +652,30 @@ source_maps <- vm_make_source_map(
       ) %>%
   mutate(variable = ifelse(variable == 'endtime_5', 'endtime', variable)
          ),
+  by = "variable"
+  ) %>%
+  # REDCAP
+  full_join(tibble::tibble(
+    'redcap' = (
+      redcap %>%
+        select(all_of(c(
+            'ii', 'group', 'visit', 'redcap_event_name', 'visit_date', 
+            'record_id', 'email',
+            'macarthur_major_discrimination_complete',
+            'perceived_stress_scale_timestamp', 
+            'perceived_stress_scale_complete'
+            ))
+          ) %>%
+        names()
+    ),
+    'variable' = c(
+        'ii', 'group', 'visit', 'redcap_event', 'today', 
+        'subject', 'email',
+        'maca_mdd_complete',
+        'ps_timestamp', 
+        'ps_complete'
+        )
+    ),
   by = "variable"
   ) %>%
   # Move 'variable' key column to the beginning
@@ -596,15 +724,15 @@ sec_instruments <- list("placeholder" = c())
 
 ### Screening Questionnaire
 
-We identified our keys and identified the matching variables in the visit 1 set.
+We identified our keys and identified the matching variables in the QDS Visit 1 set.
 
 ```{r}
 # Must be a "non-empty string", but no valid variable name is a single space
 incl_keys <- list(
   'starts_with' = c(
-    "GENDER", "SQ"
+    "SQ"
   ), 
-  'contains' = c(" ")
+  'contains' = c("GENDER")
   )
 
 # Must be a "non-empty string", but no valid variable name is a single space
@@ -626,28 +754,101 @@ vars_v1 <- v1 %>%
 
 vars_v1
 
-#  [1] "GENDER" "SQ_2"   "SQ_3"   "SQ_4"   "SQ_5"   "SQ_6"   "SQ_7"  
-#  [8] "SQ_7A"  "SQ_7B"  "SQ_7C"  "SQ_7D"  "SQ_8"   "SQ_9"   "SQ_9L" 
-# [15] "SQ_10"  "SQ_11"  "SQ_12"  "SQ_13"  "SQ_14"  "SQ_15"  "SQ_16" 
-# [22] "SQ_17"  "SQ_18"  "SQ_19"  "SQ_20"  "SQ_21"  "SQ_22"  "SQ_23" 
-# [29] "SQ_18A" "SQ_18B" "SQ_18C" "SQ_18D" "SQ_18E" "SQ_18F" "SQ_18G"
-# [36] "SQ_18H" "SQ_18I" "SQ_22A" "SQ_22B" "SQ_22C" "SQ_22D" "SQ_22E"
-# [43] "SQ_22F" "SQ_22G" "SQ_22H"
+#  [1] "SQ_2"   "SQ_3"   "SQ_4"   "SQ_5"   "SQ_6"   "SQ_7"   "SQ_7A" 
+#  [8] "SQ_7B"  "SQ_7C"  "SQ_7D"  "SQ_8"   "SQ_9"   "SQ_9L"  "SQ_10" 
+# [15] "SQ_11"  "SQ_12"  "SQ_13"  "SQ_14"  "SQ_15"  "SQ_16"  "SQ_17" 
+# [22] "SQ_18"  "SQ_19"  "SQ_20"  "SQ_21"  "SQ_22"  "SQ_23"  "SQ_18A"
+# [29] "SQ_18B" "SQ_18C" "SQ_18D" "SQ_18E" "SQ_18F" "SQ_18G" "SQ_18H"
+# [36] "SQ_18I" "SQ_22A" "SQ_22B" "SQ_22C" "SQ_22D" "SQ_22E" "SQ_22F"
+# [43] "SQ_22G" "SQ_22H" "GENDER"
 ```
 
-We checked to see if any of these variables were only missing values in Visit 1, and none were.
+We checked to see if any of these QDS variables were only missing values, and found none.
 
 ```{r}
 # DATA CHECK: checking if variable only contains missing values.
 
+missing_val_vars <- c()
+
 for (var in vars_v1){
   if(sum(!is.na(v1[,var])) == 0){
     print(paste(var, "is only missing values"))
+    missing_val_vars <- c(missing_val_vars, var)
   }
 }
+
 ```
 
-We set our initial desired order and standardization.
+We identified the pertinent variables from the REDCap data set. 
+
+```{r}
+red_vars <- redcap %>%
+    select(all_of(starts_with(incl_keys$starts_with)),
+           all_of(contains(incl_keys$contains))
+         ) %>%
+    select(-c(
+      all_of(starts_with(excl_keys$starts_with)),
+      all_of(contains(excl_keys$contains))
+      )
+    ) %>%
+  names()
+
+red_vars
+
+#  [1] "sq_2"         "sq_3"         "sq_4"         "sq_5"        
+#  [5] "sq_6"         "sq_7"         "sq_7a"        "sq_7b1"      
+#  [9] "sq_7b2"       "sq_7d"        "sq_8"         "sq_9"        
+# [13] "sq_9l"        "sq_10"        "sq_11"        "sq_12"       
+# [17] "sq_13"        "sq_14"        "sq_15"        "sq_16"       
+# [21] "sq_17"        "sq_18___0"    "sq_18___1"    "sq_18___2"   
+# [25] "sq_18___3"    "sq_18___4"    "sq_18___5"    "sq_18___6"   
+# [29] "sq_18___7"    "sq_18___8"    "sq_19"        "sq_20"       
+# [33] "sq_21"        "sq_22___0"    "sq_22___1"    "sq_22___2"   
+# [37] "sq_22___3"    "sq_22___4"    "sq_22___5"    "sq_22___6"   
+# [41] "sq_22___7"    "sq_23"        "visit_gender" "gender"  
+```
+
+
+We checked to see if any of these variables were only missing values in the REDCap. We found that 26 of our 44 variables only contained missing values.
+
+```{r}
+# DATA CHECK: checking if variable only contains missing values.
+
+for (var in red_vars){
+  if(sum(!is.na(redcap[,var])) == 0){
+    print(paste(var, "is only missing values"))
+  }
+}
+
+# [1] "sq_2 is only missing values"
+# [1] "sq_3 is only missing values"
+# [1] "sq_4 is only missing values"
+# [1] "sq_5 is only missing values"
+# [1] "sq_6 is only missing values"
+# [1] "sq_7 is only missing values"
+# [1] "sq_7a is only missing values"
+# [1] "sq_7b1 is only missing values"
+# [1] "sq_7b2 is only missing values"
+# [1] "sq_7d is only missing values"
+# [1] "sq_8 is only missing values"
+# [1] "sq_9 is only missing values"
+# [1] "sq_9l is only missing values"
+# [1] "sq_10 is only missing values"
+# [1] "sq_11 is only missing values"
+# [1] "sq_12 is only missing values"
+# [1] "sq_13 is only missing values"
+# [1] "sq_14 is only missing values"
+# [1] "sq_15 is only missing values"
+# [1] "sq_16 is only missing values"
+# [1] "sq_17 is only missing values"
+# [1] "sq_19 is only missing values"
+# [1] "sq_20 is only missing values"
+# [1] "sq_21 is only missing values"
+# [1] "sq_23 is only missing values"
+# [1] "gender is only missing values"
+```
+
+We set our initial desired order and standardization using the QDS variables.
 We utilized tidyselect to enable a warning/error message if the variable name changes after our initial processing, to facilitate updates.
 
 ```{r}
@@ -678,16 +879,55 @@ desired_vars
 # [43] "sq_22g" "sq_22h" "sq_23" 
 ```
 
-We checked for any variables that would either standardize differently, or were absent from the visit 1 source data set, and found none.
+
+We checked for any variables that would either standardize differently, or were not already identified. We manually verified that similar variables corresponded to the same question (i.e. "sq_2" in both REDCap and QDS corresponded to the item "Are you Hispanic or Latino?"). 
+
+We determined that QDS item `sq_7` corresponded to REDCap item `sq_7b2` and `sq_7b1` was an addition in the REDCap data, as the item was divided in the REDCap format. The dummy categorical variables for the select all that apply questions `sq_18` and `sq_22` would require manual renaming, as they were not compatible with our standardization function.
+
 
 ```{r}
 # DATA CHECK: Meant to have human-legible output. 
 
-flagged_vars <- flag_unmatching_variables(source_list, desired_vars, 
-                          incl_keys, excl_keys)
+flagged_vars <- flag_unmatching_variables(
+  source_list, 
+  desired_vars, incl_keys, excl_keys
+  )
+
+# [1] "In source  v1 : "       
+# [2] "In source  v2 : "      
+# [3] "In source  v3 : "       
+# [4] "In source  v4 : "    
+# [5] "In source  v5 : " 
+# [6] "In source  redcap : sq_7b1, sq_7b2, sq_18___0, sq_18___1, sq_18___2, 
+# sq_18___3, sq_18___4, sq_18___5, sq_18___6, sq_18___7, sq_18___8, sq_22___0,
+# sq_22___1, sq_22___2, sq_22___3, sq_22___4, sq_22___5, sq_22___6, sq_22___7,
+# visit_gender"
 ```
 
-We created our source maps
+We dropped the `gender` variable which only contained missing values, in favor of standardizing the `visit_gender` variable which did contain the pertinent values to `gender`. We added the new `sq_7b_1` variable to our list of desired variables after our QDS `sq_7b`, and planned to map the REDCap `sq_7b_2` to the QDS `sq_7b`. 
+
+```{r}
+dropping[['redcap']] <- c(
+  dropping[['redcap']], 'gender'
+)
+
+desired_vars <- append(
+  desired_vars, 'sq_7b_1', which(desired_vars == 'sq_7b')
+                       )
+
+desired_vars
+
+#  [1] "gender"  "sq_2"    "sq_3"    "sq_4"    "sq_5"    "sq_6"   
+#  [7] "sq_7"    "sq_7a"   "sq_7b"   "sq_7b_1" "sq_7c"   "sq_7d"  
+# [13] "sq_8"    "sq_9"    "sq_9l"   "sq_10"   "sq_11"   "sq_12"  
+# [19] "sq_13"   "sq_14"   "sq_15"   "sq_16"   "sq_17"   "sq_18"  
+# [25] "sq_18a"  "sq_18b"  "sq_18c"  "sq_18d"  "sq_18e"  "sq_18f" 
+# [31] "sq_18g"  "sq_18h"  "sq_18i"  "sq_19"   "sq_20"   "sq_21"  
+# [37] "sq_22"   "sq_22a"  "sq_22b"  "sq_22c"  "sq_22d"  "sq_22e" 
+# [43] "sq_22f"  "sq_22g"  "sq_22h"  "sq_23"  
+```
+
+We created our source maps, including the required point-fixes.
 
 ```{r}
 source_maps <- vm_make_source_map(
@@ -716,6 +956,35 @@ source_maps <- vm_make_source_map(
   source_list, dropping, 5, 'v5', incl_keys, excl_keys
       ), 
   by = 'variable'
+  ) %>%
+  # REDCap
+  full_join(vm_make_source_map(
+    source_list, dropping, 6, 'redcap', incl_keys, excl_keys
+    ) %>%
+    mutate(variable = case_when(
+      variable == 'visit_gender' ~ 'gender',
+      variable == 'sq_7b_2' ~ 'sq_7b',
+      variable == 'sq_18___0' ~ 'sq_18a',
+      variable == 'sq_18___1' ~ 'sq_18b',
+      variable == 'sq_18___2' ~ 'sq_18c',
+      variable == 'sq_18___3' ~ 'sq_18d',
+      variable == 'sq_18___4' ~ 'sq_18e',
+      variable == 'sq_18___5' ~ 'sq_18f',
+      variable == 'sq_18___6' ~ 'sq_18g',
+      variable == 'sq_18___7' ~ 'sq_18h',
+      variable == 'sq_18___8' ~ 'sq_18i',
+      variable == 'sq_22___0' ~ 'sq_22a',
+      variable == 'sq_22___1' ~ 'sq_22b',
+      variable == 'sq_22___2' ~ 'sq_22c',
+      variable == 'sq_22___3' ~ 'sq_22d',
+      variable == 'sq_22___4' ~ 'sq_22e',
+      variable == 'sq_22___5' ~ 'sq_22f',
+      variable == 'sq_22___6' ~ 'sq_22g',
+      variable == 'sq_22___7' ~ 'sq_22h',
+      TRUE ~ variable
+    )
+  ),
+  by = "variable"
   ) %>%
   # Move 'variable' key column to the beginning
   relocate(variable)
@@ -746,7 +1015,7 @@ rm(inst_map)
 
 ### Mini-Mental State Exam
 
-We identified our keys and identified the matching variables in the visit 1 set.
+We identified our keys and identified the matching variables in the QDS Visit 1 set.
 
 ```{r}
 # Must be a "non-empty string", but no valid variable name is a single space
@@ -805,7 +1074,61 @@ for (var in vars_v1){
 }
 ```
 
-We set our initial desired order and standardization.
+We identified the pertinent variables from the REDCap data set. 
+
+```{r}
+red_vars <- redcap %>%
+    select(all_of(starts_with(incl_keys$starts_with)),
+           all_of(contains(incl_keys$contains))
+         ) %>%
+    select(-c(
+      all_of(starts_with(excl_keys$starts_with)),
+      all_of(contains(excl_keys$contains))
+      )
+    ) %>%
+  names()
+
+red_vars 
+
+#  [1] "mms_1a"    "mms_1b"    "mms_1c"    "mms_1d"    "mms_1e"   
+#  [6] "mms_2a"    "mms_2b"    "mms_2c"    "mms_2d"    "mms_2e"   
+# [11] "mms_3___1" "mms_3___2" "mms_3___3" "mms_3___0" "mms_4___0"
+# [16] "mms_4___1" "mms_4___2" "mms_4___3" "mms_4___4" "mms_4___5"
+# [21] "mms4v___1" "mms4v___2" "mms4v___3" "mms4v___4" "mms4v___5"
+# [26] "mms4v___0" "mms_5___1" "mms_5___2" "mms_5___3" "mms_5___0"
+# [31] "mms_6___1" "mms_6___2" "mms_6___0" "mms_7"     "mms_8___1"
+# [36] "mms_8___2" "mms_8___3" "mms_8___0" "mms_9"     "mms_10"   
+# [41] "mms_11"
+```
+
+We checked to see if any of these variables were only missing values in the REDCap. We found that 14 of our 41 variables only contained missing values.
+
+```{r}
+# DATA CHECK: checking if variable only contains missing values.
+
+for (var in red_vars){
+  if(sum(!is.na(redcap[,var])) == 0){
+    print(paste(var, "is only missing values"))
+  }
+}
+
+# [1] "mms_1a is only missing values"
+# [1] "mms_1b is only missing values"
+# [1] "mms_1c is only missing values"
+# [1] "mms_1d is only missing values"
+# [1] "mms_1e is only missing values"
+# [1] "mms_2a is only missing values"
+# [1] "mms_2b is only missing values"
+# [1] "mms_2c is only missing values"
+# [1] "mms_2d is only missing values"
+# [1] "mms_2e is only missing values"
+# [1] "mms_7 is only missing values"
+# [1] "mms_9 is only missing values"
+# [1] "mms_10 is only missing values"
+# [1] "mms_11 is only missing values"
+```
+
+We set our initial desired order and standardization using the QDS variables.
 We utilized tidyselect to enable a warning/error message if the variable name changes after our initial processing, to facilitate updates.
 
 ```{r}
@@ -840,7 +1163,9 @@ desired_vars
 # [55] "mms_11"  "mms_s"  
 ```
 
-We checked for any variables that would either standardize differently, or were absent from the visit 1 source data set.
+We checked for any variables that would either standardize differently, or were not already identified. We manually verified that similar variables corresponded to the same question (i.e. "mms_1a" in both REDCap and QDS corresponded to the item "What year is it?"). 
+
+We identified `mms_score`, `MMS_total`, and `MMS_severity` as SPSS calculated variables we wished to drop. We also found variable name variations in both QDS Visit 5 and the REDCap data which evaded our standardization function, and would require manual assignment.
 
 ```{r}
 # DATA CHECK: Meant to have human-legible output. 
@@ -848,17 +1173,25 @@ We checked for any variables that would either standardize differently, or were 
 flagged_vars <- flag_unmatching_variables(source_list, desired_vars, 
                           incl_keys, excl_keys)
 
-# Warning: Warning: The following column name(s) could not be standardized because it/they would have created a duplicate column name: MMS_4_V5, MMS4_V5, MMS_4_V5A, MMS4_V5A, MMS_4_V5B, MMS4_V5B, MMS_4_V5C, MMS4_V5C, MMS_4_V5D, MMS4_V5D, MMS_4_V5E, MMS4_V5E, MMS_4_V5F, MMS4_V5F
-# [1] "In source  v1 : mms_score, MMS_total, MMS_severity"  
-# [2] "In source  v2 : "   
-# [3] "In source  v3 : "                                            
-# [4] "In source  v4 : "                                                 
-# [5] "In source  v5 : MMS_1D_5, MMS_4_V5, MMS4_V5, MMS_4_V5A, MMS_4_V5B, MMS_4_V5C, MMS_4_V5D, MMS_4_V5E, MMS_4_V5F, MMS4_V5A, MMS4_V5B, MMS4_V5C, MMS4_V5D, MMS4_V5E, MMS4_V5F, mms_score_V5, MMS_total_V5, MMS_severity_V5"
+# Warning: Warning: The following column name(s) could not be standardized 
+# because it/they would have created a duplicate column name: MMS_4_V5, 
+# MMS4_V5, MMS_4_V5A, MMS4_V5A, MMS_4_V5B, MMS4_V5B, MMS_4_V5C, MMS4_V5C, 
+# MMS_4_V5D, MMS4_V5D, MMS_4_V5E, MMS4_V5E, MMS_4_V5F, MMS4_V5F
+# [1] "In source  v1 : mms_score, MMS_total, MMS_severity"          
+# [2] "In source  v2 : "                         
+# [3] "In source  v3 : "  
+# [4] "In source  v4 : "   
+# [5] "In source  v5 : MMS_1D_5, MMS_4_V5, MMS4_V5, MMS_4_V5A, MMS_4_V5B, 
+# MMS_4_V5C, MMS_4_V5D, MMS_4_V5E, MMS_4_V5F, MMS4_V5A, MMS4_V5B, MMS4_V5C, 
+# MMS4_V5D, MMS4_V5E, MMS4_V5F, mms_score_V5, MMS_total_V5, MMS_severity_V5"
+# [6] "In source  redcap : mms_3___1, mms_3___2, mms_3___3, mms_3___0, 
+# mms_4___0, mms_4___1, mms_4___2, mms_4___3, mms_4___4, mms_4___5, mms4v___1,
+# mms4v___2, mms4v___3, mms4v___4, mms4v___5, mms4v___0, mms_5___1, mms_5___2,
+# mms_5___3, mms_5___0, mms_6___1, mms_6___2, mms_6___0, mms_8___1, mms_8___2,
+# mms_8___3, mms_8___0"
 ```
 
 We checked if any of these flagged variables contained only empty values, and found none.
-These variables were manually checked.
-The majority of the variables in the QDS V5 data set were due to unique naming differences that escaped our standardization function.
 
 ```{r}
 # DATA CHECK: checking if variables only contain missing values.
@@ -879,7 +1212,7 @@ for (source_name in unique(flagged_vars$source)){
 }
 ```
 
-The others, such as `mms_score`, `MMS_total`, and `MMS_severity` were SPSS calculated variables we wished to drop and recreate in R.
+We dropped the SPSS calculated variables `mms_score`, `MMS_total`, and `MMS_severity`.
 
 ```{r}
 dropping[['v1']] <- c(
@@ -890,7 +1223,8 @@ dropping[['v5']] <- c(
 ```
 
 We created our source maps, linking each source data set variable to the desired initially standardized variable name.
-Several of the Visit 5 variables required point-corrections due to the unique naming issues evading our standardization function.
+
+Several of the QDS Visit 5 and REDCap variables required point-corrections due to the unique naming issues evading our standardization function.
 
 ```{r}
 source_maps <- vm_make_source_map(
@@ -938,6 +1272,44 @@ source_maps <- vm_make_source_map(
          ),
   by = "variable"
   ) %>%
+  # REDCap
+  full_join(
+    vm_make_source_map(
+      source_list, dropping, 6, 'redcap', incl_keys, excl_keys
+        ) %>%
+    mutate(variable = case_when(
+      variable == 'mms_3___1' ~ 'mms_3g',
+      variable == 'mms_3___2' ~ 'mms_3h',
+      variable == 'mms_3___3' ~ 'mms_3i',
+      variable == 'mms_3___0' ~ 'mms_3j',
+      variable == 'mms_4___1' ~ 'mms_4a',
+      variable == 'mms_4___2' ~ 'mms_4b',
+      variable == 'mms_4___3' ~ 'mms_4c',
+      variable == 'mms_4___4' ~ 'mms_4d',
+      variable == 'mms_4___5' ~ 'mms_4e',
+      variable == 'mms_4___0' ~ 'mms_4f',
+      variable == 'mms_4v___1' ~ 'mms_4va',
+      variable == 'mms_4v___2' ~ 'mms_4vb',
+      variable == 'mms_4v___3' ~ 'mms_4vc',
+      variable == 'mms_4v___4' ~ 'mms_4vd',
+      variable == 'mms_4v___5' ~ 'mms_4ve',
+      variable == 'mms_4v___0' ~ 'mms_4vf',
+      variable == 'mms_5___1' ~ 'mms_5a',
+      variable == 'mms_5___2' ~ 'mms_5b',
+      variable == 'mms_5___3' ~ 'mms_5c',
+      variable == 'mms_5___0' ~ 'mms_5d',
+      variable == 'mms_6___1' ~ 'mms_6a',
+      variable == 'mms_6___2' ~ 'mms_6b',
+      variable == 'mms_6___0' ~ 'mms_6c',
+      variable == 'mms_8___1' ~ 'mms_8a',
+      variable == 'mms_8___2' ~ 'mms_8b',
+      variable == 'mms_8___3' ~ 'mms_8c',
+      variable == 'mms_8___0' ~ 'mms_8d',
+      TRUE ~ variable
+      )
+    ),
+  by = "variable"
+  ) %>%
   # Move 'variable' key column to the beginning
   relocate(variable)
 
@@ -966,7 +1338,7 @@ rm(inst_map)
 
 ### Rapid Estimate of Adult Literacy in Medicine (REALM)
 
-We identified our keys and identified the matching variables in the visit 1 set.
+We identified our keys and identified the matching variables in the QDS Visit 1 set.
 
 ```{r}
 # Must be a "non-empty string", but no valid variable name is a single space
@@ -1000,7 +1372,7 @@ vars_v1
  # [7] "REALME"  "REALMF"  "REALMG"  "REALMH"  "REALMI"
 ```
 
-We checked to see if any of these variables were only missing values in Visit 1, and none were.
+We checked to see if any of these variables were only missing values in QDS Visit 1, and none were.
 
 ```{r}
 # DATA CHECK: checking if variable only contains missing values.
@@ -1012,8 +1384,41 @@ for (var in vars_v1){
 }
 ```
 
-We set our initial desired order and standardization.
-We utilized tidyselect to enable a warning/error message if the variable name changes after our initial processing, to facilitate updates.
+We identified the pertinent variables from the REDCap data set. 
+
+```{r}
+red_vars <- redcap %>%
+    select(all_of(starts_with(incl_keys$starts_with)),
+           all_of(contains(incl_keys$contains))
+         ) %>%
+    select(-c(
+      all_of(starts_with(excl_keys$starts_with)),
+      all_of(contains(excl_keys$contains))
+      )
+    ) %>%
+  names()
+
+red_vars 
+
+ # [1] "realm___0"   "realm___1"   "realm___2"   "realm___3"  
+ # [5] "realm___4"   "realm___5"   "realm___6"   "realm___7"  
+ # [9] "realm___8"   "realm_score"
+```
+
+We checked to see if any of these variables were only missing values in the REDCap. We found that the variable `realm_score` only contained missing values.
+
+```{r}
+# DATA CHECK: checking if variable only contains missing values.
+
+for (var in red_vars){
+  if(sum(!is.na(redcap[,var])) == 0){
+    print(paste(var, "is only missing values"))
+  }
+}
+
+```
+
+We set our initial desired order and standardization based on the QDS variables. We utilized tidyselect to enable a warning/error message if the variable name changes after our initial processing, to facilitate updates.
 
 ```{r}
 vars_v1 <- v1 %>%
@@ -1033,7 +1438,7 @@ desired_vars
  # [7] "realmf"  "realmg"  "realmh"  "realmi"  "realm_s"
 ```
 
-We checked for any variables that would either standardize differently, or were absent from the visit 1 source data set, and found none.
+We checked for any variables that would either standardize differently, or were not already identified. We manually verified that similar variables corresponded to the same question (i.e. "realm_a" in QDS and "ream_0" in REDCap corresponded to the item "Fat"). We found that our REDCap variables all escaped our standardization function.
 
 ```{r}
 # DATA CHECK: Meant to have human-legible output. 
@@ -1042,7 +1447,7 @@ flagged_vars <- flag_unmatching_variables(source_list, desired_vars,
                           incl_keys, excl_keys)
 ```
 
-We created our source maps
+We created our source maps, including the required manual assignment of variable names for the REDCap data sets.
 
 ```{r}
 source_maps <- vm_make_source_map(
@@ -1071,6 +1476,27 @@ source_maps <- vm_make_source_map(
   source_list, dropping, 5, 'v5', incl_keys, excl_keys
       ), 
   by = 'variable'
+  ) %>%
+  # REDCap
+  full_join(
+    vm_make_source_map(
+      source_list, dropping, 6, 'redcap', incl_keys, excl_keys
+        ) %>%
+    mutate(variable = case_when(
+      variable == 'realm___0' ~ 'realma',
+      variable == 'realm___1' ~ 'realmb',
+      variable == 'realm___2' ~ 'realmc',
+      variable == 'realm___3' ~ 'realmd',
+      variable == 'realm___4' ~ 'realme',
+      variable == 'realm___5' ~ 'realmf',
+      variable == 'realm___6' ~ 'realmg',
+      variable == 'realm___7' ~ 'realmh',
+      variable == 'realm___8' ~ 'realmi',
+      variable == 'realm_score' ~ 'realm_s',
+      TRUE ~ variable
+      )
+    ),
+  by = "variable"
   ) %>%
   # Move 'variable' key column to the beginning
   relocate(variable)
@@ -1101,7 +1527,7 @@ rm(inst_map)
 
 ### Anthropometrics
 
-We identified our keys and identified the matching variables in the visit 1 set.
+We identified our keys and identified the matching variables in the QDS Visit 1 set.
 
 ```{r}
 # Must be a "non-empty string", but no valid variable name is a single space
@@ -1109,7 +1535,9 @@ incl_keys <- list(
   'starts_with' = c(
     "HEIGHT", "CO", "READ", "WAIST_C", "BMI"
   ), 
-  'contains' = c("WEIGHT", "BMI", "OBESE")
+  'contains' = c(
+    "WEIGHT", "BMI", "OBESE"
+    )
   )
 
 # Must be a "non-empty string", but no valid variable name is a single space
@@ -1139,7 +1567,7 @@ vars_v1
 # [13] "obese_V1"           "ovrwt_obese_V1"    
 ```
 
-We checked to see if any of these variables were only missing values in Visit 1, and none were.
+We checked to see if any of these variables were only missing values in QDS Visit 1, and none were.
 
 ```{r}
 # DATA CHECK: checking if variable only contains missing values.
@@ -1151,8 +1579,43 @@ for (var in vars_v1){
 }
 ```
 
-We set our initial desired order and standardization.
-We utilized tidyselect to enable a warning/error message if the variable name changes after our initial processing, to facilitate updates.
+We identified the pertinent variables from the REDCap data set. 
+
+```{r}
+red_vars <- redcap %>%
+    select(all_of(starts_with(incl_keys$starts_with)),
+           all_of(contains(incl_keys$contains))
+         ) %>%
+    select(-c(
+      all_of(starts_with(excl_keys$starts_with)),
+      all_of(contains(excl_keys$contains))
+      )
+    ) %>%
+  names()
+
+red_vars 
+
+# [1] "read1_v1" "read2_v1" "read3_v5"
+```
+
+We checked to see if any of these variables were only missing values in the REDCap. We found that all three of our variables only contained missing values.
+
+```{r}
+# DATA CHECK: checking if variable only contains missing values.
+
+for (var in red_vars){
+  if(sum(!is.na(redcap[,var])) == 0){
+    print(paste(var, "is only missing values"))
+  }
+}
+
+# [1] "read1_v1 is only missing values"
+# [1] "read2_v1 is only missing values"
+# [1] "read3_v5 is only missing values"
+```
+
+We set our initial desired order and standardization utilizing the QDS variables. We utilized tidyselect to enable a warning/error message if the variable name changes after our initial processing, to facilitate updates.
+
 The SPSS calculated variables `weight_kg_V1`, `weight_status_V1`, `height_meter_V1`, `height_meter_sq_V1`, `BMI_V1`, `obese_V1`, and `ovrwt_obese_V1` were excluded.
 
 ```{r}
@@ -1173,8 +1636,9 @@ desired_vars
 # [7] "read_3" 
 ```
 
-We checked for any variables that would either standardize differently, or were absent from the visit 1 source data set.
-We identified both the variations of the SPSS calculated variables we wished to drop, and naming conventions which escaped our standardizing function.
+We checked for any variables that would either standardize differently, or were not already identified. We manually verified that similar variables corresponded to the same question (i.e. "read_1" in both REDCap and QDS corresponded to the item "Do you use reading glasses?"). 
+
+We identified the variations of the SPSS calculated variables we wished to drop, and naming conventions which escaped our standardizing function.
 
 ```{r}
 # DATA CHECK: Meant to have human-legible output. 
@@ -1182,11 +1646,20 @@ We identified both the variations of the SPSS calculated variables we wished to 
 flagged_vars <- flag_unmatching_variables(source_list, desired_vars, 
                           incl_keys, excl_keys)
 
-# [1] "In source  v1 : height_meter_V1, height_meter_sq_V1, BMI_V1, weight_kg_V1, weight_status_V1, obese_V1, ovrwt_obese_V1" 
-# [2] "In source  v2 : "             
-# [3] "In source  v3 : HEIGHT_3, height_meter_V3, height_meter_sq_V3, WAIST_C3, BMI_V3, WEIGHT_3, weight_kg_V3, weight_status_V3, obese_V3, ovrwt_obese_V3"
-# [4] "In source  v4 : height_meter_V4, height_meter_sq_V4, WAIST_C4, BMI_V4, WEIGHT_4, weight_kg_V4, weight_status_V4, obese_V4, ovrwt_obese_V4"
-# [5] "In source  v5 : height_meter_V5, height_meter_sq_V5, WAIST_C5, BMI_V5, WEIGHT_5, weight_kg_V5, weight_status_V5, obese_V5, ovrwt_obese_V5" 
+# [1] "In source  v1 : HEIGHT, height_meter_V1, height_meter_sq_V1, CO_V1, 
+# READ1_V1, READ2_V1, READ3_V5, WAIST_C, BMI_V1, WEIGHT, weight_kg_V1, 
+# weight_status_V1, obese_V1, ovrwt_obese_V1"      
+# [2] "In source  v2 : READ1_V2, READ2_V2, READ3_V2"     
+# [3] "In source  v3 : HEIGHT_3, height_meter_V3, height_meter_sq_V3, CO_V3, 
+# READ1_V3, READ2_V3, READ3_V3, WAIST_C3, BMI_V3, WEIGHT_3, weight_kg_V3, 
+# weight_status_V3, obese_V3, ovrwt_obese_V3" 
+# [4] "In source  v4 : HEIGHT, height_meter_V4, height_meter_sq_V4, CO_V4, 
+# READ1_V4, READ2_V4, READ3_V4, WAIST_C4, BMI_V4, WEIGHT_4, weight_kg_V4, 
+# weight_status_V4, obese_V4, ovrwt_obese_V4"   
+# [5] "In source  v5 : HEIGHT_V5, height_meter_V5, height_meter_sq_V5, CO_V5, 
+# READ1_V5, READ2_V5, READ3_V5, WAIST_C5, BMI_V5, WEIGHT_5, weight_kg_V5, 
+#weight_status_V5, obese_V5, ovrwt_obese_V5"
+# [6] "In source  redcap : read1_v1, read2_v1, read3_v5"     
 ```
 
 We dropped our SPSS calculated variables from all data sets.
@@ -1260,6 +1733,20 @@ source_maps <- vm_make_source_map(
       ), 
   by = 'variable'
   ) %>%
+  # REDCap
+  full_join(
+    vm_make_source_map(
+      source_list, dropping, 6, 'redcap', incl_keys, excl_keys
+        ) %>%
+    mutate(variable = case_when(
+      variable == 'read_1_v1' ~ 'read_1',
+      variable == 'read_2_v1' ~ 'read_2',
+      variable == 'read_3_v5' ~ 'read_3',
+      TRUE ~ variable
+      )
+    ),
+  by = "variable"
+  ) %>%
   # Move 'variable' key column to the beginning
   relocate(variable)
 
@@ -1324,7 +1811,7 @@ sec_instruments <- list("placeholder" = c())
 
 ### Demographic Questionnaire
 
-We identified our keys and identified the matching variables in the visit 1 set.
+We identified our keys and identified the matching variables in the QDS Visit 1 set.
 
 ```{r}
 # Must be a "non-empty string", but no valid variable name is a single space
@@ -1367,6 +1854,7 @@ vars_v1
 ```
 
 We checked to see if any of these variables were only missing values in Visit 1.
+
 While `DEM13EV1` and `DEM14EV1` only contained empty values, we kept these variables for placement and completeness of the data.
 
 ```{r}
@@ -1377,10 +1865,69 @@ for (var in vars_v1){
     print(paste(var, "is only missing values"))
   }
 }
+
+# [1] "DEM13EV1 is only missing values"
+# [1] "DEM14EV1 is only missing values"
 ```
 
-We set our initial desired order and standardization.
-We utilized tidyselect to enable a warning/error message if the variable name changes after our initial processing, to facilitate updates.
+We identified the pertinent variables from the REDCap data set. 
+
+```{r}
+red_vars <- redcap %>%
+    select(all_of(starts_with(incl_keys$starts_with)),
+           all_of(contains(incl_keys$contains))
+         ) %>%
+    select(-c(
+      all_of(starts_with(excl_keys$starts_with)),
+      all_of(contains(excl_keys$contains))
+      )
+    ) %>%
+  names()
+
+red_vars 
+
+#  [1] "dem1v1"       "dem2v1"       "dem3v1"       "dem4v1___1"  
+#  [5] "dem4v1___2"   "dem4v1___3"   "dem4v1___4"   "dem4v1___5"  
+#  [9] "dem4v1___6"   "dem5v1"       "dem5av1"      "dem6v1"      
+# [13] "dem6av1"      "dem7v1___1"   "dem7v1___2"   "dem7v1___3"  
+# [17] "dem7v1___4"   "dem7v1___5"   "dem8v1"       "dem9v1"      
+# [21] "dem10v1"      "dem11v1"      "dem12v1___1"  "dem12v1___2" 
+# [25] "dem12v1___3"  "dem12v1___4"  "dem12v1___5"  "dem12v1___6" 
+# [29] "dem12v1___7"  "dem12v1___8"  "dem12v1___9"  "dem12v1___10"
+# [33] "dem12v1___11" "dem12v1___12" "dem13v1"      "dem13av1"    
+# [37] "dem13bv1"     "dem13cv1"     "dem13dv1"     "dem13ev1"    
+# [41] "dem13fv1"     "dem13gv1"     "dem13hv1"     "dem14v1"     
+# [45] "dem14av1"     "dem14bv1"     "dem14cv1"     "dem14dv1"    
+# [49] "dem14ev1"     "dem14fv1"     "dem14gv1"     "dem15v1"     
+# [53] "dem16v1"      "dem17v1"      "dem18v1"      "dme6bv3"   
+```
+
+We checked to see if any of these variables were only missing values in the REDCap. We found that 12 of our 56 variables only contained missing values.
+
+```{r}
+# DATA CHECK: checking if variable only contains missing values.
+
+for (var in red_vars){
+  if(sum(!is.na(redcap[,var])) == 0){
+    print(paste(var, "is only missing values"))
+  }
+}
+
+# [1] "dem13av1 is only missing values"
+# [1] "dem13bv1 is only missing values"
+# [1] "dem13cv1 is only missing values"
+# [1] "dem13dv1 is only missing values"
+# [1] "dem13ev1 is only missing values"
+# [1] "dem13fv1 is only missing values"
+# [1] "dem13gv1 is only missing values"
+# [1] "dem13hv1 is only missing values"
+# [1] "dem14dv1 is only missing values"
+# [1] "dem14ev1 is only missing values"
+# [1] "dem14fv1 is only missing values"
+# [1] "dem14gv1 is only missing values"
+```
+
+We set our initial desired order and standardization based on the QDS variables. We utilized tidyselect to enable a warning/error message if the variable name changes after our initial processing, to facilitate updates.
 
 ```{r}
 vars_v1 <- v1 %>%
@@ -1416,8 +1963,15 @@ desired_vars
 # [55] "demo_16g" "dem_15"   "dem_16"   "dem_17"   "dem_18"  
 ```
 
-We checked for any variables that would either standardize differently, or were absent from the visit 1 source data set.
-We manually verified this values and found that: - `DEMO16G` in visit 1 was mislabeled, and should map to `dem_14g` along with `DEM14GV3`, `DEM14GV4`, and `DEM14GV5` - `DEMO14HV3`, `DEMO14HV4`, and `DEMO14HV5` should map to `dem_14h`, as they correspond to an item that was first present in Visit 3.
+We checked for any variables that would either standardize differently, or were not already identified. We manually verified that similar variables corresponded to the same question (i.e. "dem_1" in both REDCap and QDS corresponded to the item "What is your present marital status?"). 
+
+We manually verified this values and found that: 
+
+- `DEMO16G` in QDS Visit 1 was mislabeled, and should map to `dem_14g` along with `DEM14GV3`, `DEM14GV4`, and `DEM14GV5` 
+
+- `DEMO14HV3`, `DEMO14HV4`, and `DEMO14HV5` should map to `dem_14h`, as they correspond to an item that was first present in QDS Visit 3.
+
+- Many of the REDCap variables failed to standardize.
 
 ```{r}
 # DATA CHECK: Meant to have human-legible output. 
@@ -1425,11 +1979,20 @@ We manually verified this values and found that: - `DEMO16G` in visit 1 was misl
 flagged_vars <- flag_unmatching_variables(source_list, desired_vars, 
                           incl_keys, excl_keys)
 
-# [1] "In source  v1 : "                  
-# [2] "In source  v2 : "                  
-# [3] "In source  v3 : DEM14GV3, DEM14HV3"
-# [4] "In source  v4 : DEM14GV4, DEM14HV4"
-# [5] "In source  v5 : DEM14GV5, DEM14HV5"
+# [1] "In source  v1 : "                                                    
+# [2] "In source  v2 : "                                                      
+# [3] "In source  v3 : DEM14GV3, DEM14HV3" 
+# [4] "In source  v4 : DEM14GV4, DEM14HV4"             
+# [5] "In source  v5 : DEM14GV5, DEM14HV5"   
+# [6] "In source  redcap : dem1v1, dem2v1, dem3v1, dem4v1___1, dem4v1___2, 
+# dem4v1___3, dem4v1___4, dem4v1___5, dem4v1___6, dem5v1, dem5av1, dem6v1, 
+# dem6av1, dem7v1___1, dem7v1___2, dem7v1___3, dem7v1___4, dem7v1___5, dem8v1,
+# dem9v1, dem10v1, dem11v1, dem12v1___1, dem12v1___2, dem12v1___3, 
+# dem12v1___4, dem12v1___5, dem12v1___6, dem12v1___7, dem12v1___8, 
+# dem12v1___9, dem12v1___10, dem12v1___11, dem12v1___12, dem13v1, dem13av1, 
+# dem13bv1, dem13cv1, dem13dv1, dem13ev1, dem13fv1, dem13gv1, dem13hv1, 
+# dem14v1, dem14av1, dem14bv1, dem14cv1, dem14dv1, dem14ev1, dem14fv1, 
+# dem14gv1, dem15v1, dem16v1, dem17v1, dem18v1, dme6bv3"
 ```
 
 We made the required point-modifications to our desired variable list.
@@ -1455,7 +2018,7 @@ desired_vars
 # [55] "dem_14g" "dem_14h" "dem_15"  "dem_16"  "dem_17"  "dem_18" 
 ```
 
-We created our source maps, including the necessary point-mutation to ensure our desired mapping.
+We created our source maps, including the necessary point-mutations to ensure our desired mapping.
 
 ```{r}
 source_maps <- vm_make_source_map(
@@ -1490,6 +2053,73 @@ source_maps <- vm_make_source_map(
       ), 
   by = 'variable'
   ) %>%
+  # REDCap
+  full_join(
+    vm_make_source_map(
+      source_list, dropping, 6, 'redcap', incl_keys, excl_keys
+        ) %>%
+    mutate(variable = case_when(
+      variable == 'dem_1v1' ~ 'dem_1',
+      variable == 'dem_2v1' ~ 'dem_2',
+      variable == 'dem_3v1' ~ 'dem_3',
+      variable == 'dem_4v1___1' ~ 'dem_4a',
+      variable == 'dem_4v1___2' ~ 'dem_4b',
+      variable == 'dem_4v1___3' ~ 'dem_4c',
+      variable == 'dem_4v1___4' ~ 'dem_4d',
+      variable == 'dem_4v1___5' ~ 'dem_4e',
+      variable == 'dem_4v1___6' ~ 'dem_4f',
+      variable == 'dem_5v1' ~ 'dem_5',
+      variable == 'dem_5av1' ~ 'dem_5a',
+      variable == 'dem_6v1' ~ 'dem_6',
+      variable == 'dem_6av1' ~ 'dem_6a',
+      variable == 'dme_6bv3' ~ 'dme_6b',
+      variable == 'dem_7v1___1' ~ 'dem_7a',
+      variable == 'dem_7v1___2' ~ 'dem_7b',
+      variable == 'dem_7v1___3' ~ 'dem_7c',
+      variable == 'dem_7v1___4' ~ 'dem_7d',
+      variable == 'dem_7v1___5' ~ 'dem_7e',
+      variable == 'dem_8v1' ~ 'dem_8',
+      variable == 'dem_9v1' ~ 'dem_9',
+      variable == 'dem_10v1' ~ 'dem_10',
+      variable == 'dem_11v1' ~ 'dem_11',
+      variable == 'dem_12v1___1' ~ 'dem_12a',
+      variable == 'dem_12v1___2' ~ 'dem_12b',
+      variable == 'dem_12v1___3' ~ 'dem_12c',
+      variable == 'dem_12v1___4' ~ 'dem_12d',
+      variable == 'dem_12v1___5' ~ 'dem_12e',
+      variable == 'dem_12v1___6' ~ 'dem_12f',
+      variable == 'dem_12v1___7' ~ 'dem_12g',
+      variable == 'dem_12v1___8' ~ 'dem_12h',
+      variable == 'dem_12v1___9' ~ 'dem_12i',
+      variable == 'dem_12v1___10' ~ 'dem_12j',
+      variable == 'dem_12v1___11' ~ 'dem_12k',
+      variable == 'dem_12v1___12' ~ 'dem_12l',
+      variable == 'dem_13v1' ~ 'dem_13',
+      variable == 'dem_13av1' ~ 'dem_13a',
+      variable == 'dem_13bv1' ~ 'dem_13b',
+      variable == 'dem_13cv1' ~ 'dem_13c',
+      variable == 'dem_13dv1' ~ 'dem_13d',
+      variable == 'dem_13ev1' ~ 'dem_13e',
+      variable == 'dem_13fv1' ~ 'dem_13f',
+      variable == 'dem_13gv1' ~ 'dem_13g',
+      variable == 'dem_13hv1' ~ 'dem_13h',
+      variable == 'dem_14v1' ~ 'dem_14',
+      variable == 'dem_14av1' ~ 'dem_14a',
+      variable == 'dem_14bv1' ~ 'dem_14b',
+      variable == 'dem_14cv1' ~ 'dem_14c',
+      variable == 'dem_14dv1' ~ 'dem_14d',
+      variable == 'dem_14ev1' ~ 'dem_14e',
+      variable == 'dem_14fv1' ~ 'dem_14f',
+      variable == 'dem_14gv1' ~ 'dem_14g',
+      variable == 'dem_15v1' ~ 'dem_15',
+      variable == 'dem_16v1' ~ 'dem_16',
+      variable == 'dem_17v1' ~ 'dem_17',
+      variable == 'dem_18v1' ~ 'dem_18',
+      TRUE ~ variable
+      )
+    ),
+  by = "variable"
+  ) %>%
   # Move 'variable' key column to the beginning
   relocate(variable)
 
@@ -1519,7 +2149,7 @@ rm(inst_map)
 
 ### Brief Homelessness Questionnaire
 
-We identified our keys and identified the matching variables in the visit 1 set.
+We identified our keys and identified the matching variables in the QDS Visit 1 set.
 
 ```{r}
 # Must be a "non-empty string", but no valid variable name is a single space
@@ -1565,7 +2195,7 @@ vars_v1
 # [79] "BH18BV1D" "BH18BV1E" "BH18BV1F" "BH18BV1G" "BH18BV1H"
 ```
 
-We checked to see if any of these variables were only missing values in Visit 1, and none were.
+We checked to see if any of these variables were only missing values in QDS Visit 1, and none were.
 
 ```{r}
 # DATA CHECK: checking if variable only contains missing values.
@@ -1577,8 +2207,59 @@ for (var in vars_v1){
 }
 ```
 
-We set our initial desired order and standardization.
-We utilized tidyselect to enable a warning/error message if the variable name changes after our initial processing, to facilitate updates.
+We identified the pertinent variables from the REDCap data set. 
+
+```{r}
+red_vars <- redcap %>%
+    select(all_of(starts_with(incl_keys$starts_with)),
+           all_of(contains(incl_keys$contains))
+         ) %>%
+    select(-c(
+      all_of(starts_with(excl_keys$starts_with)),
+      all_of(contains(excl_keys$contains))
+      )
+    ) %>%
+  names()
+
+red_vars 
+
+#  [1] "bh1v1y"       "bh1v1m"       "bh1v1d"       "bh2v1"       
+#  [5] "bh3v1"        "bh4v1y"       "bh4v1m"       "bh4v1d"      
+#  [9] "bh5v1"        "bh6v1"        "bh7v1y"       "bh7v1m"      
+# [13] "bh7v1w"       "bh8v1"        "bh9v1"        "bh10v1"      
+# [17] "bh11av1"      "bh12av1___1"  "bh12av1___2"  "bh12av1___3" 
+# [21] "bh12av1___4"  "bh12av1___5"  "bh12av1___6"  "bh12av1___7" 
+# [25] "bh12av1___8"  "bh12av1___9"  "bh12av1___10" "bh12av1___11"
+# [29] "bh12av1___12" "bh13av1___1"  "bh13av1___2"  "bh13av1___3" 
+# [33] "bh13av1___4"  "bh13av1___5"  "bh13av1___6"  "bh13bv1___1" 
+# [37] "bh13bv1___2"  "bh13bv1___3"  "bh13bv1___4"  "bh13bv1___5" 
+# [41] "bh13bv1___6"  "bh13bv1___7"  "bh13bv1___8"  "bh13cv1___1" 
+# [45] "bh13cv1___2"  "bh13cv1___3"  "bh13cv1___4"  "bh13cv1___5" 
+# [49] "bh13cv1___6"  "bh13cv1___7"  "bh13cv1___8"  "bh14v1"      
+# [53] "bh14bv1y"     "bh14bv1m"     "bh14bv1w"     "bh14bv3d"    
+# [57] "bh15v1"       "bh15av1"      "bh16v1"       "bh17v1y"     
+# [61] "bh17v1m"      "bh17v1w"      "bh18v1"       "bh18bv1___1" 
+# [65] "bh18bv1___2"  "bh18bv1___3"  "bh18bv1___4"  "bh18bv1___5" 
+# [69] "bh18bv1___6"  "bh18bv1___7"  "bh18bv1___8"  "bh18b1v1"    
+# [73] "bh19v1"       "bh20v"     
+```
+
+
+We checked to see if any of these variables were only missing values in the REDCap. We found that `bh18b1v1` only contained missing values.
+
+```{r}
+# DATA CHECK: checking if variable only contains missing values.
+
+for (var in red_vars){
+  if(sum(!is.na(redcap[,var])) == 0){
+    print(paste(var, "is only missing values"))
+  }
+}
+
+# [1] "bh18b1v1 is only missing values"
+```
+
+We set our initial desired order and standardization using the QDS Variables. We utilized tidyselect to enable a warning/error message if the variable name changes after our initial processing, to facilitate updates.
 
 ```{r}
 vars_v1 <- v1 %>%
@@ -1622,18 +2303,39 @@ desired_vars
 # [79] "bh_18bg" "bh_18bh" "bh_18b1" "bh_19"   "bh_20"  
 ```
 
-We checked for any variables that would either standardize differently, or were absent from the visit 1 source data set.
+We checked for any variables that would either standardize differently, or were not already identified. We manually verified that similar variables corresponded to the same question (i.e. "bh_1" in both REDCap and QDS corresponded to the item "What is the total amount of time you have been homeless in your lifetime? (for example 3 and a half years would be 3 years and 6 months)"). 
+
 We manually verified these variables and determined:
 
 -   `BH14BV3D`, `BH14BV4D`, and `BH14BV3D` should map to `bh_14bd`, which was added in Visit 3.
 
 -   `BH18BVA` should map to `bh_18ba`, but escaped our standardization function due to a typographical error.
 
+-   Many of the REDCap variables escaped our standardization.
+
 ```{r}
 # DATA CHECK: Meant to have human-legible output. 
 
 flagged_vars <- flag_unmatching_variables(source_list, desired_vars, 
                           incl_keys, excl_keys)
+
+# [1] "In source  v1 : "                                  
+# [2] "In source  v2 : "                                       
+# [3] "In source  v3 : BH14BV3D"                             
+# [4] "In source  v4 : BH14BV4D"                               
+# [5] "In source  v5 : BH14BV5D, BH18BVA"                                   
+# [6] "In source  redcap : bh1v1y, bh1v1m, bh1v1d, bh2v1, bh3v1, bh4v1y, 
+# bh4v1m, bh4v1d, bh5v1, bh6v1, bh7v1y, bh7v1m, bh7v1w, bh8v1, bh9v1, bh10v1, 
+# bh11av1, bh12av1___1, bh12av1___2, bh12av1___3, bh12av1___4, bh12av1___5, 
+# bh12av1___6, bh12av1___7, bh12av1___8, bh12av1___9, bh12av1___10, 
+# bh12av1___11, bh12av1___12, bh13av1___1, bh13av1___2, bh13av1___3, 
+# bh13av1___4, bh13av1___5, bh13av1___6, bh13bv1___1, bh13bv1___2, 
+# bh13bv1___3, bh13bv1___4, bh13bv1___5, bh13bv1___6, bh13bv1___7, 
+# bh13bv1___8, bh13cv1___1, bh13cv1___2, bh13cv1___3, bh13cv1___4, 
+# bh13cv1___5, bh13cv1___6, bh13cv1___7, bh13cv1___8, bh14v1, bh14bv1y, 
+# bh14bv1m, bh14bv1w, bh14bv3d, bh15v1, bh15av1, bh16v1, bh17v1y, bh17v1m, 
+# bh17v1w, bh18v1, bh18bv1___1, bh18bv1___2, bh18bv1___3, bh18bv1___4, 
+# bh18bv1___5, bh18bv1___6, bh18bv1___7, bh18bv1___8, bh18b1v1, bh19v1, bh20v"
 ```
 
 We made the required point-modification to our desired variable list.
@@ -1661,7 +2363,7 @@ desired_vars
 # [79] "bh_18bf"  "bh_18bg"  "bh_18bh"  "bh_18b1"  "bh_19"    "bh_20"
 ```
 
-We created our source maps, including the required point-modification.
+We created our source maps, including the required point-modifications.
 
 ```{r}
 source_maps <- vm_make_source_map(
@@ -1697,6 +2399,91 @@ source_maps <- vm_make_source_map(
       ), 
   by = 'variable'
   ) %>%
+  # REDCap
+  full_join(
+  vm_make_source_map(
+      source_list, dropping, 6, 'redcap', incl_keys, excl_keys
+        ) %>%
+    mutate(variable = case_when(
+      variable == 'bh_1v1y' ~ 'bh_1y',
+      variable == 'bh_1v1m' ~ 'bh_1m',
+      variable == 'bh_1v1d' ~ 'bh_1d',
+      variable == 'bh_2v1' ~ 'bh_2',
+      variable == 'bh_3v1' ~ 'bh_3',
+      variable == 'bh_4v1y' ~ 'bh_4y',
+      variable == 'bh_4v1m' ~ 'bh_4m',
+      variable == 'bh_4v1d' ~ 'bh_4d',
+      variable == 'bh_5v1' ~ 'bh_5',
+      variable == 'bh_6v1' ~ 'bh_6',
+      variable == 'bh_7v1y' ~ 'bh_7y',
+      variable == 'bh_7v1m' ~ 'bh_7m',
+      variable == 'bh_7v1w' ~ 'bh_7w',      
+      variable == 'bh_8v1' ~ 'bh_8',
+      variable == 'bh_9v1' ~ 'bh_9',
+      variable == 'bh_10v1' ~ 'bh_10',
+      variable == 'bh_11av1' ~ 'bh_11a',
+      variable == 'bh_12av1___1' ~ 'bh_12aa',
+      variable == 'bh_12av1___2' ~ 'bh_12ab',
+      variable == 'bh_12av1___3' ~ 'bh_12ac',
+      variable == 'bh_12av1___4' ~ 'bh_12ad',
+      variable == 'bh_12av1___5' ~ 'bh_12ae',
+      variable == 'bh_12av1___6' ~ 'bh_12af',
+      variable == 'bh_12av1___7' ~ 'bh_12ag',
+      variable == 'bh_12av1___8' ~ 'bh_12ah',
+      variable == 'bh_12av1___9' ~ 'bh_12ai',
+      variable == 'bh_12av1___10' ~ 'bh_12aj',
+      variable == 'bh_12av1___11' ~ 'bh_12ak',
+      variable == 'bh_12av1___12' ~ 'bh_12al',
+      variable == 'bh_13av1___1' ~ 'bh_13aa',
+      variable == 'bh_13av1___2' ~ 'bh_13ab',
+      variable == 'bh_13av1___3' ~ 'bh_13ac',
+      variable == 'bh_13av1___4' ~ 'bh_13ad',
+      variable == 'bh_13av1___5' ~ 'bh_13ae',
+      variable == 'bh_13av1___6' ~ 'bh_13af',
+      variable == 'bh_13bv1___1' ~ 'bh_13ba',
+      variable == 'bh_13bv1___2' ~ 'bh_13bb',
+      variable == 'bh_13bv1___3' ~ 'bh_13bc',
+      variable == 'bh_13bv1___4' ~ 'bh_13bd',
+      variable == 'bh_13bv1___5' ~ 'bh_13be',
+      variable == 'bh_13bv1___6' ~ 'bh_13bf',
+      variable == 'bh_13bv1___7' ~ 'bh_13bg',
+      variable == 'bh_13bv1___8' ~ 'bh_13bh',
+      variable == 'bh_13cv1___1' ~ 'bh_13ca',
+      variable == 'bh_13cv1___2' ~ 'bh_13cb',
+      variable == 'bh_13cv1___3' ~ 'bh_13cc',
+      variable == 'bh_13cv1___4' ~ 'bh_13cd',
+      variable == 'bh_13cv1___5' ~ 'bh_13ce',
+      variable == 'bh_13cv1___6' ~ 'bh_13cf',
+      variable == 'bh_13cv1___7' ~ 'bh_13cg',
+      variable == 'bh_13cv1___8' ~ 'bh_13ch',
+      variable == 'bh_14v1' ~ 'bh_14',
+      variable == 'bh_14bv1y' ~ 'bh_14by',
+      variable == 'bh_14bv1m' ~ 'bh_14bm',
+      variable == 'bh_14bv1w' ~ 'bh_14bw',
+      variable == 'bh_14bv3d' ~ 'bh_14_bd',
+      variable == 'bh_15v1' ~ 'bh_15',
+      variable == 'bh_15av1' ~ 'bh_15a',
+      variable == 'bh_16v1' ~ 'bh_16',
+      variable == 'bh_17v1y' ~ 'bh_17y',
+      variable == 'bh_17v1m' ~ 'bh_17m',
+      variable == 'bh_17v1w' ~ 'bh_17w',
+      variable == 'bh_18v1' ~ 'bh_18',
+      variable == 'bh_18bv1___1' ~ 'bh_18ba',
+      variable == 'bh_18bv1___2' ~ 'bh_18bb',
+      variable == 'bh_18bv1___3' ~ 'bh_18bc',
+      variable == 'bh_18bv1___4' ~ 'bh_18bd',
+      variable == 'bh_18bv1___5' ~ 'bh_18be',
+      variable == 'bh_18bv1___6' ~ 'bh_18bf',
+      variable == 'bh_18bv1___7' ~ 'bh_18bg',
+      variable == 'bh_18bv1___8' ~ 'bh_18bh',
+      variable == 'bh_18b1v1' ~ 'bh_18b1',
+      variable == 'bh_19v1' ~ 'bh_19',
+      variable == 'bh_20v' ~ 'bh_20',
+      TRUE ~ variable
+      )
+    ),
+  by = "variable"
+  ) %>%
   # Move 'variable' key column to the beginning
   relocate(variable)
 
@@ -1726,7 +2513,7 @@ rm(inst_map)
 
 ### MacAurthor Scale of Subjective Social Status
 
-We identified our keys and identified the matching variables in the visit 1 set.
+We identified our keys and identified the matching variables in the QDS Visit 1 set.
 
 ```{r}
 # Must be a "non-empty string", but no valid variable name is a single space
@@ -1759,7 +2546,7 @@ vars_v1
 # [1] "SSS1_V1" "SSS2_V1"
 ```
 
-We checked to see if any of these variables were only missing values in Visit 1, and none were.
+We checked to see if any of these variables were only missing values in QDS Visit 1, and none were.
 
 ```{r}
 # DATA CHECK: checking if variable only contains missing values.
@@ -1771,8 +2558,39 @@ for (var in vars_v1){
 }
 ```
 
-We set our initial desired order and standardization.
-We utilized tidyselect to enable a warning/error message if the variable name changes after our initial processing, to facilitate updates.
+We identified the pertinent variables from the REDCap data set. 
+
+```{r}
+red_vars <- redcap %>%
+    select(all_of(starts_with(incl_keys$starts_with)),
+           all_of(contains(incl_keys$contains))
+         ) %>%
+    select(-c(
+      all_of(starts_with(excl_keys$starts_with)),
+      all_of(contains(excl_keys$contains))
+      )
+    ) %>%
+  names()
+
+red_vars 
+
+# [1] "sss1_v1"     "sss2_v1"     "well_being1" "well_being2" "well_being3"
+```
+
+We checked to see if any of these variables were only missing values in the REDCap, and none were.
+
+```{r}
+# DATA CHECK: checking if variable only contains missing values.
+
+for (var in red_vars){
+  if(sum(!is.na(redcap[,var])) == 0){
+    print(paste(var, "is only missing values"))
+  }
+}
+
+```
+
+We set our initial desired order and standardization using the QDS variables. We utilized tidyselect to enable a warning/error message if the variable name changes after our initial processing, to facilitate updates.
 
 ```{r}
 vars_v1 <- v1 %>%
@@ -1790,8 +2608,10 @@ desired_vars
 # [1] "sss_1" "sss_2"
 ```
 
-We checked for any variables that would either standardize differently, or were absent from the visit 1 source data set.
-We manually verified these variables and determined the `well_being` values were separate but related questions added after visit 1.
+
+We checked for any variables that would either standardize differently, or were not already identified. We manually verified that similar variables corresponded to the same question (i.e. "sss_1" in both REDCap and QDS corresponded to the item "Community Ladder"). 
+
+We manually verified these variables and determined the `well_being` values were separate but related questions added after Visit 1. We also found the REDCap variables escaped our standardization function.
 
 ```{r}
 # DATA CHECK: Meant to have human-legible output. 
@@ -1799,11 +2619,12 @@ We manually verified these variables and determined the `well_being` values were
 flagged_vars <- flag_unmatching_variables(source_list, desired_vars, 
                           incl_keys, excl_keys)
 
-# [1] "In source  v1 : "                                     
-# [2] "In source  v2 : WELL_BEING1, WELL_BEING2, WELL_BEING3"
-# [3] "In source  v3 : "                                     
-# [4] "In source  v4 : "                                     
-# [5] "In source  v5 : WELL_BEING1, WELL_BEING2, WELL_BEING3"
+# [1] "In source  v1 : "                                                      
+# [2] "In source  v2 : WELL_BEING1, WELL_BEING2, WELL_BEING3"                 
+# [3] "In source  v3 : "                                                     
+# [4] "In source  v4 : "                                                      # [5] "In source  v5 : WELL_BEING1, WELL_BEING2, WELL_BEING3"                 
+# [6] "In source  redcap : sss1_v1, sss2_v1, well_being1, well_being2, 
+# well_being3"
 ```
 
 We made the required point-modification to our desired variable list.
@@ -1820,7 +2641,7 @@ desired_vars
 # [5] "well_being_3"
 ```
 
-We created our source maps
+We created our source maps, including the required point-modifications.
 
 ```{r}
 source_maps <- vm_make_source_map(
@@ -1849,6 +2670,19 @@ source_maps <- vm_make_source_map(
   source_list, dropping, 5, 'v5', incl_keys, excl_keys
       ), 
   by = 'variable'
+  ) %>%
+  # REDCap
+  full_join(
+    vm_make_source_map(
+      source_list, dropping, 6, 'redcap', incl_keys, excl_keys
+        ) %>%
+    mutate(variable = case_when(
+      variable == 'sss_1_v1' ~ 'sss_1',
+      variable == 'sss_2_v1' ~ 'sss_2',
+      TRUE ~ variable
+      )
+    ),
+  by = "variable"
   ) %>%
   # Move 'variable' key column to the beginning
   relocate(variable)
@@ -1898,6 +2732,8 @@ all_sections <- append(all_sections, list('demos' = sec_map))
 
 rm(sec_map)
 ```
+
+# 🔴 PLACEHOLDER - 2023-10-09
 
 ## Health, Mental Health, and Health Behaviors
 
@@ -7015,6 +7851,83 @@ variable_map <- vm_join_sections(all_sections)
 
 # Verifying Remaining Variables 🔴 - Placeholder as of 2023-10-06
 
-We examined the variables that had otherwise failed to be assigned from each QDS data set.
+We examined the 68 variables that had otherwise failed to be assigned from each QDS data set. These variables were all determined to be SPSS calculated variables we wished to recreate in R from our aggregated set.
+
+```{r}
+remaining_vars <- c()
+
+for (i in 1:length(source_list)){
+  source_vars <- colnames(source_list[[i]])
+  source_name <- names(source_list)[[i]]
+  
+  source_remaining <- setdiff(
+    setdiff(source_vars, na.omit(variable_map[[source_name]])),
+    dropping[[source_name]]
+  )
+  
+  remaining_vars <- unique(c(remaining_vars, source_remaining))
+  
+}
+
+remaining_vars
+
+#  [1] "TEST_V1"                 "SUBJECT1"                "BRIS2_QD_dichot"         "QD_unintent_slp"        
+#  [5] "PA"                      "VA"                      "A"                       "HA"                     
+#  [9] "AlcQF_V1"                "binge_drinker_V1"        "Heavy_drinker"           "current_months_homeless"
+# [13] "friends_smoke_V1"        "spouse_smoke"            "Mental_Health_dx"        "pain"                   
+# [17] "Substance_abuse_hs"      "Substance_use_30d"       "Any_health_insurance"    "Time_to_complete_V1"    
+# [21] "TCU_DS_TOTAL_V2"         "TCU_DS_SCORE_V2"         "TCU_desire_v2_total"     "TCU_tn_v2_total"        
+# [25] "TCU_ts_v2_total"         "TCU_se_v2_total"         "TCU_hs_v2_total"         "TCU_rt_v2_total"        
+# [29] "Time_to_complete_V2"     "BH14BV3D"                "PHQ_dep_dichot_total_V3" "BRIS2_V3_dichot"        
+# [33] "unintent_slp_V3"         "AlcQF_V3"                "binge_drinker_V3"        "Heavy_drinker_V3"       
+# [37] "PA_V3"                   "VA_V3"                   "A_V3"                    "HA_V3"                  
+# [41] "Time_to_complete_V3"     "BH14BV4D"                "PHQ_dep_dichot_total_V4" "BRIS2_V4_dichot"        
+# [45] "unintent_slp_V4"         "AlcQF_V4"                "binge_drinker_V4"        "Heavy_drinker_V4"       
+# [49] "TCU_desire_v4_total"     "TCU_tn_v4_total"         "TCU_ts_V4_total"         "PA_V4"                  
+# [53] "VA_V4"                   "A_V4"                    "HA_V4"                   "Time_to_complete_V4"    
+# [57] "BH14BV5D"                "PHQ_dep_dichot_total_V5" "BRIS2_V5_dichot"         "unintent_slp_V5"        
+# [61] "AlcQF_V5"                "binge_drinker_V5"        "Heavy_drinker_V5"        "PA_V5"                  
+# [65] "VA_V5"                   "A_V5"                    "HA_V5"                   "Time_to_complete_V5"
+```
+
+As such, we added these variables to our list of variables to drop for each set.
+
+```{r}
+remaining_vars <- c()
+
+for (i in 1:length(source_list)){
+  source_vars <- colnames(source_list[[i]])
+  source_name <- names(source_list)[[i]]
+  
+  source_remaining <- setdiff(
+    setdiff(source_vars, na.omit(variable_map[[source_name]])),
+    dropping[[source_name]]
+  )
+  
+  dropping[[source_name]] <- unique(
+    c(dropping[[source_name]], source_remaining)
+  )
+  
+}
+
+# Clean up in case of memory leak
+rm(source_vars)
+rm(source_name)
+rm(source_remaining)
+rm(i)
+rm(remaining_vars)
+```
+
+
+
+# 💾 Saving the Variable Map
+
+```{r}
+variable_map_path <- here(
+  "data", "Combined Participant Data", "variable_map.rds"
+  )
+
+write_rds(variable_map, variable_map_path)
+```
 
 # BOTTOM PLACEHOLDER 🔴
