@@ -262,14 +262,13 @@ cat(
 # REDCap data last modified on OneDrive 2023-08-25 10:56:25 
 ```
 
-## Excel Master Log 🔴 - PLACEHOLDER - POSSIBLY REMOVING
+## Excel Master Log 
 
 To ensure group assignment was consistent for subjects, we imported the subject and group assignments from the Excel Master log data.
-Group membership is randomly assigned at visit 2, but it is not recorded in QDS until visit 3 and beyond.
-Therefore, if we only rely on QDS data, it appears as though many participants haven't been randomized to a group even though they have.
-The study staff manually tracks group assignment in the Excel Master Log.
-We can use that data to cross-check and impute group membership when QDS and REDCap data are not otherwise sufficient.
-It is not ideal, but it seems to be the best option we have.
+Group membership was randomly assigned at Visit 2, but it is not recorded in QDS or REDCap until visit 3 and beyond.
+Therefore, if we only rely on QDS or REDCap data, it appears as though many participants haven't been randomized to a group even though they have.
+The study staff manually tracks group assignment in the Excel Master Log. We can use that data to cross-check and impute group membership when QDS and REDCap data are not otherwise sufficient. It is not ideal, but it seems to be the best option we have.
+The Master Log also appears to be the only source of values for each subject's age.
 
 ```{r}
 master_log_path  <- here("data", "master_log", "master_log.xlsx")
@@ -282,8 +281,10 @@ Check the most recent file modification dates and print for user when this file 
 master_log <- read_excel(
   master_log_path, 
   sheet = "Screened In",
-  col_names = c("id", "group"),
-  col_types = c("text", rep("skip", 22), "text", rep("skip", 31)),
+  col_names = c("id", "group", "age"),
+  col_types = c(
+    "text", rep("skip", 22), "text", rep("skip", 9), "text", rep("skip", 21)
+                ),
   skip = 1
 ) %>% 
   # Coerce group to numeric so that it can be combined with the QDS data.
@@ -293,7 +294,11 @@ master_log <- read_excel(
       group == "UCM+SP" ~ 2,
       group == "L2C"    ~ 3
     )
-  )
+  ) %>%
+  # Coerce age to a numeric
+  mutate(age = as.numeric(age)) %>%
+  # Remove empty rows
+  filter(!is.na(id))
 
 # Print a message for when this file is being sourced
 cat(
@@ -310,8 +315,40 @@ cat(
       as.character(file.info(master_log_path)$mtime), "\n"
     )
 
-# 2023-10-09: Master log imported with 501 rows and 2 columns.
+# 2023-10-11: Master log imported with 442 rows and 3 columns.
 # Master log last modified on OneDrive 2023-09-28 11:52:59 
+```
+
+## Timeline Follow Back (TLFB)
+
+All Timeline Follow Back (TLFB) section data was stored separately.
+
+```{r}
+tlfb_spss_path <- here("data", "tlfb", "TLFB_Database.sav")
+```
+
+Import the data.
+Check the most recent file modification dates and print for user when this file is being sourced.
+
+```{r message=FALSE}
+tlfb <- read_sav(tlfb_spss_path)
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "TLFB imported with", nrow(tlfb), "rows and", ncol(tlfb), "columns.\n"
+)
+
+# Check the most recent file modification dates and print for user when this
+# file is being sourced.
+
+cat(
+      "TLFB data last modified on OneDrive", 
+      as.character(file.info(tlfb_spss_path)$mtime), "\n"
+    )
+
+# 2023-10-11: TLFB imported with 1768 rows and 21 columns.
+# TLFB data last modified on OneDrive 2023-08-25 10:56:58 
 ```
 
 We removed containers that were no longer necessary.
@@ -321,9 +358,10 @@ rm(qds_spss_path)
 rm(qds_spss_paths)
 rm(master_log_path)
 rm(redcap_spss_path)
+rm(tlfb_spss_path)
 ```
 
-# Create Initial Variable Map from QDS Sources
+# Create Initial Variable Map
 
 ## Notes on Variable Standardization (Definition, Goals)
 
@@ -392,6 +430,7 @@ all_sections <- list("placeholder" = c())
 ## Administrative Section
 
 The Administrative section is composed of the variables that primarily served administrative and/or bookkeeping purposes, such as subject ID, visit number, and group assignment.
+
 It is not a specific instrument.
 
 We identified our keys and identified the matching variables in the QDS Visit 1 set.
@@ -506,6 +545,37 @@ if (length(message)>0){
 # [3] "macarthur_major_discrimination_timestamp is only missing values"
 ```
 
+All three of the Master Log variables were appropriate for this section.
+
+```{r}
+master_log_vars <- master_log %>%
+  select(all_of(c(
+    "id", "group", "age"
+    ))
+  ) %>%
+  names()
+
+master_log_vars
+
+# [1] "id"    "group" "age"  
+```
+
+We identified the Timeline Follow Back variables appropriate for this section.
+
+```{r}
+tlfb_vars <- tlfb %>%
+  select(all_of(c(
+    "ParticipantID", "Visit", "Days_Followed", "Flag_OutofWindow"
+    ))
+  ) %>%
+  names()
+
+tlfb_vars
+
+# [1] "ParticipantID"    "Visit"            "Days_Followed"   
+# [4] "Flag_OutofWindow"
+```
+
 We set our initial desired order and standardization using the QDS variables, including a point-fix of a desired variable standardization. We utilized tidyselect to enable a warning/error message if the variable name changes after our initial processing, to facilitate updates.
 
 ```{r}
@@ -585,19 +655,15 @@ if (length(message)>0){
 # [7] "visit_v1 in redcap is only missing values"
 ```
 
-We added these empty 'TEST' variables, as well as the empty `SUBJECT1` variable, to the list of variables to exclude.
-We manually checked TEST_V4 in the QDS Visit 4 data set, and determined it should be dropped as well.
-We manually verified 'II_V1' and 'II_V2' in QDS Visit 2, and determined 'II_V1' was an erroneous addition to this data set (and thus dropped).
-The 'GROUP' variable was added from QDS Visit 3 onward, and was desired.
-The 'ENDTIME' variables simply violated the ability of our standardization function to correct, and thus it would have to be manually assigned from each data set.
-We updated our desired variables to include the variables introduced in the REDCap data set, in our desired order.
-
+We identified variables to exclude:
+-   The empty 'TEST' variables
+-   The empty `SUBJECT1` variable
+-   We manually checked TEST_V4 in the QDS Visit 4 data set, and determined it should be dropped as well.
+-   We manually verified 'II_V1' and 'II_V2' in QDS Visit 2, and determined 'II_V1' was an erroneous addition to this data set (and thus dropped).
 
 ```{r}
 dropping[['v1']] <- c(dropping[['v1']], 'TEST_V1', 'SUBJECT1')
-dropping[['v2']] <- c(dropping[['v2']], 'II_V1')
-
-dropping[['v2']] <- c(dropping[['v2']], 'TEST_V2')
+dropping[['v2']] <- c(dropping[['v2']], 'II_V1', 'TEST_V2')
 dropping[['v3']] <- c(dropping[['v3']], 'TEST_V3')
 dropping[['v4']] <- c(dropping[['v4']], 'TEST_V4')
 dropping[['v5']] <- c(dropping[['v5']], 'TEST_V5')
@@ -605,9 +671,22 @@ dropping[['v5']] <- c(dropping[['v5']], 'TEST_V5')
 dropping[['redcap']] <- c(
   dropping[['redcap']], 'ii_v1', 'visit_v1'
 )
+```
 
+
+We identified variables we wished to add to our desired variables:
+-   The `group` variable was added from QDS Visit 3 onward 
+-   The variables introduced in the REDCap data set
+-   The `age` variable from the Master Log
+-   The variables from the Timeline Follow Back data
+
+The 'ENDTIME' variables simply violated the ability of our standardization function to correct, and thus it would have to be manually assigned from each data set.
+
+```{r}
+# QDS "group" variable
 desired_vars <- append(desired_vars, 'group', 1)
 
+# REDCAP variables
 desired_vars <- append(desired_vars, 'redcap_event_name', 3)
 desired_vars <- append(
   desired_vars, 
@@ -616,20 +695,31 @@ desired_vars <- append(
   length(desired_vars)
   )
 
+# TLFB variables, excluding "ParticipantID" and "Visit" (already represented)
+desired_vars <- append(
+  desired_vars, 
+  standardize_col_names(
+    tlfb_vars[!(tlfb_vars %in% c("ParticipantID", "Visit"))]
+    )
+  )
+
+# Master Log "age" variable
+desired_vars <- append(desired_vars, 'age')
+
 desired_vars
 
 #  [1] "subject"           "group"             "visit"            
 #  [4] "redcap_event_name" "visit_type"        "today"            
 #  [7] "ii"                "ctime"             "endtime"          
-# [10] "etime"             "maca_mdd_complete" "ps_timestamp"     
-# [13] "ps_complete"       "email" 
+# [10] "etime"             "maca_mdd_timestamp" "maca_mdd_complete" 
+# [13] "ps_timestamp"      "ps_complete"       "email" 
 ```
 
 We created our source maps, linking each source data set variable to the desired initially standardized variable name.
 
 Each 'ENDTIME' variable in the QDS data required point-modification to ensure correct maping, as it evaded our standardization function.
 
-As the REDCap variable naming was significantly different from the QDS variable naming, we manually created our source map for this set.
+As the REDCap, Master Log, and TLFB variable naming was significantly different from the QDS variable naming, we manually created our source map for these sets.
 
 ```{r}
 source_maps <- vm_make_source_map(
@@ -695,11 +785,59 @@ source_maps <- vm_make_source_map(
     ),
   by = "variable"
   ) %>%
+  # Master Log
+  full_join(tibble::tibble(
+    'master_log' = (
+      master_log %>%
+        select(all_of(c(
+          'id', 'group', 'age'
+          ))
+          ) %>%
+        names()
+    ),
+    'variable' = c(
+        'subject', 'group', 'age'
+        )
+    ),
+  by = "variable"
+  ) %>%
+  # TLFB
+  full_join(tibble::tibble(
+    'tlfb' = (
+      tlfb %>%
+        select(all_of(c(
+          'ParticipantID', 'Visit', 'Days_Followed', 'Flag_OutofWindow'
+          ))
+          ) %>%
+        names()
+    ),
+    'variable' = c(
+        'subject', 'visit', 
+        standardize_col_names(c('Days_Followed', 'Flag_OutofWindow'))
+        )
+    ),
+  by = "variable"
+  ) %>%
   # Move 'variable' key column to the beginning
   relocate(variable)
 
 source_maps
 ```
+
+All three values from the Master Log (`id`, `group`, `age`) would appropriately fit within this section. We added the `age` variable to the desired variable list, manually set the source_map for the Master Log, and added it to the source maps for this section.
+
+```{r}
+desired_vars <- append(desired_vars, 'age')
+
+master_log_map <- tibble::tibble(
+      'master_log' = colnames(master_log),
+      'variable' = c('subject', 'group', 'age')
+    )
+
+source_maps <- full_join(source_maps, master_log_map, by = 'variable')
+source_maps
+```
+
 
 We created the instrument map, placing our variables in the desired order.
 
@@ -5403,7 +5541,105 @@ sec_instruments <- append(sec_instruments, list('aqf' = inst_map))
 rm(inst_map)
 ```
 
-### Alcohol and Drug Timeline Follow-Back (TLFB) 🔴 - PLACEHOLDER
+### Alcohol and Drug Timeline Follow-Back (TLFB) 
+
+The Alcohol and Drug Timeline Follow-Back was stored in the TLFB data set.
+
+We identified the variables for the Alcohol and Drug section.
+
+```{r}
+tlfb_vars <- tlfb %>%
+  select(all_of(contains(c(
+      "DRUG", "ALCOHOL", "ALC", "DRINK"
+      )))
+    ) %>%
+  names()
+
+tlfb_vars
+
+#  [1] "Num_Days_Using_Drugs"    "Per_Days_Using_Drugs"   
+#  [3] "Per_Drug_Abstinent_Days" "Drug_Use_Days_Yr"       
+#  [5] "Drug_Use_Days_Week"      "Num_Alc_Abstinent_Days" 
+#  [7] "TotalDrinks"             "Num_Drinking_Days"      
+#  [9] "Ave_Drinks_Day"          "Heavy_Drinking_Days"    
+# [11] "Greatest_Drinks_1_Day"   "Drinks_Wk"  
+```
+We checked to see if any of these variables only contained missing values, and none were.
+
+```{r}
+# DATA CHECK: checking if variable only contains missing values.
+
+missing_vars <- c()
+message <- c()
+
+for (var in tlfb_vars){
+  if(sum(!is.na(tlfb[,var])) == 0){
+    missing_vars <- c(missing_vars, var)
+    message <- c(message, (paste(var, "is only missing values")))
+  }
+}
+if (length(message)>0){
+  print(message)
+}
+```
+
+We set our initial desired order and standardization using the QDS variables. We utilized tidyselect to enable a warning/error message if the variable name changes after our initial processing, to facilitate updates.
+
+```{r}
+tlfb_vars <- tlfb %>%
+  select(all_of(c(
+    "TotalDrinks", "Num_Alc_Abstinent_Days", "Num_Drinking_Days", 
+    "Ave_Drinks_Day", "Heavy_Drinking_Days", "Greatest_Drinks_1_Day",
+    "Drinks_Wk", "Num_Days_Using_Drugs", "Per_Days_Using_Drugs",
+    "Per_Drug_Abstinent_Days", "Drug_Use_Days_Yr", "Drug_Use_Days_Week"
+    ))
+  ) %>%
+  names()
+
+desired_vars <- standardize_col_names(tlfb_vars)
+
+desired_vars
+
+#  [1] "totaldrinks"             "num_alc_abstinent_days" 
+#  [3] "num_drinking_days"       "ave_drinks_day"         
+#  [5] "heavy_drinking_days"     "greatest_drinks_1_day"  
+#  [7] "drinks_wk"               "num_days_using_drugs"   
+#  [9] "per_days_using_drugs"    "per_drug_abstinent_days"
+# [11] "drug_use_days_yr"        "drug_use_days_week"
+```
+
+We created our source map. As this only composed a single source (thus named variables and desired variables would be in the same order), we manually created the tibble for brevity.
+
+```{r}
+source_maps <- tibble::tibble(
+  'tlfb' = tlfb_vars,
+  'variable' = desired_vars
+)
+
+source_maps
+```
+
+We created the instrument map, placing our variables in the desired order.
+
+```{r}
+inst_map <- vm_create_for_instrument(
+  'Alcohol and Drug Timeline Follow-Back (TLFB)', desired_vars
+  ) %>%
+  left_join(source_maps, 
+            by = 'variable')
+
+inst_map
+```
+
+We added the instrument to our section-wise list of instruments.
+We purged the instrument map to reduce memory burden in processing.
+
+```{r}
+sec_instruments <- append(sec_instruments, list('alc_tlfb' = inst_map))
+
+rm(inst_map)
+```
+
 
 ### Personality Beliefs Questionnaire
 
@@ -8964,7 +9200,93 @@ sec_instruments <- append(sec_instruments, list('lsn' = inst_map))
 rm(inst_map)
 ```
 
-### Homeless Timeline Follow Back (TLFB) 🔴 - PLACEHOLDER
+### Homeless Timeline Follow Back (TLFB) 
+
+The Homeless Timeline Follow Back (TLFB) was stored in the TLFB data set.
+
+We identified the variables for the Homelessness section.
+
+```{r}
+tlfb_vars <- tlfb %>%
+  select(all_of(contains(c(
+      "HOMELESS"
+      )))
+    ) %>%
+  names()
+
+tlfb_vars
+# [1] "Num_Days_Homeless"    "Per_Days_Homeless"    "Est_Days_Homeless_Yr"
+# [4] "Avg_Days_Homeless_Wk"
+```
+We checked to see if any of these variables only contained missing values, and none did.
+
+```{r}
+# DATA CHECK: checking if variable only contains missing values.
+
+missing_vars <- c()
+message <- c()
+
+for (var in tlfb_vars){
+  if(sum(!is.na(tlfb[,var])) == 0){
+    missing_vars <- c(missing_vars, var)
+    message <- c(message, (paste(var, "is only missing values")))
+  }
+}
+if (length(message)>0){
+  print(message)
+}
+```
+
+We set our initial desired order and standardization using the QDS variables. We utilized tidyselect to enable a warning/error message if the variable name changes after our initial processing, to facilitate updates.
+
+```{r}
+tlfb_vars <- tlfb %>%
+  select(all_of(c(
+    "Num_Days_Homeless", "Per_Days_Homeless", "Num_Days_Home",
+    "Est_Days_Homeless_Yr", "Avg_Days_Homeless_Wk"
+    ))
+  ) %>%
+  names()
+
+desired_vars <- standardize_col_names(tlfb_vars)
+
+desired_vars
+
+# [1] "num_days_homeless"    "per_days_homeless"    "num_days_home"       
+# [4] "est_days_homeless_yr" "avg_days_homeless_wk"
+```
+
+We created our source map. As this only composed a single source (thus named variables and desired variables would be in the same order), we manually created the tibble for brevity.
+
+```{r}
+source_maps <- tibble::tibble(
+  'tlfb' = tlfb_vars,
+  'variable' = desired_vars
+)
+
+source_maps
+```
+
+We created the instrument map, placing our variables in the desired order.
+
+```{r}
+inst_map <- vm_create_for_instrument(
+  'Homeless Timeline Follow Back (TLFB)', desired_vars
+  ) %>%
+  left_join(source_maps, 
+            by = 'variable')
+
+inst_map
+```
+
+We added the instrument to our section-wise list of instruments.
+We purged the instrument map to reduce memory burden in processing.
+
+```{r}
+sec_instruments <- append(sec_instruments, list('homeless_tlfb' = inst_map))
+
+rm(inst_map)
+```
 
 ### Resource Utilization Questionnaire
 
