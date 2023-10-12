@@ -7,10 +7,11 @@ editor:
     wrap: sentence
 ---
 
-# ⭐️Overview 🔴 - TO BE EDITED
+# ⭐️Overview 
 
-This file is used to import the Link2Care follow-up visit survey data and do some initial data cleaning.
-It drops SPSS calculated variables, recreates these dropped variables, and creates a variable map.
+This file is used to generate the organizational map linking Link2Care follow-up visit source data variables to the final combined data set. Identification of desired variables, linkage of source data variables that capture identical data, and organization of variables into a logical order are achieved. SPSS calculated variables were dropped in favor of recreation in R, using the processed, combined data set. 
+
+Further data cleaning and wrangling occur in later files. The product of this file is the initial Variable Map.
 
 [Notes on cleaning individual L2C data sets for merging](https://github.com/brad-cannell/link2care_public/wiki/Notes-on-cleaning-individual-L2C-data-sets-for-merging)
 
@@ -18,7 +19,7 @@ Notes and guide for how to use **variable map** functions, with examples found i
 
 # 📦Load packages & Functions
 
-```{r message=FALSE}
+```{r, message=FALSE}
 library(dplyr, warn.conflicts = FALSE)
 library(purrr, warn.conflicts = FALSE)
 library(haven, warn.conflicts = FALSE)
@@ -26,6 +27,7 @@ library(here, warn.conflicts = FALSE)
 library(tidyverse, warn.conflicts = FALSE)
 library(readr, warn.conflicts = FALSE)
 library(readxl, warn.conflicts = FALSE)
+library(openxlsx, warn.conflicts = FALSE)
 ```
 
 ```{r}
@@ -45,10 +47,10 @@ source(here("R", "vm_process_many_source.R"))
 ## Notes
 
 1.  This file creates a **variable map**.
-    This variable map is used to facilitate batch processing of the Link2Care variables.
+    This variable map is used to facilitate batch processing of the Link2Care variables. Specifically, variables from the QDS, REDCap, Timeline Follow Back, and Delay Discounting Task were imported and mapped. Limited variables from the Master Log (subject ID, group assignment, and age) were also imported for mapping.
     Notes on the structure and use of a variable map, including descriptions and examples of the variable map functions, is located in "guide_01_variable_map_functions.qmd".
 
-2.  The columns in the data are not arranged in the order that they exist in the actual QDS survey for some reason.
+2.  The columns in the data are not arranged in the order that they exist in the actual surveys for some reason.
     This makes the data harder to work with, and it will make the codebook we eventually create difficult to use.
     So, we are going to reorder them in the order that they appear in the Link2Care appendix (`codebooks/from_qds/Link2Care_Appendix.pdf`).
     We create a **variable map** to facilitate the variable ordering process.
@@ -71,6 +73,8 @@ source(here("R", "vm_process_many_source.R"))
 -   The map organization system allows us to insert variables to ensure a human-readable ordering.
 
 ### 🕒 Change Log 
+
+**2023-10-11**, REDCap, TLFB, Master Log, and DDT variables added. Staff Perceptions of Link2Care, EMA data is not present.
 
 **2023-10-06**, the process was revised to eliminate the use of numerical assignment of variable order, repetition of code, and failure to throw explicit errors in the case of variable names or content changing in the source data sets. The plan for the full modification pipeline was revised. The new plan will divide the process into three distinct steps. First will be creation of the variable map "choke point" for all source data sets. The second will involve processing the source data, and merging into a new combined data set based on this variable map. The third will involve the creation/recreation of variables originally calculated in SPSS with R, utilizing this aggregate data set. This should yield a robust process flow that isolates any potential changes required if the source data were to change variable names, structures, or otherwise. 
 
@@ -350,6 +354,37 @@ cat(
 # 2023-10-11: TLFB imported with 1768 rows and 21 columns.
 # TLFB data last modified on OneDrive 2023-08-25 10:56:58 
 ```
+## Delay Discount Task (DDT)
+
+All Delayed Discount Task (DDT) section data was initially processed with SPSS.
+
+```{r}
+ddt_spss_path <- here("data", "ddt", "L2C_DDT_Database_1.sav")
+```
+
+Import the data.
+Check the most recent file modification dates and print for user when this file is being sourced.
+
+```{r message=FALSE}
+ddt <- read_sav(ddt_spss_path)
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "DDT imported with", nrow(ddt), "rows and", ncol(ddt), "columns.\n"
+)
+
+# Check the most recent file modification dates and print for user when this
+# file is being sourced.
+
+cat(
+      "DDT data last modified on OneDrive", 
+      as.character(file.info(ddt_spss_path)$mtime), "\n"
+    )
+
+# 2023-10-11: DDT imported with 442 rows and 9 columns.
+# DDT data last modified on OneDrive 2023-08-25 10:44:11 
+```
 
 We removed containers that were no longer necessary.
 
@@ -359,6 +394,7 @@ rm(qds_spss_paths)
 rm(master_log_path)
 rm(redcap_spss_path)
 rm(tlfb_spss_path)
+rm(ddt_spss_path)
 ```
 
 # Create Initial Variable Map
@@ -390,7 +426,11 @@ This function does not achieve all of our standardization goals, but significant
 
 This function:
 
--   Removes \_v{1, 2, 3} and v{1, 2, 3} from column names Replaces spaces with underscores
+-   Removes the "v1", "v2", "v3", "v4", or "v5" suffix from column names regardless of if the "v" is uppercase or lowercase, or if there is or is not a preceding underscore ("_")
+
+-   Replaces spaces with underscores
+
+-   Collapses multiple underscores into a single underscore
 
 -   Converts to lower case
 
@@ -576,6 +616,21 @@ tlfb_vars
 # [4] "Flag_OutofWindow"
 ```
 
+We identified the Delayed Discount Task (DDT) variable appropriate for this section.
+
+```{r}
+ddt_vars <- ddt %>%
+    select(all_of(c(
+    "Subject"
+    ))
+  ) %>%
+  names()
+
+ddt_vars
+
+# [1] "Subject"
+```
+
 We set our initial desired order and standardization using the QDS variables, including a point-fix of a desired variable standardization. We utilized tidyselect to enable a warning/error message if the variable name changes after our initial processing, to facilitate updates.
 
 ```{r}
@@ -719,7 +774,7 @@ We created our source maps, linking each source data set variable to the desired
 
 Each 'ENDTIME' variable in the QDS data required point-modification to ensure correct maping, as it evaded our standardization function.
 
-As the REDCap, Master Log, and TLFB variable naming was significantly different from the QDS variable naming, we manually created our source map for these sets.
+As the REDCap, Master Log, and TLFB variable naming was significantly different from the QDS variable naming, we manually created our source map for these sets. The single variable from the Delayed Discount Task (DDT) was added manually for brevity.
 
 ```{r}
 source_maps <- vm_make_source_map(
@@ -818,26 +873,27 @@ source_maps <- vm_make_source_map(
     ),
   by = "variable"
   ) %>%
+  # DDT
+  full_join(tibble::tibble(
+    'ddt' = (
+      ddt %>%
+        select(all_of(c(
+          'Subject'
+          ))
+          ) %>%
+        names()
+    ),
+    'variable' = c(
+        'subject'
+        )
+    ),
+  by = "variable"
+  ) %>%
   # Move 'variable' key column to the beginning
   relocate(variable)
 
 source_maps
 ```
-
-All three values from the Master Log (`id`, `group`, `age`) would appropriately fit within this section. We added the `age` variable to the desired variable list, manually set the source_map for the Master Log, and added it to the source maps for this section.
-
-```{r}
-desired_vars <- append(desired_vars, 'age')
-
-master_log_map <- tibble::tibble(
-      'master_log' = colnames(master_log),
-      'variable' = c('subject', 'group', 'age')
-    )
-
-source_maps <- full_join(source_maps, master_log_map, by = 'variable')
-source_maps
-```
-
 
 We created the instrument map, placing our variables in the desired order.
 
@@ -868,7 +924,7 @@ rm(sec_map)
 
 ## Screening Section
 
-Screening was performed with 5 instruments: Screening Questionnaire, Mini-Mental State Exam, Rapid Estimate of Adult Literacy in Medicine (REALM), BiologicalMeasures/Anthropometrics, and a Locator Form.
+Screening was performed with 5 instruments: Screening Questionnaire, Mini-Mental State Exam, Rapid Estimate of Adult Literacy in Medicine (REALM), BiologicalMeasures/Anthropometrics, and a Locator Form. The Locator Form was excluded from analysis.
 
 We initiated an empty list of the instruments for this section, which we would build in order.
 This placeholder would be removed prior to utilizing the list, but was named for easier removal.
@@ -1966,8 +2022,6 @@ sec_instruments <- append(sec_instruments, list('anthrop' = inst_map))
 
 rm(inst_map)
 ```
-
-### Locator Form 🔴 - PLACEHOLDER
 
 ### Joining Section
 
@@ -5583,7 +5637,7 @@ if (length(message)>0){
 }
 ```
 
-We set our initial desired order and standardization using the QDS variables. We utilized tidyselect to enable a warning/error message if the variable name changes after our initial processing, to facilitate updates.
+We set our initial desired order and standardization. We utilized tidyselect to enable a warning/error message if the variable name changes after our initial processing, to facilitate updates.
 
 ```{r}
 tlfb_vars <- tlfb %>%
@@ -9218,6 +9272,7 @@ tlfb_vars
 # [1] "Num_Days_Homeless"    "Per_Days_Homeless"    "Est_Days_Homeless_Yr"
 # [4] "Avg_Days_Homeless_Wk"
 ```
+
 We checked to see if any of these variables only contained missing values, and none did.
 
 ```{r}
@@ -9237,7 +9292,7 @@ if (length(message)>0){
 }
 ```
 
-We set our initial desired order and standardization using the QDS variables. We utilized tidyselect to enable a warning/error message if the variable name changes after our initial processing, to facilitate updates.
+We set our initial desired order and standardization. We utilized tidyselect to enable a warning/error message if the variable name changes after our initial processing, to facilitate updates.
 
 ```{r}
 tlfb_vars <- tlfb %>%
@@ -9749,7 +9804,16 @@ rm(sec_map)
 
 ## Treatment Quality and Satisfaction
 
-The section for Treatment Quality and Satisfaction contained only one instrument.
+The section for Treatment Quality and Satisfaction contained two instruments: the Treatment Quality and Satsifaction survey, and the Delayed Discount Task (DDT).
+
+We initiated an empty list of the instruments for this section, which we would build in order.
+This placeholder would be removed prior to utilizing the list, but was named for easier removal.
+
+```{r}
+sec_instruments <- list("placeholder" = c())
+```
+
+### Treatment Quality and Satisfaction
 
 We identified our keys and identified the matching variables in the QDS Visit 3 set.
 The Treatment Quality and Satisfaction Survey was not used in QDS Visits 1 or 2.
@@ -9954,37 +10018,128 @@ inst_map <- vm_create_for_instrument(
 inst_map
 ```
 
-### Joining Section
-
-As the Treatment Quality and Satisfaction section was a single instrument, we created our section.
+We added the instrument to our section-wise list of instruments.
+We purged the instrument map to reduce memory burden in processing.
 
 ```{r}
+sec_instruments <- append(sec_instruments, list('tq' = inst_map))
+
+rm(inst_map)
+```
+
+### Delay Discount Task (DDT)
+
+We identified the variables present in the DDT data set. These variables were not labeled in SPSS. The data was in a wide format, where each subject's responses were recorded in a single row. This would be managed with later processing.
+
+```{r}
+colnames(ddt)
+```
+
+We checked to see if any of these variables only contained missing values, and none did.
+
+```{r}
+# DATA CHECK: checking if variable only contains missing values.
+
+missing_vars <- c()
+message <- c()
+
+for (var in colnames(ddt)){
+  if(sum(!is.na(ddt[,var])) == 0){
+    missing_vars <- c(missing_vars, var)
+    message <- c(message, (paste(var, "is only missing values")))
+  }
+}
+if (length(message)>0){
+  print(message)
+}
+```
+
+We set our initial desired order and standardization. We utilized tidyselect to enable a warning/error message if the variable name changes after our initial processing, to facilitate updates. Due to the format of these variables, our standardization function would fail. As such, we performed manual standardization.
+
+```{r}
+ddt_vars <- ddt %>%
+  select(all_of(c(
+    "K_V1", "ED50_V1", "K_V3", "ED50_V3", "K_V4", "ED50_V4", 
+    "K_V5", "ED50_V5"
+    ))
+  ) %>%
+  names()
+
+desired_vars <- c(
+  "ddt_k_v1", "ddt_ed50_v1", "ddt_k_v3", "ddt_ed50_v3",
+  "ddt_k_v4", "ddt_ed50_v4", "ddt_k_v5", "ddt_ed50_v5"
+  )
+
+desired_vars
+
+# [1] "ddt_k_v1"    "ddt_ed50_v1" "ddt_k_v3"    "ddt_ed50_v3" "ddt_k_v4"    
+# [6] "ddt_ed50_v4" "ddt_k_v5"    "ddt_ed50_v5"
+```
+
+We created our source map. As this only composed a single source (thus named variables and desired variables would be in the same order), we manually created the tibble for brevity.
+
+```{r}
+source_maps <- tibble::tibble(
+  'ddt' = ddt_vars,
+  'variable' = desired_vars
+)
+
+source_maps
+```
+
+We created the instrument map, placing our variables in the desired order.
+
+```{r}
+inst_map <- vm_create_for_instrument(
+  'Delay Discount Task (DDT)', desired_vars
+  ) %>%
+  left_join(source_maps, 
+            by = 'variable')
+
+inst_map
+```
+
+We added the instrument to our section-wise list of instruments.
+We purged the instrument map to reduce memory burden in processing.
+
+```{r}
+sec_instruments <- append(sec_instruments, list('ddt' = inst_map))
+
+rm(inst_map)
+```
+
+### Joining Section
+
+We purged the placeholder from our section-wise list of instruments, and joined our section map.
+
+```{r}
+sec_instruments <- sec_instruments[names(sec_instruments) != "placeholder"]
+
 sec_map <- vm_join_inst_section(
-  'Treatment Quality and Satisfaction', list(inst_map)
+  'Treatment Quality and Satisfaction', sec_instruments
   )
 
 sec_map
 ```
 
-We added the section to our overall list, and purged the instrument & section maps to reduce memory burden in processing.
+We added the section to our overall list, and purged the section map to reduce memory burden in processing.
 
 ```{r}
 all_sections <- append(all_sections, list('treatment' = sec_map))
-rm(inst_map)
 rm(sec_map)
 ```
 
 ## Staff Perceptions of the Link2Care App 🔴 - PLACEHOLDER
 
-Staff Perceptions of the Link2Care was not included in the QDS Data
+Staff Perceptions of the Link2Care was not included in the QDS or REDCap data.
 
 ## Ecological Momentary Assessment (EMA) Matrix 🔴 - PLACEHOLDER
 
-The Ecological Momentary Assessment variables were not included in the QDS Data.
+The Ecological Momentary Assessment variables were not included in the QDS or REDCap data.
 
 ## COVID-19 Pandemic Related Data
 
-The section of COVID-19 Pandemic Related Data contained 2 instruments: COVID-19 Vaccination Questionnaire, and the Pandemic Stress Index (PSI).
+The section of COVID-19 Pandemic Related Data contained one instrument: COVID-19 Vaccination Questionnaire.
 
 We initiated an empty list of the instruments for this section, which we would build in order.
 This placeholder would be removed prior to utilizing the list, but was named for easier removal.
@@ -10180,8 +10335,6 @@ sec_instruments <- append(sec_instruments, list('covid_vax' = inst_map))
 rm(inst_map)
 ```
 
-### Pandemic Stress Index (PSI) 🔴 - PLACEHOLDER
-
 ### Joining Section
 
 We purged the placeholder from our section-wise list of instruments, and joined our section map.
@@ -10286,11 +10439,60 @@ rm(remaining_vars)
 # 💾 Saving the Variable Map
 
 ```{r}
+# RDS
+
 variable_map_path <- here(
   "data", "Combined Participant Data", "variable_map.rds"
   )
 
 write_rds(variable_map, variable_map_path)
+
+# EXCEL
+
+variable_map_path <- here(
+  "data", "Combined Participant Data", "variable_map.xlsx"
+  )
+
+write.xlsx(variable_map, variable_map_path)
 ```
+
+# Clean Up
+
+Remaining environmental variables were purged, in case of memory leak.
+
+```{r}
+rm(missing_vars)
+rm(message)
+rm(tlfb_vars)
+rm(var)
+rm(vars_v1)
+rm(vars_v2)
+rm(vars_v3)
+rm(red_vars)
+rm(master_log_vars)
+rm(ddt_vars)
+rm(desired_vars)
+rm(source_maps)
+rm(source_list)
+rm(ddt)
+rm(redcap)
+rm(tlfb)
+rm(v1)
+rm(v2)
+rm(v3)
+rm(v4)
+rm(v5)
+rm(master_log)
+rm(master_log_map)
+rm(dropping)
+rm(incl_keys)
+rm(excl_keys)
+rm(all_sections)
+rm(sec_instruments)
+rm(source_df)
+rm(flagged_vars)
+rm(variable_map_path)
+```
+
 
 # BOTTOM PLACEHOLDER 🔴
