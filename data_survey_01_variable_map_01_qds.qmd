@@ -74,6 +74,8 @@ source(here("R", "vm_process_many_source.R"))
 
 ### 🕒 Change Log 
 
+**2023-10-13**, Added attributes (label and labels) comparison and capture in variable map. **This file should be complete.**
+
 **2023-10-11**, REDCap, TLFB, Master Log, and DDT variables added. Staff Perceptions of Link2Care, EMA data is not present.
 
 **2023-10-06**, the process was revised to eliminate the use of numerical assignment of variable order, repetition of code, and failure to throw explicit errors in the case of variable names or content changing in the source data sets. The plan for the full modification pipeline was revised. The new plan will divide the process into three distinct steps. First will be creation of the variable map "choke point" for all source data sets. The second will involve processing the source data, and merging into a new combined data set based on this variable map. The third will involve the creation/recreation of variables originally calculated in SPSS with R, utilizing this aggregate data set. This should yield a robust process flow that isolates any potential changes required if the source data were to change variable names, structures, or otherwise. 
