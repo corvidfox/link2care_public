@@ -19,7 +19,7 @@ Notes and guide for how to use **variable map** functions, with examples found i
 
 # 📦Load packages & Functions
 
-```{r, message=FALSE}
+```{r, message=FALSE, warning=FALSE}
 library(dplyr, warn.conflicts = FALSE)
 library(purrr, warn.conflicts = FALSE)
 library(haven, warn.conflicts = FALSE)
@@ -354,6 +354,7 @@ cat(
 # 2023-10-11: TLFB imported with 1768 rows and 21 columns.
 # TLFB data last modified on OneDrive 2023-08-25 10:56:58 
 ```
+
 ## Delay Discount Task (DDT)
 
 All Delayed Discount Task (DDT) section data was initially processed with SPSS.
@@ -914,12 +915,14 @@ sec_map <- vm_join_inst_section('Administrative', list(inst_map))
 sec_map
 ```
 
-We added the section to our overall list, and purged the instrument & section maps to reduce memory burden in processing.
+We added the section to our overall list. We purged the instrument and section maps, as well as the Master Log data frame to reduce memory burden in processing and protect against potential memory leak.
 
 ```{r}
 all_sections <- append(all_sections, list('admin' = sec_map))
 rm(inst_map)
 rm(sec_map)
+rm(master_log)
+rm(master_log_vars)
 ```
 
 ## Screening Section
@@ -1474,8 +1477,8 @@ source_maps <- vm_make_source_map(
       ) %>%
   mutate(variable = case_when(
     variable == 'mms_1d_5' ~ 'mms_1d',
-    variable == 'MMS_4_V5' ~ 'mms_4v',
-    variable == 'MMS4_V5' ~ 'mms_4',
+    variable == 'MMS4_V5' ~ 'mms_4v',
+    variable == 'MMS_4_V5' ~ 'mms_4',
     variable == 'MMS_4_V5A' ~ 'mms_4a',
     variable == 'MMS_4_V5B' ~ 'mms_4b',
     variable == 'MMS_4_V5C' ~ 'mms_4c',
@@ -9334,13 +9337,13 @@ inst_map <- vm_create_for_instrument(
 inst_map
 ```
 
-We added the instrument to our section-wise list of instruments.
-We purged the instrument map to reduce memory burden in processing.
+We added the instrument to our section-wise list of instruments. We purged the instrument map to reduce memory burden in processing and protect against potential memory leak.
 
 ```{r}
 sec_instruments <- append(sec_instruments, list('homeless_tlfb' = inst_map))
 
 rm(inst_map)
+rm(tlfb_vars)
 ```
 
 ### Resource Utilization Questionnaire
@@ -10100,12 +10103,13 @@ inst_map
 ```
 
 We added the instrument to our section-wise list of instruments.
-We purged the instrument map to reduce memory burden in processing.
+We purged the instrument map to reduce memory burden in processing, and protect against potential memory leak.
 
 ```{r}
 sec_instruments <- append(sec_instruments, list('ddt' = inst_map))
 
 rm(inst_map)
+rm(ddt_vars)
 ```
 
 ### Joining Section
@@ -10367,6 +10371,26 @@ all_sections <- all_sections[names(all_sections) != "placeholder"]
 variable_map <- vm_join_sections(all_sections)
 ```
 
+We purged containers that were no longer necessary to reduce memory burden and protect in case of memory leak.
+
+```{r}
+rm(all_sections)
+rm(excl_keys)
+rm(incl_keys)
+rm(flagged_vars)
+rm(sec_instruments)
+rm(source_maps)
+rm(source_df)
+rm(desired_vars)
+rm(message)
+rm(missing_vars)
+rm(red_vars)
+rm(var)
+rm(vars_v1)
+rm(vars_v2)
+rm(vars_v3)
+```
+
 # Verifying Remaining Variables
 
 We examined the 68 variables that had otherwise failed to be assigned from each data set. These variables were all determined to be either SPSS calculated variables, or entirely empty errant duplicates of variables, that we wished to recreate in R from our aggregated set.
@@ -10406,7 +10430,6 @@ remaining_vars
 # [57] "Heavy_drinker_V5"        "PA_V5"                   "VA_V5"                   "A_V5"                   
 # [61] "HA_V5"                   "Time_to_complete_V5"     "staffperc_q1"
 ```
-
 As such, we added these variables to our list of variables to drop for each set.
 
 ```{r}
@@ -10426,15 +10449,398 @@ for (i in 1:length(source_list)){
   )
   
 }
-
-# Clean up in case of memory leak
-rm(source_vars)
-rm(source_name)
-rm(source_remaining)
-rm(i)
-rm(remaining_vars)
 ```
 
+We purged the remaining containers that were no longer necessary to reduce memory burden and protect against memory leak.
+
+```{r}
+rm(i)
+rm(remaining_vars)
+rm(source_list)
+rm(source_name)
+rm(source_remaining)
+rm(source_vars)
+```
+
+# Capturing Variable Attributes
+
+We wished to capture the label and labels attributes from our source data sets, to ensure they are uniform throughout processing.
+
+We renamed our data sets to facilitate easier use of dplyr and tidyverse functions. We added a "qds" prefix to the QDS visit columns in our variable map.
+
+```{r}
+# Rename QDS cols in variable map to have a "qds_" prefix
+variable_map <- variable_map %>%
+  rename_at(
+    c('v1', 'v2', 'v3', 'v4', 'v5'), 
+    ~c('qds_v1', 'qds_v2', 'qds_v3', 'qds_v4', 'qds_v5')
+    )
+
+#  Rename source data frames
+redcap_df <- redcap
+tlfb_df <- tlfb
+ddt_df <- ddt
+
+# Remove old data frame names from global
+rm(redcap)
+rm(tlfb)
+rm(ddt)
+```
+
+## Extracting Variable Labels
+
+We extracted and compared the labels for each variable in our source data sets. Variables with more than one label across the data sets were isolated for manual review.
+
+```{r}
+attribute_list <- variable_map %>%
+  select(variable) %>%
+  rowwise() %>%
+  mutate(
+    v1_label = ifelse(
+      !is.na(variable_map[variable_map$variable == variable,]$qds_v1),
+      ifelse(
+        !is.null(attributes(v1[[variable_map[variable_map$variable ==
+                                               variable,]$qds_v1]])$label),
+        attributes(v1[[variable_map[variable_map$variable ==
+                                               variable,]$qds_v1]])$label,
+        NA),
+      NA
+      ),
+    v2_label = ifelse(
+      !is.na(variable_map[variable_map$variable == variable,]$qds_v2),
+      ifelse(
+        !is.null(attributes(v2[[variable_map[variable_map$variable ==
+                                               variable,]$qds_v2]])$label),
+        attributes(v2[[variable_map[variable_map$variable ==
+                                               variable,]$qds_v2]])$label,
+        NA),
+      NA
+      ),
+    v3_label = ifelse(
+      !is.na(variable_map[variable_map$variable == variable,]$qds_v3),
+      ifelse(
+        !is.null(attributes(v3[[variable_map[variable_map$variable ==
+                                               variable,]$qds_v3]])$label),
+        attributes(v3[[variable_map[variable_map$variable ==
+                                               variable,]$qds_v3]])$label,
+        NA),
+      NA
+      ),
+    v4_label = ifelse(
+      !is.na(variable_map[variable_map$variable == variable,]$qds_v4),
+      ifelse(
+        !is.null(attributes(v4[[variable_map[variable_map$variable ==
+                                               variable,]$qds_v4]])$label),
+        attributes(v4[[variable_map[variable_map$variable ==
+                                               variable,]$qds_v4]])$label,
+        NA),
+      NA
+      ),
+    v5_label = ifelse(
+      !is.na(variable_map[variable_map$variable == variable,]$qds_v5),
+      ifelse(
+        !is.null(attributes(v5[[variable_map[variable_map$variable ==
+                                               variable,]$qds_v5]])$label),
+        attributes(v5[[variable_map[variable_map$variable ==
+                                               variable,]$qds_v5]])$label,
+        NA),
+      NA
+      ),
+    redcap_label = ifelse(
+      !is.na(variable_map[variable_map$variable == variable,]$redcap),
+      ifelse(
+        !is.null(attributes(redcap_df[[variable_map[variable_map$variable ==
+                                               variable,]$redcap]])$label),
+        attributes(redcap_df[[variable_map[variable_map$variable ==
+                                               variable,]$redcap]])$label,
+        NA),
+      NA
+      ),
+    tlfb_label = ifelse(
+      !is.na(variable_map[variable_map$variable == variable,]$tlfb),
+      ifelse(
+        !is.null(attributes(tlfb_df[[variable_map[variable_map$variable ==
+                                               variable,]$tlfb]])$label),
+        attributes(tlfb_df[[variable_map[variable_map$variable ==
+                                               variable,]$tlfb]])$label,
+        NA),
+      NA
+      ),
+    ddt_label = ifelse(
+      !is.na(variable_map[variable_map$variable == variable,]$ddt),
+      ifelse(
+        !is.null(attributes(ddt_df[[variable_map[variable_map$variable ==
+                                               variable,]$ddt]])$label),
+        attributes(ddt_df[[variable_map[variable_map$variable ==
+                                               variable,]$ddt]])$label,
+        NA),
+      NA
+      )
+  ) %>%
+  mutate(
+    count = n_distinct(c_across(ends_with("label")), na.rm=TRUE)
+  ) %>%
+  ungroup()
+
+checking <- attribute_list %>%
+  filter(count > 1)
+```
+
+We determined that there were 3 variables (`bh_14`, `t_10`, and `dd_10`) with significantly different labels. The remaining variables had slight punctuation differences which did not change the meaning of the label.
+
+We chose the QDS V1 labels to form our initial labels. Other data sets would be utilized if QDS V1 was empty.
+
+```{r}
+attribute_labels <- attribute_list %>%
+  # Point fixes of 3 variables with variants in labels
+  mutate(v1_label = case_when(
+    variable == 'bh_14' ~ paste(
+      "Were you arrested or booked for breaking the law in the PAST",
+       "[Interval since last visit, 1 month for baseline]?"
+      ),
+    variable == 't_10' ~ paste(
+      "In the past 30 days [1 year for baseline],",
+      "how many times have you successfully quit smoking for at least 24", 
+      "hours (only include times where you wanted to quit smoking– do not",
+      "include times when you wanted to smoke but didn’t have money to",
+      "buy cigarettes)?"
+      ),
+    variable == 'dd_10' ~ 
+      "What was the main reason for the discrimination you experienced?",
+    TRUE ~ v1_label
+    )
+  ) %>%
+  # Fill blanks with existing values, in preference order
+  mutate(v1_label = ifelse(is.na(v1_label), 
+                            case_when(
+                              !is.na(v2_label) ~ v2_label,
+                              !is.na(v3_label) ~ v3_label,
+                              !is.na(v4_label) ~ v4_label,
+                              !is.na(v5_label) ~ v5_label,
+                              !is.na(redcap_label) ~ redcap_label,
+                              !is.na(tlfb_label) ~ tlfb_label,
+                              !is.na(ddt_label) ~ ddt_label,
+                              TRUE ~ v1_label
+                              ), 
+                            v1_label
+                           )
+         ) %>%
+  # Rename column to facilitate updating values
+  rename_at('v1_label', ~'attr_label') %>%
+  # Isolate variable key and attribute label column
+  select(variable, attr_label)
+```
+
+## Extracting Variable Value Labels
+
+We repeated a similar process for the variable value labels. These value labels were absent from the REDCap, TLFB, and DDT data sets.
+
+```{r}
+attribute_list <- variable_map %>%
+  select(variable) %>%
+  rowwise() %>%
+  # Extract labels
+  mutate(
+    v1_labels = ifelse(
+      !is.na(variable_map[variable_map$variable == variable,]$qds_v1),
+      ifelse(
+        !is.null(attributes(v1[[variable_map[variable_map$variable ==
+                                               variable,]$qds_v1]])$labels),
+        list(attributes(v1[[variable_map[variable_map$variable ==
+                                               variable,]$qds_v1]])$labels),
+        NA),
+      NA
+      ),
+    v2_labels = ifelse(
+      !is.na(variable_map[variable_map$variable == variable,]$qds_v2),
+      ifelse(
+        !is.null(attributes(v2[[variable_map[variable_map$variable ==
+                                               variable,]$qds_v2]])$labels),
+        list(attributes(v2[[variable_map[variable_map$variable ==
+                                               variable,]$qds_v2]])$labels),
+        NA),
+      NA
+      ),
+    v3_labels = ifelse(
+      !is.na(variable_map[variable_map$variable == variable,]$qds_v3),
+      ifelse(
+        !is.null(attributes(v3[[variable_map[variable_map$variable ==
+                                               variable,]$qds_v3]])$labels),
+        list(attributes(v3[[variable_map[variable_map$variable ==
+                                               variable,]$qds_v3]])$labels),
+        NA),
+      NA
+      ),
+    v4_labels = ifelse(
+      !is.na(variable_map[variable_map$variable == variable,]$qds_v4),
+      ifelse(
+        !is.null(attributes(v4[[variable_map[variable_map$variable ==
+                                               variable,]$qds_v4]])$labels),
+        list(attributes(v4[[variable_map[variable_map$variable ==
+                                               variable,]$qds_v4]])$labels),
+        NA),
+      NA
+      ),
+    v5_labels = ifelse(
+      !is.na(variable_map[variable_map$variable == variable,]$qds_v5),
+      ifelse(
+        !is.null(attributes(v5[[variable_map[variable_map$variable ==
+                                               variable,]$qds_v5]])$labels),
+        list(attributes(v5[[variable_map[variable_map$variable ==
+                                               variable,]$qds_v5]])$labels),
+        NA),
+      NA
+      )
+  ) %>%
+  add_column(count = 0) %>%
+  # Get count of the number of unique versions of these labels
+  mutate(
+      # Compare QDS V1 to everything else, if QDS V1 exists
+          count = ifelse((!is.null(v1_labels) & !is.null(v2_labels)),
+                         ifelse(!identical(v1_labels, v2_labels),
+                            count + 1,
+                            count
+                            ),
+                          count
+                          ),
+         count = ifelse((!is.null(v1_labels) & !is.null(v3_labels)),
+                         ifelse(!identical(v1_labels, v3_labels),
+                            count + 1,
+                            count
+                            ),
+                          count
+                          ),
+         count = ifelse((!is.null(v1_labels) & !is.null(v4_labels)),
+                         ifelse(!identical(v1_labels, v4_labels),
+                            count + 1,
+                            count
+                            ),
+                          count
+                          ),
+         count = ifelse((!is.null(v1_labels) & !is.null(v5_labels)),
+                         ifelse(!identical(v1_labels, v5_labels),
+                            count + 1,
+                            count
+                            ),
+                          count
+                          ),
+         # Compare QDS V2 to everything else, if QDS V2 exists
+         count = ifelse((!is.null(v2_labels) & !is.null(v3_labels)),
+                         ifelse(!identical(v2_labels, v3_labels),
+                            count + 1,
+                            count
+                            ),
+                          count
+                          ),
+         count = ifelse((!is.null(v2_labels) & !is.null(v4_labels)),
+                         ifelse(!identical(v2_labels, v4_labels),
+                            count + 1,
+                            count
+                            ),
+                          count
+                          ),
+         count = ifelse((!is.null(v2_labels) & !is.null(v5_labels)),
+                         ifelse(!identical(v2_labels, v5_labels),
+                            count + 1,
+                            count
+                            ),
+                          count
+                          ),
+  # Compare QDS V3 to everything else, if QDS V3 exists
+         count = ifelse((!is.null(v3_labels) & !is.null(v4_labels)),
+                         ifelse(!identical(v3_labels, v4_labels),
+                            count + 1,
+                            count
+                            ),
+                          count
+                          ),
+         count = ifelse((!is.null(v3_labels) & !is.null(v5_labels)),
+                         ifelse(!identical(v3_labels, v5_labels),
+                            count + 1,
+                            count
+                            ),
+                          count
+                          ),
+  # Compare QDS V4 to everything else, if QDS V4 exists
+         count = ifelse((!is.null(v4_labels) & !is.null(v5_labels)),
+                         ifelse(!identical(v4_labels, v5_labels),
+                            count + 1,
+                            count
+                            ),
+                          count
+                          )
+  ) %>%
+  ungroup()
+
+checking <- attribute_list %>%
+  filter(count > 1)
+```
+
+In manually checking the variable with more than one set of values (`read_3`), we discovered that this variation was due to different punctuation typos which did not change the meaning of the label.
+
+We chose the QDS V1 variable value labels to form our initial variable value labels. Other data sets would be utilized if QDS V1 was empty.
+
+```{r}
+attribute_list <- attribute_list %>%
+  # Fill blanks with existing values, in preference order
+  rowwise() %>%
+  mutate(v1_labels = ifelse(is.null(v1_labels), 
+                             case_when(
+                                !is.null(v2_labels) ~ list(v2_labels),
+                                !is.null(v3_labels) ~ list(v3_labels),
+                                !is.null(v4_labels) ~ list(v4_labels),
+                                !is.null(v5_labels) ~ list(v5_labels),
+                                TRUE ~ list(NULL)
+                                ),
+                            list(v1_labels)
+                            )
+         ) %>%
+  ungroup() %>%
+  rename_at('v1_labels', ~'attr_var_labels') %>%
+  select(variable, attr_var_labels)
+```
+
+We combined these into a single attribute list.
+
+```{r}
+attribute_list <- left_join(attribute_labels, attribute_list, by='variable')
+```
+
+## Merging into Variable Map
+
+We then merged these values into our Variable Map.
+
+```{r}
+variable_map <- left_join(variable_map, attribute_list, by = 'variable')
+
+attr(variable_map[['attr_label']], 'label') <- "Variable label"
+
+attr(variable_map[['attr_var_labels']], 'label') <- "Value labels"
+```
+
+## Clean up
+
+We purged the remaining containers that were no longer necessary to reduce memory burden and protect against memory leak.
+
+```{r}
+rm(attribute_labels)
+rm(attribute_list)
+rm(ddt_df)
+rm(dropping)
+rm(checking)
+rm(redcap_df)
+rm(remaining_vars)
+rm(source_list)
+rm(source_name)
+rm(source_remaining)
+rm(source_vars)
+rm(tlfb_df)
+rm(v1)
+rm(v2)
+rm(v3)
+rm(v4)
+rm(v5)
+```
 
 # 💾 Saving the Variable Map
 
@@ -10456,43 +10862,10 @@ variable_map_path <- here(
 write.xlsx(variable_map, variable_map_path)
 ```
 
-# Clean Up
-
-Remaining environmental variables were purged, in case of memory leak.
+We purged the remaining variables to reduce memory burden and protect against memory leak.
 
 ```{r}
-rm(missing_vars)
-rm(message)
-rm(tlfb_vars)
-rm(var)
-rm(vars_v1)
-rm(vars_v2)
-rm(vars_v3)
-rm(red_vars)
-rm(master_log_vars)
-rm(ddt_vars)
-rm(desired_vars)
-rm(source_maps)
-rm(source_list)
-rm(ddt)
-rm(redcap)
-rm(tlfb)
-rm(v1)
-rm(v2)
-rm(v3)
-rm(v4)
-rm(v5)
-rm(master_log)
-rm(master_log_map)
-rm(dropping)
-rm(incl_keys)
-rm(excl_keys)
-rm(all_sections)
-rm(sec_instruments)
-rm(source_df)
-rm(flagged_vars)
 rm(variable_map_path)
 ```
-
 
 # BOTTOM PLACEHOLDER 🔴
