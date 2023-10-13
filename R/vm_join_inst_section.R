@@ -126,7 +126,7 @@ vm_join_inst_section <- function(section_name, instrument_list) {
   sec_tibble <- sec_tibble %>%
     add_column(section = section_name)
   
-  # Ensure all variables in combined tibble are unique
+  # DATA CHECK: Ensure all variables in combined tibble are unique
   
   if (sum(duplicated(sec_tibble$variable)) > 0){
     stop("At least one variable is duplicated between instruments! Invalid join.")
@@ -136,7 +136,19 @@ vm_join_inst_section <- function(section_name, instrument_list) {
   
   sec_tibble <- sec_tibble %>%
     relocate(variable, section, instrument, inst_ord, item_ord)
-    
+  
+  # Add label attribute to tibble columns
+  attr(sec_tibble[['variable']], 
+       'label') <- "Desired Standardized Variable Name"
+  attr(sec_tibble[['section']], 
+       'label') <- "Section name"
+  attr(sec_tibble[['instrument']], 
+       'label') <- "Instrument Name"
+  attr(sec_tibble[['inst_ord']], 
+       'label') <- "Order of the instrument in the section"
+  attr(sec_tibble[['item_ord']], 
+       'label') <- "Order of item in instrument"
+  
   # Return tibble
   
   sec_tibble
