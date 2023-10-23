@@ -1,5 +1,5 @@
 vm_add_variable <- function(full_map, instrument_name, new_var, 
-                                prev_var = 0){
+                                prev_var = 0, opts = NULL){
   # Adds a variable to the variable map by inserting the variable.
   #
   # Built with R version 4.2.2
@@ -28,11 +28,13 @@ vm_add_variable <- function(full_map, instrument_name, new_var,
   #   'instrument_name' (string) - instrument in which the variable is to be
   #                             inserted
   #   'new_var' (string) - a unique variable name for the new variable
-  #   'prev_var' (string) - the name of the variable directly preceeding the
+  #   'prev_var' (string) - the name of the variable directly preceding the
   #                             new variable (i.e., if "prev_var" is item 1,
   #                             "new_var" should be item 2).
   #                             Default is 0 - indicating the new variable is
   #                             the new first item of the instrument.
+  #   'opts' (tibble) - tibble containing additional columns for the new
+  #                     variable, if beneficial. Default is NULL
   #
   # OUTPUT:
   #       revised version of 'full_map' with the new variable inserted.
@@ -118,17 +120,39 @@ vm_add_variable <- function(full_map, instrument_name, new_var,
   # Add new row. Take values for Section and Instrument from the existing data
   # for consistency, fewer chances for typos.
   
-  subset <- dplyr::bind_rows(subset, 
-                             tibble::tibble(
-                               'variable' = new_var,
-                               'section' = unique(subset$section),
-                               'sec_ord' = unique(subset$sec_ord),
-                               'instrument' = instrument_name,
-                               'inst_ord' = unique(subset$inst_ord),
-                               'item_ord' = var_position
-                             )
-  )
+  new_row <- tibble::tibble(
+    'variable' = new_var,
+    'section' = unique(subset$section),
+    'sec_ord' = unique(subset$sec_ord),
+    'instrument' = instrument_name,
+    'inst_ord' = unique(subset$inst_ord),
+    'item_ord' = var_position
+    )
+  
+  # Add opt variables, if passed
+  if(!is.null(opts)){
+    
+    # DATA CHECK: ensure opt variables are NOT already part of the row
+    if(length(colnames(opts)[colnames(opts) %in% colnames(new_row)])>0){
+      stop("Variables in 'opts' are already created by function - revise")
+    }
+    
+    new_row <- dplyr::left_join(new_row,
+                                # Add 'variable' column for matching
+                                opts %>%
+                                  add_column('variable' = new_var),
+                                by = "variable")
+  }
+  
+  # Add new row to the instrument subset
+  subset <- dplyr::bind_rows(subset, new_row)
+  
   rm(var_position)
+  
+  # Isolate a single row from the original full map, to catch attributes
+  
+  attribute_row <- full_map[1,]
+  
   # Replace full map's section with the revised section, enforce order 
   
   full_map <- dplyr::bind_rows(
@@ -138,6 +162,15 @@ vm_add_variable <- function(full_map, instrument_name, new_var,
     arrange(sec_ord, inst_ord, item_ord)
   
   rm(subset)
+  
+  # Return attributes that were in the original full map
+  
+  for (col_name in colnames(attribute_row)){
+    attributes(full_map[[col_name]]) <- attributes(attribute_row[[col_name]])
+  }
+  
+  rm(attribute_row)
+  
   # return revised full map
   
   full_map
