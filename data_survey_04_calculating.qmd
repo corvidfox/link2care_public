@@ -2446,6 +2446,34 @@ combined_data <- combined_data %>%
   )
 ```
 
+
+# Ensuring `drop_consolidated` is "FALSE" (not missing)
+
+We ensured all variables with a missing (`NA`) value for `drop_consolidated` instead gained a value of FALSE.
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(drop_consolidated = ifelse(
+      is.na(drop_consolidated), 
+      FALSE, 
+      drop_consolidated
+      )
+    )
+```
+
+We also identified that `redcap_event_name` failed to be marked for consolidation. This was corrected.
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(drop_consolidated = ifelse(
+      variable == 'redcap_event_name', 
+      TRUE, 
+      drop_consolidated
+      )
+    )
+```
+
+
 # Ordering and Labeling Variables
 
 We ordered the variables within our variable map, filtered to only include variables present in our current combined data set, and isolated the variables. We used this ordered list to order the columns in our combined data set.
