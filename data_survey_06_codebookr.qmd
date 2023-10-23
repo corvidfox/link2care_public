@@ -1,0 +1,247 @@
+---
+title: "Combined Data Codebook"
+date: "2022-10-23 <br> Updated: `r Sys.Date()`"
+format: pdf
+editor: 
+  markdown: 
+    wrap: sentence
+---
+
+# ⭐️Overview
+
+This file generates a codebook from the combined Link2Care (L2C) data set and variable map using Codebookr.
+
+# 📦Load packages & Functions
+
+```{r, message=FALSE, warning=FALSE}
+library(dplyr, warn.conflicts = FALSE)
+library(codebookr, warn.conflicts = FALSE)
+library(purrr, warn.conflicts = FALSE)
+library(here, warn.conflicts = FALSE)
+library(stringr, warn.conflicts = FALSE)
+library(lubridate, warn.conflicts = FALSE)
+library(readxl, warn.conflicts = FALSE)
+library(openxlsx, warn.conflicts = FALSE)
+library(readr, warn.conflicts = FALSE)
+library(tidyverse, warn.conflicts = FALSE)
+```
+
+```{r}
+source(here("R", "vm_check.R"))
+```
+
+# 📥 Import data
+
+## Combined Data Set
+
+We imported our Combined Data Set
+
+```{r}
+combined_data_path <- here(
+  "data", "Combined Participant Data", "combined_data_03.rds"
+  )
+```
+
+Import the data.
+Check the most recent file modification dates and print for user when this file is being sourced.
+
+```{r message=FALSE}
+combined_data <- readRDS(combined_data_path)
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "Combined data imported with", nrow(combined_data), "rows and", 
+  ncol(combined_data), "columns.\n"
+)
+
+# Check the most recent file modification dates and print for user when this
+# file is being sourced.
+
+cat(
+      "Combined data last modified on OneDrive", 
+      as.character(file.info(combined_data_path)$mtime), "\n"
+    )
+
+# 2023-10-23: Combined data imported with 1610 rows and 1062 columns.
+# Combined data last modified on OneDrive 2023-10-23 17:12:33 
+```
+
+We purged the import path for memory management.
+
+```{r}
+rm(combined_data_path)
+```
+
+## Variable Map
+
+We imported our Variable Map.
+
+```{r}
+variable_map_path <- here(
+  "data", "Combined Participant Data", "variable_map_03.rds"
+  )
+```
+
+Import the data.
+Check the most recent file modification dates and print for user when this file is being sourced.
+
+```{r message=FALSE}
+variable_map <- readRDS(variable_map_path)
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "Variable Map imported with", nrow(variable_map), "rows and", 
+  ncol(variable_map), "columns.\n"
+)
+
+# Check the most recent file modification dates and print for user when this
+# file is being sourced.
+
+cat(
+      "Variable Map data last modified on OneDrive", 
+      as.character(file.info(variable_map_path)$mtime), "\n"
+    )
+
+# 2023-10-23: Variable Map imported with 1083 rows and 24 columns.
+# Variable Map data last modified on OneDrive 2023-10-23 17:12:33 
+```
+
+We ensured our Variable Map met our required minimum format.
+
+```{r}
+vm_check(variable_map)
+# TRUE
+```
+
+We purged the import path for memory management.
+
+```{r}
+rm(variable_map_path)
+```
+
+# Data Check
+
+We verified that all variables in the variable map contained a value for source and label.
+
+```{r}
+## DATA CHECK: ensure all variables in the variable map contain a source and label
+nrow(
+variable_map %>%
+  filter(is.na(source) | is.na(attr_label))
+) == 0
+# TRUE
+```
+
+We removed the labels from all variable map columns, to avoid processing errors using 'pull()'.
+
+```{r}
+variable_map <- variable_map
+
+for (var_name in colnames(variable_map)){
+  attributes(variable_map[[var_name]])$label <- NULL
+}
+```
+
+We ordered the variables within our variable map, filtered to only include variables present in our current combined data set, and isolated the variables. We used this ordered list to order the columns in our combined data set.
+
+```{r}
+variable_order <- pull(
+  variable_map %>%
+    arrange(sec_ord, inst_ord, item_ord) %>%
+    filter(final_variable %in% colnames(combined_data)) %>%
+    select(final_variable)
+  )
+
+combined_data <- combined_data[ ,variable_order]
+```
+
+We ensured the variables in our processed data set had our desired label, value labels, and source attributes.
+
+```{r}
+for (var_name in colnames(combined_data)){
+  attributes(
+    combined_data[[var_name]]
+    )$label <- pull(
+      variable_map %>%
+        filter(final_variable == var_name) %>%
+        select(attr_label)
+      )
+   attributes(
+     combined_data[[var_name]]
+     )$labels <- pull(
+       variable_map %>%
+          filter(final_variable == var_name) %>% 
+          select(attr_var_labels)
+       )[[1]] 
+   attributes(
+     combined_data[[var_name]]
+     )$source <- pull(
+       variable_map %>%
+          filter(final_variable == var_name) %>%
+          select(source)
+       )
+}
+```
+
+We purged the remaining variables for memory management.
+
+```{r}
+rm(var_name)
+rm(variable_order)
+```
+
+# Manual Modification
+
+The labels for `anth_overwt_obese` returned errors, stating that the value was of type 'call'. While inspection of the variable map and previous code did not provide any insight as to why, we manually modified the value labels.
+
+```{r}
+attributes(combined_data$anth_overwt_obese)$labels <- c(
+  'overweight or obese' = TRUE, 
+  'neither overweight nor obese' = FALSE
+  )
+```
+
+
+# Blocking Summary Statistics on PHI and Other Variables
+
+We identified our PHI variables, and two other variables we wished to block from summary statistics.
+
+```{r}
+blocking_vars <- pull(
+  variable_map %>%
+    filter(phi) %>%
+    select(final_variable)
+  )
+
+blocking_vars <- c(blocking_vars, 'interviewer', 'care_manager')
+```
+
+# Codebook Generation
+
+We generated our codebook, with title, subtitle, and description. We blocked summary statistics on our PHI fields.
+
+```{r}
+#| message: false
+book <- codebook(
+  df = combined_data,
+  title = "Link2Care Subject Data",
+  no_summary_stats = blocking_vars,
+  keep_blank_attributes = FALSE)
+```
+
+# 💾 Exporting Codebook to DOCX Format
+
+```{r}
+print(book, here("codebooks", "Link2Care Combined Subject Data.docx"))
+```
+
+
+```{r}
+rm(book)
+rm(variable_map)
+rm(combined_data)
+rm(blocking_vars)
+```
+
