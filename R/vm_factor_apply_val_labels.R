@@ -81,7 +81,7 @@ vm_factor_apply_val_labels <- function(
     rowwise() %>%
     filter(!is.null(attr_var_labels)) %>%
     ungroup() %>%
-    select(variable_name_var, attr_var_labels) %>%
+    select(all_of(variable_name_var), attr_var_labels) %>%
     rename_at(variable_name_var, ~'variable') %>%
     filter(!is.na(variable))
   
