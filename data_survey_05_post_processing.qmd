@@ -13,6 +13,8 @@ This file is step 5 in processing the source data from Link2Care (L2C) into a si
 
 This file involves applying a final renaming to variables, flagging PHI variables, and any other post-processing modifications.
 
+**Of note: Interviewer Initials and Case Manager names were anonymized and converted into factors based on data as of 2023-10-25. If data significantly changes, the code to process this change may no longer be valid.**
+
 [Notes on cleaning individual L2C data sets for merging](https://github.com/brad-cannell/link2care_public/wiki/Notes-on-cleaning-individual-L2C-data-sets-for-merging)
 
 ## Process Steps
@@ -69,6 +71,7 @@ In this step, we aim to standardize our variable names under the following struc
 # 📦Load packages & Functions
 
 ```{r, message=FALSE, warning=FALSE}
+library(hms, warn.conflicts = FALSE)
 library(dplyr, warn.conflicts = FALSE)
 library(purrr, warn.conflicts = FALSE)
 library(haven, warn.conflicts = FALSE)
@@ -82,6 +85,7 @@ library(tidyverse, warn.conflicts = FALSE)
 ```
 
 ```{r}
+source(here("R", "vm_factor_apply_val_labels.R"))
 source(here("R", "standardize_col_names.R"))
 source(here("R", "flag_unmatching_variables.R"))
 source(here("R", "vm_make_source_map.R"))
@@ -1982,6 +1986,226 @@ variable_map <- variable_map %>%
     )
 ```
 
+# Reducing Care Manager and Interviewer to Numeric Factors
+
+## Care Manager
+
+We identified 66 unique Care Manager values. On manual inspection, there were several individuals represented with their name in "First LastInitial", "First Last", or "First" format, with otherwise distinctive names that gave the team confidence these values were identical.
+
+```{r}
+care_managers <- na.omit(sort(unique(combined_data$care_manager)))
+
+length(care_managers)
+# 66
+```
+
+We performed point-modifications to combine these values. To avoid revealing an individual's name in the code, numeric indexing of using the sorted list of unique values was utilized. **Note: If the data changes significantly, and the unique values for care managers change, this indexing may no longer be valid.**
+
+```{r}
+combined_data <- combined_data %>%
+  mutate(care_manager = case_when(
+      care_manager == care_managers[1] ~ care_managers[2],
+      care_manager == care_managers[3] ~ care_managers[4],
+      care_manager == care_managers[6] ~ care_managers[7],
+      care_manager == care_managers[10] ~ care_managers[11],
+      care_manager == care_managers[14] ~ care_managers[15],
+      care_manager == care_managers[17] ~ care_managers[18],
+      care_manager == care_managers[19] ~ care_managers[21],
+      care_manager == care_managers[20] ~ care_managers[21],
+      care_manager == care_managers[22] ~ care_managers[23], 
+      care_manager == care_managers[25] ~ care_managers[26], 
+      care_manager == care_managers[28] ~ care_managers[30], 
+      care_manager == care_managers[29] ~ care_managers[30], 
+      care_manager == care_managers[32] ~ care_managers[33], 
+      care_manager == care_managers[34] ~ care_managers[35], 
+      care_manager == care_managers[38] ~ care_managers[39], 
+      care_manager == care_managers[42] ~ care_managers[43], 
+      care_manager == care_managers[46] ~ care_managers[47], 
+      care_manager == care_managers[48] ~ care_managers[49], 
+      care_manager == care_managers[50] ~ care_managers[51],
+      care_manager == care_managers[52] ~ care_managers[54],
+      care_manager == care_managers[53] ~ care_managers[54], 
+      care_manager == care_managers[56] ~ care_managers[57], 
+      care_manager == care_managers[58] ~ care_managers[59], 
+      care_manager == care_managers[60] ~ care_managers[61], 
+      care_manager == care_managers[65] ~ care_managers[66], 
+      TRUE ~ care_manager
+      )
+    )
+```
+
+This reduced our list to 41 unique care managers.
+
+```{r}
+care_managers <- na.omit(sort(unique(combined_data$care_manager)))
+
+length(care_managers)
+# 41
+```
+
+We replaced all care manager values with the index of the case manager in the sorted list, to reduce PHI and enable summary statistics of the care manager column as a factor.
+
+```{r}
+combined_data <- combined_data %>%
+  rowwise() %>%
+  mutate(care_manager = ifelse(
+      !is.na(care_manager), which(care_managers == care_manager), NA_integer_
+      )
+    ) %>%
+  ungroup() %>%
+  mutate(care_manager = as.factor(care_manager))
+```
+
+We added the variable label values to our variable map, which included the character names.
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(attr_var_labels = ifelse(
+      variable == 'care_manager',
+      list(setNames(c(1:length(care_managers)), care_managers)),
+      attr_var_labels
+    )
+  )
+```
+
+We purged the list of care managers for memory management.
+
+```{r}
+rm(care_managers)
+```
+
+## Interviewer
+
+We identified 26 unique Interviewers, represented by initials. However, initials varied by case (i.e. "AA", "Aa", "aA", and "aa" would be treated by R as different values, though identical to human readers).
+
+```{r}
+interviewers <- na.omit(sort(unique(combined_data$ii)))
+
+length(interviewers)
+# 26
+```
+
+We converted all interviewer initials to uppercase, and found 23 unique interviewers. No other significant similarities were found.
+
+```{r}
+combined_data <- combined_data %>%
+  mutate(ii = toupper(ii))
+
+interviewers <- na.omit(sort(unique(combined_data$ii)))
+
+length(interviewers)
+# 23
+```
+
+We replaced all interviewer values with the index of the interviewer in the sorted list, to reduce PHI and enable summary statistics of the interviewer column as a factor.
+
+```{r}
+combined_data <- combined_data %>%
+  rowwise() %>%
+  mutate(ii = ifelse(
+      !is.na(ii), which(interviewers == ii), NA_integer_
+      )
+    ) %>%
+  ungroup() %>%
+  mutate(ii = as.factor(ii))
+```
+
+We added the variable label values to our variable map, which included the character names.
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(attr_var_labels = ifelse(
+      variable == 'ii',
+      list(setNames(c(1:length(interviewers)), interviewers)),
+      attr_var_labels
+    )
+  )
+```
+
+We purged the list of interviewers for memory management.
+
+```{r}
+rm(interviewers)
+```
+
+# Identification and Labeling of other Factor Variables
+
+The Master Log variables did not automatically come with value labels for conversion into factors. As such, we converted values to match the QDS/REDCap equivalent for the Master Log variables.
+
+```{r}
+combined_data <- combined_data %>%
+  mutate(
+    ml_race = case_when(
+      ml_race == 'More Than One' ~ '1',
+      ml_race == 'W' ~ '2',
+      ml_race == 'AA' ~ '3',
+      ml_race == 'A' ~ '4',
+      ml_race == 'NH/PI' ~ '5',
+      ml_race == 'AI/AN' ~ '6',
+      ml_race == 'O/U' ~ '7',
+      TRUE ~ ml_race
+      ),
+    ml_gender = case_when(
+      ml_gender == 'M' ~ '0',
+      ml_gender == 'F' ~ '1',
+      ml_gender == 'Other' ~ '2',
+      TRUE ~ ml_gender
+    ),
+    ml_hispanic_latino = case_when(
+      ml_hispanic_latino == 'Y' ~ '1',
+      ml_hispanic_latino == 'N' ~ '0',
+      TRUE ~ ml_hispanic_latino
+    ),
+    v2_status = case_when(
+      v2_status == 'Randomized' ~ '1',
+      v2_status == 'No Show' ~ '2',
+      v2_status == 'Do Not Include' ~ '3',
+      TRUE ~ v2_status
+    ),
+    dropped_status = case_when(
+      dropped_status == 'Before Randomization' ~ '1',
+      dropped_status == 'After Randomization' ~ '2',
+      TRUE ~ dropped_status
+    )
+  ) %>%
+  mutate(across(c(
+    'ml_race', 'ml_gender', 'ml_hispanic_latino', 'v2_status', 
+    'dropped_status'
+    ),
+    as.numeric))
+  
+```
+
+We set value labels in our variable map for these modified variables.
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(attr_var_labels = case_when(
+    variable == 'ml_race' ~ 
+      variable_map[variable_map$variable == 'sq_3',]$attr_var_labels,
+    variable == 'ml_gender' ~ 
+      variable_map[variable_map$variable == 'gender',]$attr_var_labels,
+    variable == 'ml_hispanic_latino' ~
+      variable_map[variable_map$variable == 'sq_2',]$attr_var_labels,
+    variable == 'v2_status' ~
+      list(setNames(c(1:3), 
+                    c('Randomized', 'No Show', 'Do Not Include'))),
+    variable == 'dropped_status' ~
+      list(setNames(c(1:2), 
+                    c('Before Randomization', 'After Randomization'))),
+    TRUE~ attr_var_labels
+  ))
+```
+
+We also noted that the variable `overwt_obese` had a persistent error in the variable map, wherein the `attr_var_labels` were stored as a "call" type rather than list. We manually assigned the value to attempt to correct this error, and facilitate processing.
+
+```{r}
+variable_map[variable_map$variable == 'overwt_obese', ]$attr_var_labels[[1]] <- c(
+    'overweight or obese' = TRUE, 
+    'neither overweight nor obese' = FALSE
+)
+```
+
 # Ordering and Labeling Variables
 
 We removed the labels from all variable map columns, to avoid processing errors using 'pull()'.
@@ -2005,6 +2229,21 @@ dropping_vars <- pull(
 
 combined_data <- combined_data %>%
   select(-any_of(dropping_vars))
+```
+
+We ensured any variable which had variable value labels was converted into a factor variable, rather than a numeric, logical, or character. We also converted the `subject` variable into a factor, and `time_to_complete` into hms.
+
+```{r}
+labeled_val_map <- variable_map_stripped %>%
+  filter(!drop_consolidated)
+
+combined_data <- vm_factor_apply_val_labels(
+  combined_data, labeled_val_map, 'variable'
+  ) %>%
+  mutate(
+    subject = as.factor(subject),
+    time_to_complete = as_hms(time_to_complete)
+    )
 ```
 
 We ordered the variables within our variable map, filtered to only include variables present in our current combined data set, and isolated the variables. We used this ordered list to order the columns in our combined data set.
@@ -2069,9 +2308,10 @@ rm(variable_order)
 rm(final_variables)
 rm(variable_map_stripped)
 rm(dropping_vars)
+rm(labeled_val_map)
 ```
 
-# 💾 Saving the Variable Map
+# 💾 Saving the Data
 
 ## Combined Data
 
