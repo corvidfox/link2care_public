@@ -63,8 +63,8 @@ cat(
       as.character(file.info(combined_data_path)$mtime), "\n"
     )
 
-# 2023-10-23: Combined data imported with 1610 rows and 1062 columns.
-# Combined data last modified on OneDrive 2023-10-23 17:12:33 
+# 2023-10-25: Combined data imported with 1610 rows and 1062 columns.
+# Combined data last modified on OneDrive 2023-10-26 11:15:17 
 ```
 
 We purged the import path for memory management.
@@ -104,8 +104,8 @@ cat(
       as.character(file.info(variable_map_path)$mtime), "\n"
     )
 
-# 2023-10-23: Variable Map imported with 1083 rows and 24 columns.
-# Variable Map data last modified on OneDrive 2023-10-23 17:12:33 
+# 2023-10-25: Variable Map imported with 1083 rows and 24 columns.
+# Variable Map data last modified on OneDrive 2023-10-26 11:15:18 
 ```
 
 We ensured our Variable Map met our required minimum format.
@@ -121,92 +121,65 @@ We purged the import path for memory management.
 rm(variable_map_path)
 ```
 
-# Data Check
+# Modifying Interviewer and Care Manager Columns
 
-We verified that all variables in the variable map contained a value for source and label.
-
-```{r}
-## DATA CHECK: ensure all variables in the variable map contain a source and label
-nrow(
-variable_map %>%
-  filter(is.na(source) | is.na(attr_label))
-) == 0
-# TRUE
-```
-
-We removed the labels from all variable map columns, to avoid processing errors using 'pull()'.
+We dropped the labels from the interviewer and case manager variables to protect these identifier variables.
 
 ```{r}
-variable_map <- variable_map
+# INTERVIEWER
 
-for (var_name in colnames(variable_map)){
-  attributes(variable_map[[var_name]])$label <- NULL
-}
-```
+var_val_labels <- tibble::tibble(
+      'val_text' = names(attributes(combined_data[['interviewer']])$labels)
+    ) %>%
+  rowwise() %>%
+      mutate(
+        'val' = attributes(combined_data[['interviewer']])$labels[[val_text]]
+        ) %>%
+  ungroup()
 
-We ordered the variables within our variable map, filtered to only include variables present in our current combined data set, and isolated the variables. We used this ordered list to order the columns in our combined data set.
-
-```{r}
-variable_order <- pull(
-  variable_map %>%
-    arrange(sec_ord, inst_ord, item_ord) %>%
-    filter(final_variable %in% colnames(combined_data)) %>%
-    select(final_variable)
+combined_data[['interviewer']] <- factor(
+  combined_data[['interviewer']],
+  levels = var_val_labels$val_text,
+  labels = var_val_labels$val
   )
 
-combined_data <- combined_data[ ,variable_order]
-```
-
-We ensured the variables in our processed data set had our desired label, value labels, and source attributes.
-
-```{r}
-for (var_name in colnames(combined_data)){
-  attributes(
-    combined_data[[var_name]]
-    )$label <- pull(
-      variable_map %>%
-        filter(final_variable == var_name) %>%
-        select(attr_label)
-      )
-   attributes(
-     combined_data[[var_name]]
-     )$labels <- pull(
-       variable_map %>%
-          filter(final_variable == var_name) %>% 
-          select(attr_var_labels)
-       )[[1]] 
-   attributes(
-     combined_data[[var_name]]
-     )$source <- pull(
-       variable_map %>%
-          filter(final_variable == var_name) %>%
-          select(source)
-       )
-}
-```
-
-We purged the remaining variables for memory management.
-
-```{r}
-rm(var_name)
-rm(variable_order)
-```
-
-# Manual Modification
-
-The labels for `anth_overwt_obese` returned errors, stating that the value was of type 'call'. While inspection of the variable map and previous code did not provide any insight as to why, we manually modified the value labels.
-
-```{r}
-attributes(combined_data$anth_overwt_obese)$labels <- c(
-  'overweight or obese' = TRUE, 
-  'neither overweight nor obese' = FALSE
+combined_data[['interviewer']] <- factor(
+  combined_data[['interviewer']],
+  levels = var_val_labels$val,
+  labels = var_val_labels$val
   )
-```
 
+attributes(combined_data[['interviewer']])$labels <- NULL
+
+# CARE MANAGER
+
+var_val_labels <- tibble::tibble(
+      'val_text' = names(attributes(combined_data[['care_manager']])$labels)
+    ) %>%
+  rowwise() %>%
+      mutate(
+        'val' = attributes(combined_data[['care_manager']])$labels[[val_text]]
+        ) %>%
+  ungroup()
+
+combined_data[['care_manager']] <- factor(
+  combined_data[['care_manager']],
+  levels = var_val_labels$val_text,
+  labels = var_val_labels$val
+  )
+
+combined_data[['care_manager']] <- factor(
+  combined_data[['care_manager']],
+  levels = var_val_labels$val,
+  labels = var_val_labels$val
+  )
+
+attributes(combined_data[['care_manager']])$labels <- NULL
+```
 
 # Blocking Summary Statistics on PHI and Other Variables
 
-We identified our PHI variables, and two other variables we wished to block from summary statistics.
+We identified our PHI variables, for which we wanted to block summary statistics.
 
 ```{r}
 blocking_vars <- pull(
@@ -214,16 +187,13 @@ blocking_vars <- pull(
     filter(phi) %>%
     select(final_variable)
   )
-
-blocking_vars <- c(blocking_vars, 'interviewer', 'care_manager')
 ```
 
 # Codebook Generation
 
 We generated our codebook, with title, subtitle, and description. We blocked summary statistics on our PHI fields.
 
-```{r}
-#| message: false
+```{r, message = FALSE}
 book <- codebook(
   df = combined_data,
   title = "Link2Care Subject Data",
@@ -243,5 +213,6 @@ rm(book)
 rm(variable_map)
 rm(combined_data)
 rm(blocking_vars)
+rm(var_val_labels)
 ```
 
