@@ -13,7 +13,7 @@ This file is step 5 in processing the source data from Link2Care (L2C) into a si
 
 This file involves applying a final renaming to variables, flagging PHI variables, and any other post-processing modifications.
 
-**Of note: Interviewer Initials and Case Manager names were anonymized and converted into factors based on data as of 2023-10-25. If data significantly changes, the code to process this change may no longer be valid.**
+**Of note: Interviewer Initials and Case Manager names were anonymized and converted into factors based on data as of 2023-10-27. If data significantly changes, the code to process this change may no longer be valid.**
 
 [Notes on cleaning individual L2C data sets for merging](https://github.com/brad-cannell/link2care_public/wiki/Notes-on-cleaning-individual-L2C-data-sets-for-merging)
 
@@ -134,7 +134,7 @@ cat(
     )
 
 # 2023-10-23: Combined data imported with 1610 rows and 1062 columns.
-# Combined data last modified on OneDrive 2023-10-23 15:35:45 
+# Combined data last modified on OneDrive 2023-10-27 15:54:38 
 ```
 
 #### Data Check: Changes
@@ -142,7 +142,7 @@ cat(
 We checked for changes to the source data set since this file was last modified.
 
 ```{r}
-# Inputs last modified: 2023-10-23
+# Inputs last modified: 2023-10-27
 # 
 data_mod_check(
   'df' = combined_data,
@@ -150,9 +150,9 @@ data_mod_check(
   'orig_path_str' = here(
       "data", "Combined Participant Data", "combined_data_02.rds"
       ),
-  'mod_dt' = '2023-10-23 15:35:45 CDT',
+  'mod_dt' = '2023-10-27 15:54:38 CDT',
   'num_rows' = 1610,
-  'num_cols' = 1062,
+  'num_cols' = 1063,
   'col_names' = c(
     'subject', 'group','visit',
     'visit_type', 'today', 'ii', 'name_first',
@@ -544,6 +544,7 @@ variable_map <- variable_map %>%
     variable == 'sq_3' ~ 'sq_03_subj_race',
     variable == 'ml_race' ~ 'sq_03_subj_race_ml',
     variable == 'sq_4' ~ 'sq_04_subj_age',
+    variable == 'calc_age' ~ 'sq_04_subj_age_calc',
     variable == 'ml_dob' ~ 'sq_04_subj_dob_ml',
     variable == 'ml_age' ~ 'sq_04_subj_age_ml',
     variable == 'sq_5' ~ 'sq_05_residency',
@@ -2204,6 +2205,17 @@ variable_map[variable_map$variable == 'overwt_obese', ]$attr_var_labels[[1]] <- 
     'overweight or obese' = TRUE, 
     'neither overweight nor obese' = FALSE
 )
+```
+
+We noted that the variable value labels stored for `sq_7b`, `weight`, `height`, `waist_c`, `co`, `s_4`, and `r_7` were not applicable to their current format. We eliminated these labels in the variable map.
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(attr_var_labels = ifelse(
+    variable %in% c('sq_7b', 'weight', 'height', 'waist_c', 'co', 's_4', 'r_7'),
+    list(NULL),
+    attr_var_labels
+  ))
 ```
 
 # Ordering and Labeling Variables
