@@ -443,6 +443,31 @@ combined_data <- combined_data %>%
   )
 ```
 
+We noted that the date of birth value stored in `ml_dob` was not properly stored as a date variable. This was corrected.
+
+```{r}
+combined_data <- combined_data %>%
+  mutate(ml_dob = as.Date(as.numeric(ml_dob), origin = "1899-12-30"))
+```
+
+We also created a calculated age, using this date of birth value against the visit date.
+
+```{r}
+variable_map <- vm_add_variable(
+  variable_map, "Screening Instrument", 'calc_age', 
+  prev_var = 'ml_age',
+  opts = tibble::tibble(
+    'attr_label' = "age in years, calculated from date of birth and visit date",
+    'calculated' = TRUE
+      )
+    )
+
+combined_data <- combined_data %>%
+  mutate(
+    calc_age = lubridate::interval(ml_dob, today) %/% lubridate::years(1)
+  )
+```
+
 ## Treatment Quality and Satisfaction
 
 The original coding of the Treatment Quality and Satisfaction Survey created separate variables for the same questions when presented to members of each study group (i.e., "tq_1_1", "tq_1_2", and "tq_1_3" present the same question to members of group 1, group 2, and group 3 respectively).
@@ -1851,7 +1876,7 @@ variable_map <- vm_add_variable(
 combined_data <- combined_data %>%
   mutate(
     cj_desire = ifelse(
-        cj_1 == 0,
+        cj_1 == 1,
         ((cj_2 + cj_3 + cj_4 + cj_5 + cj_6 + cj_7)*10/6),
         NA
       ),
