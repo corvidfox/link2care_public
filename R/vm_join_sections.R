@@ -128,7 +128,7 @@ vm_join_sections <- function(section_list) {
                                add_column(sec_ord = i))
   }
   
-  # Ensure combined tibble is valid
+  # DATA CHECK: Ensure combined tibble is valid
   
   if (!vm_check(comb_tibble)){
     stop("Output would not be valid - check input sections")
@@ -138,6 +138,20 @@ vm_join_sections <- function(section_list) {
   
   comb_tibble <- comb_tibble %>%
     relocate(variable, section, sec_ord, instrument, inst_ord, item_ord)
+  
+  # Add label attribute to tibble columns
+  attr(comb_tibble[['variable']], 
+       'label') <- "Desired Standardized Variable Name"
+  attr(comb_tibble[['section']], 
+       'label') <- "Section name"
+  attr(comb_tibble[['sec_ord']], 
+       'label') <- "Order of the section in the overall map"
+  attr(comb_tibble[['instrument']], 
+       'label') <- "Instrument Name"
+  attr(comb_tibble[['inst_ord']], 
+       'label') <- "Order of the instrument in the section"
+  attr(comb_tibble[['item_ord']], 
+       'label') <- "Order of item in instrument"
   
   # Return tibble
   

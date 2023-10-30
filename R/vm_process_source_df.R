@@ -1,7 +1,7 @@
 vm_process_source_df <- function(var_map, source_df, source_df_col,
                                  excluding_vars){
-  # Processes a set of source data by renaming variables, according to the
-  # pattern captured in 'var_map'. 
+  # Processes a set of source data by renaming and reordering variables, 
+  # according to the pattern captured in 'var_map'. 
   #
   # Built with R version 4.2.2
   #
@@ -39,8 +39,8 @@ vm_process_source_df <- function(var_map, source_df, source_df_col,
   #                             use c()!
   #
   # OUTPUT:
-  #       revised version of 'source_df' with variables renamed according to
-  #       'var_map', with 'excluded_vars' omitted.
+  #       revised version of 'source_df' with variables renamed  and
+  #       reordered according to 'var_map', with 'excluded_vars' omitted.
   
   
   # Check if vm_check() has been imported
@@ -82,10 +82,12 @@ vm_process_source_df <- function(var_map, source_df, source_df_col,
     stop(paste(source_df_col, ' is not present in var_map!'))
   }
   
-  # Extract the standardized/desired variable names and the original variable 
-  # names, but only for variables that appear in the source data set
+  # Ensure variable map is properly ordered. Then,extract the 
+  # standardized/desired variable names and the original variable 
+  # names, but only for variables that appear in the source data set.
   
   section <- na.omit(var_map %>%
+                       arrange(sec_ord, inst_ord, item_ord) %>%
                        select(variable, all_of(source_df_col)))
   
   # DATA CHECK 3: Ensure all the source variables from the variable map are
@@ -131,14 +133,13 @@ vm_process_source_df <- function(var_map, source_df, source_df_col,
   rm(missing_from_source)
   rm(missing_from_map)
   
-  # Remove the exclusion variables, use select to ensure the order of 
-  # the kept variables is the same as in the replacement map, and 
-  # rename variables using the variable map.
+  # Remove the exclusion variables, rename variables according to the
+  # variable map, 
   
   source_df <- source_df %>%
     select(-all_of(excluding_vars)) %>%
-    select(all_of(setdiff(source_vars, excluding_vars))) %>%
-    rename_with(~section$variable, all_of(map_source_vars))
+    rename_with(~section$variable, all_of(map_source_vars)) %>%
+    relocate(section$variable)
   
   # Return the revised data frame
   

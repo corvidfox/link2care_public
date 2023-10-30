@@ -1,0 +1,2377 @@
+---
+title: "Step 5 - Post Processing Modifications"
+date: "2022-10-20 <br> Updated: `r Sys.Date()`"
+format: pdf
+editor: 
+  markdown: 
+    wrap: sentence
+---
+
+# ⭐️Overview
+
+This file is step 5 in processing the source data from Link2Care (L2C) into a single data set for analysis.
+
+This file involves applying a final renaming to variables, flagging PHI variables, and any other post-processing modifications.
+
+**Of note: Interviewer Initials and Case Manager names were anonymized and converted into factors based on data as of 2023-10-27. If data significantly changes, the code to process this change may no longer be valid.**
+
+[Notes on cleaning individual L2C data sets for merging](https://github.com/brad-cannell/link2care_public/wiki/Notes-on-cleaning-individual-L2C-data-sets-for-merging)
+
+## Process Steps
+
+1.  Pre-process DDT, Arrest, and Bridge Session Minutes data sets so they are compatible with a long-format Subject-Visit composite key structure
+
+2.  Import all source data sets (QDS, REDCap, Master Log, TLFB, DDT, Arrest, Bridge Sessions) to create the variable map
+
+    -   Select variables for inclusion in the final composite data set
+
+    -   Set initial standardization of the variable names for all desired variables in the composite data set
+
+    -   Establish order for the variables in the composite data set
+
+    -   Extract variable label and variable value labels from source data sets to be included in the composite data set
+
+3.  Batch processing of data sets into combined data set
+
+4.  Recreation of calculated variables
+
+    -   Consolidating redundant variables
+    
+    -   Creation of calculated variables, including labels and addition to the variable map
+
+5.  **Post-processing modifications**
+
+    -  Finalize desired variable names
+    
+    -  Flag PHI variables
+
+
+## Notes
+
+Several of our variable standardization were not descriptive, nor did they fit our desired final style.
+
+In this step, we aim to standardize our variable names under the following structure:
+
+-   All digits should be double digit (i.e. "sq_2" should be "sq_02")
+
+-   Variables should have a standard prefix
+
+    -   Initial prefix should indicate the instrument, if possible
+    
+    -   Item order should immediately follow this prefix
+
+-   Typos should be corrected (i.e. `tq`, not `yq`, `dem` not `dme` in prefixes)
+
+-   Items should have descriptive names, especially if their content is likely to be examined individually
+    
+    -   Descriptive names should be short, and logically ordered similar to names of file/folder structures. Abbreviations should be used when logical
+    
+    -   Demographic variables that are not located in the demographic instrument should have 'subj' within their descriptive names, to allow for selection in tidyselect
+
+# 📦Load packages & Functions
+
+```{r, message=FALSE, warning=FALSE}
+library(hms, warn.conflicts = FALSE)
+library(dplyr, warn.conflicts = FALSE)
+library(purrr, warn.conflicts = FALSE)
+library(haven, warn.conflicts = FALSE)
+library(here, warn.conflicts = FALSE)
+library(stringr, warn.conflicts = FALSE)
+library(lubridate, warn.conflicts = FALSE)
+library(readxl, warn.conflicts = FALSE)
+library(openxlsx, warn.conflicts = FALSE)
+library(readr, warn.conflicts = FALSE)
+library(tidyverse, warn.conflicts = FALSE)
+```
+
+```{r}
+source(here("R", "vm_factor_apply_val_labels.R"))
+source(here("R", "standardize_col_names.R"))
+source(here("R", "flag_unmatching_variables.R"))
+source(here("R", "vm_make_source_map.R"))
+source(here("R", "vm_check.R"))
+source(here("R", "vm_create_for_instrument.R"))
+source(here("R", "vm_join_inst_section.R"))
+source(here("R", "vm_join_sections.R"))
+source(here("R", "vm_add_variable.R"))
+source(here("R", "vm_delete_variable.R"))
+source(here("R", "vm_process_source_df.R"))
+source(here("R", "vm_process_many_source.R"))
+source(here("R", "data_mod_check.R"))
+```
+
+# 📥 Import data
+
+## Combined Data Set
+
+We imported our Combined Data Set
+
+```{r}
+combined_data_path <- here(
+  "data", "Combined Participant Data", "combined_data_02.rds"
+  )
+```
+
+Import the data.
+Check the most recent file modification dates and print for user when this file is being sourced.
+
+```{r message=FALSE}
+combined_data <- readRDS(combined_data_path)
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "Combined data imported with", nrow(combined_data), "rows and", 
+  ncol(combined_data), "columns.\n"
+)
+
+# Check the most recent file modification dates and print for user when this
+# file is being sourced.
+
+cat(
+      "Combined data last modified on OneDrive", 
+      as.character(file.info(combined_data_path)$mtime), "\n"
+    )
+
+# 2023-10-23: Combined data imported with 1610 rows and 1062 columns.
+# Combined data last modified on OneDrive 2023-10-27 15:54:38 
+```
+
+#### Data Check: Changes
+
+We checked for changes to the source data set since this file was last modified.
+
+```{r}
+# Inputs last modified: 2023-10-27
+# 
+data_mod_check(
+  'df' = combined_data,
+  'df_path_str' = combined_data_path,
+  'orig_path_str' = here(
+      "data", "Combined Participant Data", "combined_data_02.rds"
+      ),
+  'mod_dt' = '2023-10-27 15:54:38 CDT',
+  'num_rows' = 1610,
+  'num_cols' = 1063,
+  'col_names' = c(
+    'subject', 'group','visit',
+    'visit_type', 'today', 'ii', 'name_first',
+    'name_middle', 'name_last', 'care_manager', 'ctime',
+    'endtime', 'time_to_complete', 'maca_mdd_timestamp',
+    'maca_mdd_complete', 'ps_timestamp', 'ps_complete',
+    'email', 'days_followed', 'flag_outofwindow',
+    'v2_status', 'dropped_status', 'gender', 'ml_gender',
+    'sq_2', 'ml_hispanic_latino', 'sq_3', 'ml_race',
+    'sq_4', 'ml_dob', 'ml_age', 'sq_5', 'sq_6', 'sq_7',
+    'sq_7a', 'sq_7b', 'sq_7c', 'sq_7d', 'sq_8', 'sq_9',
+    'sq_9l', 'sq_10', 'sq_11', 'sq_12', 'sq_13', 'sq_14',
+    'sq_15', 'sq_16', 'sq_17', 'sq_18', 'sq_18a', 'sq_18b',
+    'sq_18c', 'sq_18d', 'sq_18e', 'sq_18f', 'sq_18g',
+    'sq_18h', 'sq_18i', 'sq_19', 'sq_20', 'sq_21', 'sq_22',
+    'sq_22a', 'sq_22b', 'sq_22c', 'sq_22d', 'sq_22e', 'sq_22f',
+    'sq_22g', 'sq_22h', 'sq_23', 'mms_1', 'mms_1a', 'mms_1b',
+    'mms_1c', 'mms_1d', 'mms_1e', 'mms_2', 'mms_2a', 'mms_2b',
+    'mms_2c', 'mms_2d', 'mms_2e', 'mms_3', 'mms_3g', 'mms_3h',
+    'mms_3i', 'mms_3j', 'recal_1', 'mms_4', 'mms_4a', 'mms_4b',
+    'mms_4c', 'mms_4d', 'mms_4e', 'mms_4f', 'count', 'mms_4v',
+    'mms_4va', 'mms_4vb', 'mms_4vc', 'mms_4vd', 'mms_4ve',
+    'mms_4vf', 'num_calc', 'mms_5', 'mms_5a', 'mms_5b',
+    'mms_5c', 'mms_5d', 'recal_2', 'mms_6', 'mms_6a', 'mms_6b',
+    'mms_6c', 'object', 'mms_7', 'mms_8', 'mms_8a', 'mms_8b',
+    'mms_8c', 'mms_8d', 'paper', 'mms_9', 'mms_10', 'mms_11',
+    'mms_s_main', 'mms_s_alt', 'mms_total', 'mms_severity',
+    'realm', 'realma', 'realmb', 'realmc', 'realmd', 'realme',
+    'realmf', 'realmg', 'realmh', 'realmi', 'realm_s',
+    'weight', 'weight_kg', 'height', 'height_meters', 'bmi',
+    'weight_status', 'obese', 'overwt_obese', 'waist_c',
+    'co', 'read_1', 'read_2', 'read_3', 'dem_1', 'dem_2',
+    'dem_3', 'dem_4', 'dem_4a', 'dem_4b', 'dem_4c', 'dem_4d',
+    'dem_4e', 'dem_4f', 'dem_5', 'dem_5a', 'dem_6', 'dem_6a',
+    'dme_6b', 'dem_7', 'dem_7a', 'dem_7b', 'dem_7c', 'dem_7d',
+    'dem_7e', 'any_health_insurance', 'dem_8', 'dem_9',
+    'dem_10', 'dem_11', 'dem_12', 'dem_12a', 'dem_12b',
+    'dem_12c', 'dem_12d', 'dem_12e', 'dem_12f', 'dem_12g',
+    'dem_12h', 'dem_12i', 'dem_12j', 'dem_12k', 'dem_12l',
+    'dem_13', 'dem_13a', 'dem_13b', 'dem_13c', 'dem_13d',
+    'dem_13e', 'dem_13f', 'dem_13g', 'dem_13h', 'dem_13_val',
+    'dem_14', 'dem_14a', 'dem_14b', 'dem_14c', 'dem_14d',
+    'dem_14e', 'dem_14f', 'dem_14g', 'dem_14h', 'dem_14_val',
+    'dem_15', 'dem_16', 'dem_17', 'dem_18', 'bh_1', 'bh_1y',
+    'bh_1m', 'bh_1d', 'bh_2', 'bh_3', 'bh_4', 'bh_4y', 'bh_4m',
+    'bh_4d', 'bh_5', 'bh_6', 'bh_7', 'bh_7y', 'bh_7m', 'bh_7w',
+    'bh_8', 'bh_9', 'bh_10', 'bh_11a', 'bh_12a', 'bh_12aa',
+    'bh_12ab', 'bh_12ac', 'bh_12ad', 'bh_12ae', 'bh_12af',
+    'bh_12ag', 'bh_12ah', 'bh_12ai', 'bh_12aj', 'bh_12ak',
+    'bh_12al', 'bh_13a', 'bh_13aa', 'bh_13ab', 'bh_13ac',
+    'bh_13ad', 'bh_13ae', 'bh_13af', 'bh_13b', 'bh_13ba',
+    'bh_13bb', 'bh_13bc', 'bh_13bd', 'bh_13be', 'bh_13bf',
+    'bh_13bg', 'bh_13bh', 'bh_13c', 'bh_13ca', 'bh_13cb',
+    'bh_13cc', 'bh_13cd', 'bh_13ce', 'bh_13cf', 'bh_13cg',
+    'bh_13ch', 'bh_14', 'bh_14b', 'bh_14by', 'bh_14bm',
+    'bh_14bw', 'bh_14bd', 'bh_15', 'bh_15a', 'bh_16', 'bh_17',
+    'bh_17y', 'bh_17m', 'bh_17w', 'bh_18', 'bh_18b', 'bh_18ba',
+    'bh_18bb', 'bh_18bc', 'bh_18bd', 'bh_18be', 'bh_18bf',
+    'bh_18bg', 'bh_18bh', 'bh_18b1', 'bh_19', 'bh_20', 'sss_1',
+    'sss_2', 'well_being_1', 'well_being_2', 'well_being_3',
+    'phq_1', 'phq_1_dichot', 'phq_2', 'phq_2_dichot',
+    'phq_3', 'phq_3_dichot', 'phq_4', 'phq_4_dichot',
+    'phq_5', 'phq_5_dichot', 'phq_6', 'phq_6_dichot',
+    'phq_7', 'phq_7_dichot', 'phq_8', 'phq_8_dichot', 'phq_9',
+    'phq_10', 'phq_11', 'phq_12', 'phq_13', 'phq_14', 'phq_15',
+    'phq_dep_total', 'phq_dep_dichot_total', 'phq_dep_symp',
+    'phq_mdd', 'phq_gad_total', 'hs_1', 'hs_1_dichot', 'hs_2',
+    'hs_3', 'hs_4', 'hs_5', 'hs_6', 'hs_7', 'hs_8', 'hs_9',
+    'hs_10', 'hs_11', 'hs_12', 'hrq_1', 'hrq_2', 'hrq_3',
+    's_2', 's_2a', 's_2b', 's_2c', 's_2d', 's_2e', 's_2f',
+    's_2g', 's_2h', 'sr_3a', 'sr_3b', 'sr_3c', 'sr_3d',
+    'sr_3e', 'sr_3f', 's_3', 's_4', 's_4a', 's_4b', 's_4c',
+    's_4d', 's_4e', 's_4f', 's_4g', 's_4h', 's_5', 's_6',
+    's_7', 's_7a', 's_7b', 's_7c', 's_7d', 's_7e', 's_7f',
+    's_7g', 's_8', 's_8a', 's_8b', 's_8c', 's_8d', 's_8e',
+    's_8f', 's_8g', 's_9', 's_9a', 's_9b', 's_9c', 's_9d',
+    's_9e', 's_9f', 's_9g', 's_9h', 's_9i', 's_9j', 's_9k',
+    's_9l', 's_9m', 's_9n', 's_9o', 's_9p', 's_9q', 's_9r',
+    's_10', 's_11', 's_12', 's_13', 's_14', 's_14a', 's_14b',
+    's_14c', 's_14d', 's_15', 's_16', 's_17', 's_18', 's_18a',
+    's_18b', 's_18c', 's_18d', 's_18e', 's_18f', 's_18g',
+    's_18h', 's_18i', 's_18j', 's_18k', 's_18l', 's_19',
+    's_20', 's_21', 's_22', 's_23', 's_mental_hx', 's_24',
+    's_24a', 's_24b', 's_24c', 's_24d', 's_24e', 's_24f',
+    's_25a', 's_26a', 's_26aa', 's_26ab', 's_26ac', 's_26ad',
+    's_26ae', 's_26af', 's_26ag', 's_25b', 's_26b', 's_26ba',
+    's_26bb', 's_26bc', 's_26bd', 's_26be', 's_26bf', 's_26bg',
+    's_25c', 's_26c', 's_26ca', 's_26cb', 's_26cc', 's_26cd',
+    's_26ce', 's_26cf', 's_26cg', 's_25d', 's_26d', 's_26da',
+    's_26db', 's_26dc', 's_26dd', 's_26de', 's_26df', 's_26dg',
+    's_25e', 's_26e', 's_26ea', 's_26eb', 's_26ec', 's_26ed',
+    's_26ee', 's_26ef', 's_26eg', 's_27', 's_28', 's_29',
+    's_30', 's_30a', 's_30b', 's_30c', 's_30d', 's_30e',
+    's_30f', 's_30g', 's_substance_hx', 's_31', 's_32',
+    's_32a', 's_32b', 's_32c', 's_32d', 's_32e', 's_32f',
+    's_32g', 's_32h', 's_32i', 's_substance_use', 's_33',
+    's_34', 's_35', 's_36', 's_37', 's_38', 's_39a', 's_39b',
+    's_40', 's_pain', 's_41', 's_42', 's_43', 's_43a', 's_43b',
+    's_43c', 's_43d', 's_43e', 's_43f', 's_43g', 's_43h',
+    's_43i', 'ds_1', 'ds_2', 'ds_3', 'ds_4', 'ds_5', 'ds_6',
+    'ds_7', 'ds_8', 'ds_9', 'ds_10a', 'ds_10b', 'ds_10_val',
+    'ds_11a', 'ds_11b', 'ds_11_val', 'ds_total', 'ds_cat',
+    'ptsd_1', 'ptsd_2', 'ptsd_3', 'ptsd_4', 'ptsd_total',
+    'ptsd_positive', 'brac_1', 'brac_2', 'brac_3', 'brac_4',
+    'brac_5', 'brac_6', 'brac_7', 'brac_8', 'brac_9',
+    'brac_10', 'brac_11', 't_1', 't_2', 't_3a', 't_3ay',
+    't_3am', 't_3b', 't_4', 't_5', 't_5a1', 't_5a2', 't_5a3',
+    't_5a4', 't_5a5', 't_5a6', 't_5_val', 't_6', 't_6a1',
+    't_6a2', 't_6a3', 't_6a4', 't_6a5', 't_6a6', 't_6_val',
+    't_7', 't_8', 't_9', 't_10', 't_11', 't_12', 't_12a',
+    't_12b', 't_13', 't_14', 't_14a', 't_14b', 't_14c',
+    't_14d', 't_14e', 't_14f', 't_14g', 't_14h', 't_14i',
+    't_15', 't_16', 't_17', 't_18', 't_19', 't_20', 't_21',
+    't_22', 't_23', 't_23a', 't_23b', 't_23c', 't_23d',
+    't_23e', 't_23f', 't_23g', 't_23h', 't_24', 't_25',
+    't_26a', 't_26aa', 't_26ab', 't_26ac', 't_26ad', 't_26ae',
+    't_26af', 't_27', 't_28', 't_29', 't_30', 't_31', 't_31a',
+    't_31b', 't_31c', 't_31d', 't_31e', 't_31f', 't_31g',
+    't_31h', 't_31i', 't_31j', 't_31_b', 't_31ba', 't_31bb',
+    't_31bc', 't_32', 't_33', 't_33a', 't_33b', 't_33c',
+    't_33d', 't_33e', 't_33f', 't_33g', 't_33h', 't_33i',
+    't_33j', 't_34', 't_35', 't_spouse', 't_36', 't_37',
+    't_38', 't_39', 't_friends', 't_40', 'hsi_1', 'hsi_2',
+    'hsi_score', 'hsi_cat', 'brs_1', 'brs_2', 'brs_2_dichot',
+    'brs_3', 'brs_4', 'brs_4_dichot', 'brs_5', 'drinks',
+    'af_1', 'af_2m', 'af_3tu', 'af_4w', 'af_5th', 'af_6f',
+    'af_6sa', 'af_8su', 'af_1_val', 'af_1_heavy', 'af_9',
+    'af_9a', 'af_9b', 'af_9c', 'af_9_val', 'af_9_binge',
+    'totaldrinks', 'num_alc_abstinent_days',
+    'num_drinking_days', 'ave_drinks_day',
+    'heavy_drinking_days', 'greatest_drinks_1_day',
+    'drinks_wk', 'num_days_using_drugs',
+    'per_days_using_drugs', 'per_drug_abstinent_days',
+    'drug_use_days_yr', 'drug_use_days_week', 'pbq_1', 'pbq_2',
+    'pbq_3', 'pbq_4', 'pbq_5', 'pbq_6', 'pbq_7', 'pbq_total',
+    'fss_1', 'fss_1_dichot', 'fss_2', 'fss_2_dichot', 'fss_3',
+    'fss_3_dichot', 'fss_3a', 'fss_3a_dichot', 'fss_4',
+    'fss_4_dichot', 'fss_5', 'fss_5_dichot', 'fss_total',
+    'fss_cat', 'fss_cat_dichot', 'ms_1', 'ms_2', 'ms_3',
+    'ms_4', 'cj_1', 'cj_2', 'cj_3', 'cj_4', 'cj_5', 'cj_6',
+    'cj_7', 'cj_8', 'cj_9', 'cj_10', 'cj_11', 'cj_12', 'cj_13',
+    'cj_14', 'cj_15', 'cj_16', 'cj_17', 'cj_18', 'cj_19',
+    'cj_20', 'cj_21', 'cj_22', 'cj_23', 'cj_24', 'cj_25',
+    'cj_26', 'cj_27', 'cj_28', 'cj_29', 'cj_30', 'cj_31',
+    'cj_32', 'cj_33', 'cj_34', 'cj_35', 'cj_36', 'cj_37',
+    'cj_38', 'cj_39', 'cj_40', 'cj_desire', 'cj_needs',
+    'cj_satisfaction', 'cj_selfesteem', 'cj_hostility',
+    'cj_risktaking', 'sb_1', 'sb_2', 'sb_3', 'sb_4', 'sb_5',
+    'sb_6', 'sb_7', 'sb_7a', 'sb_7b', 'sb_7c', 'sb_7d',
+    'sb_7e', 'sb_7f', 'sb_7g', 'sb_8', 'sb_9', 'dd_1',
+    'dd_2', 'dd_3', 'dd_4', 'dd_5', 'dd_6', 'dd_7', 'dd_8',
+    'dd_9', 'dd_10', 'dd_total', 'mmd_1a', 'mmd_1b', 'mmd_1c',
+    'mmd_1d', 'mmd_1e', 'mmd_1f', 'mmd_1g', 'mmd_1h', 'mmd_1i',
+    'mmd_1j', 'mmd_1k', 'mmd_total', 'mmd_2', 'mmd_3',
+    'mmd_4', 'uls_1', 'uls_2', 'uls_3', 'uls_4', 'uls_5',
+    'uls_6', 'uls_7', 'uls_8', 'uls_9', 'uls_10', 'uls_11',
+    'uls_12', 'uls_13', 'uls_14', 'uls_15', 'uls_16', 'uls_17',
+    'uls_18', 'uls_19', 'uls_20', 'uls_21', 'uls_total',
+    'pv_1', 'pv_2', 'pv_3', 'ps_1', 'ps_2', 'ps_3', 'ps_4',
+    'ps_total', 'dts_1', 'dts_2', 'dts_3', 'dts_4', 'dts_5',
+    'dts_6', 'dts_7', 'dts_8', 'dts_9', 'dts_10', 'dts_11',
+    'dts_12', 'dts_13', 'dts_14', 'dts_15', 'dts_16',
+    'dts_tolerance', 'dts_absorption', 'dts_appraisal',
+    'dts_regulation', 'dts_total', 'aq_1', 'aq_2', 'aq_3',
+    'aq_4', 'aq_5', 'aq_6', 'aq_7', 'aq_8', 'aq_9', 'aq_10',
+    'aq_11', 'aq_12', 'aq_physical', 'aq_verbal', 'aq_anger',
+    'aq_hostility', 'aq_total', 'ces_1', 'ces_1_dichot',
+    'ces_2', 'ces_2_dichot', 'ces_3', 'ces_3_dichot', 'ces_4',
+    'ces_4_dichot', 'ces_5', 'ces_5_dichot', 'ces_6',
+    'ces_6_dichot', 'ces_7', 'ces_7_dichot', 'ces_8',
+    'ces_8_dichot', 'ces_9', 'ces_9_dichot', 'ces_10',
+    'ces_10_dichot', 'ces_total', 'ces_dichot_total',
+    'ces_dichot_cat', 'ces_cat', 'is_1', 'is_2', 'is_3',
+    'is_4', 'is_5', 'is_6', 'is_7', 'is_8', 'is_9', 'is_10',
+    'is_11', 'is_12', 'is_app', 'is_bel', 'is_tan', 'rp_1',
+    'rp_2', 'lsn_1', 'lsn_2', 'lsn_3', 'lsn_4', 'lsn_5',
+    'lsn_6', 'lsn_family', 'lsn_family_cat', 'lsn_friends',
+    'lsn_friends_cat', 'lsn_total', 'lsn_total_cat',
+    'num_days_homeless', 'per_days_homeless', 'num_days_home',
+    'est_days_homeless_yr', 'avg_days_homeless_wk', 'r_1',
+    'r_2', 'r_3', 'r_4', 'r_5', 'r_6', 'r_7', 'r_8', 'r_9',
+    'r_10', 'r_11', 'r_11b', 'r_12', 'r_13', 'r_14', 'r_15',
+    'r_15a', 'r_15b', 'r_15c', 'r_15d', 'r_15e', 'r_15f',
+    'r_15g', 'r_15h', 'r_15i', 'r_15j', 'r_15k', 'r_15l',
+    'r_15m', 'r_15n', 'r_15o', 'bpm_1', 'bpm_2', 'bpm_3',
+    'bpm_4', 'bpm_5', 'bpm_5a', 'bpm_5b', 'bpm_5c',
+    'bpm_5d', 'bpm_5e', 'bpm_5f', 'bpm_5g', 'tq_1_1',
+    'tq_2_1', 'tq_3_2', 'tq_4_2', 'tq_5_3', 'tq_6_3',
+    'tq_7_3', 'tq_8_3', 'tq_9_2', 'tq_10_2', 'yq_11_2',
+    'tq_12_2', 'tq_13_2', 'tq_14_1', 'tq_15_3', 'tq_16_3',
+    'tq_17_3', 'tq_18_3', 'ddt_k', 'ddt_ed50', 'vac_1',
+    'vac_2', 'vac_2y', 'vac_2m', 'vac_2d', 'vac_3', 'vac_3y',
+    'vac_3m', 'vac_3d', 'arrest_count_since_prev_visit',
+    'bridge_reg_sessions', 'bridge_crisis_sessions',
+    'bridge_other_sessions', 'bridge_total_sessions',
+    'bridge_reg_minutes', 'bridge_crisis_minutes',
+    'bridge_total_minutes', 'bridge_other_minutes',
+    'bridge_reg_avg_duration', 'bridge_crisis_avg_duration',
+    'bridge_other_avg_duration', 'bridge_total_avg_duration',
+    'bridge_post_visits_reg_sessions',
+    'bridge_post_visits_crisis_sessions',
+    'bridge_post_visits_other_sessions',
+    'bridge_post_visits_total_sessions',
+    'bridge_post_visits_reg_minutes',
+    'bridge_post_visits_crisis_minutes',
+    'bridge_post_visits_other_minutes',
+    'bridge_post_visits_total_minutes',
+    'bridge_post_visits_reg_avg_duration',
+    'bridge_post_visits_crisis_avg_duration',
+    'bridge_post_visits_other_avg_duration',
+    'bridge_post_visits_total_avg_duration'
+      )
+  )
+# TRUE
+```
+
+We purged the import path for memory management.
+
+```{r}
+rm(combined_data_path)
+```
+
+## Variable Map
+
+We imported our Variable Map.
+
+```{r}
+variable_map_path <- here(
+  "data", "Combined Participant Data", "variable_map_02.rds"
+  )
+```
+
+Import the data.
+Check the most recent file modification dates and print for user when this file is being sourced.
+
+```{r message=FALSE}
+variable_map <- readRDS(variable_map_path)
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "Variable Map imported with", nrow(variable_map), "rows and", 
+  ncol(variable_map), "columns.\n"
+)
+
+# Check the most recent file modification dates and print for user when this
+# file is being sourced.
+
+cat(
+      "Variable Map data last modified on OneDrive", 
+      as.character(file.info(variable_map_path)$mtime), "\n"
+    )
+
+# 2023-10-23: Variable Map imported with 1083 rows and 22 columns.
+# Variable Map data last modified on OneDrive 2023-10-23 15:35:45 
+```
+
+#### Data Check: Changes
+
+We ensured our Variable Map met our required minimum format.
+
+```{r}
+vm_check(variable_map)
+# TRUE
+```
+
+We checked for changes to the source data set since this file was last modified.
+
+```{r}
+# Inputs last modified: 2023-10-23
+
+data_mod_check(
+  'df' = variable_map,
+  'df_path_str' = variable_map_path,
+  'orig_path_str' = here(
+      "data", "Combined Participant Data", "variable_map_02.rds"
+      ),
+  'mod_dt' = '2023-10-23 15:35:45 CDT',
+  'num_rows' = 1083,
+  'num_cols' = 21,
+  'col_names' = c(
+      'variable', 'section', 'sec_ord', 'instrument', 'inst_ord', 'item_ord',
+      'qds_v1', 'qds_v2', 'qds_v3', 'qds_v4', 'qds_v5', 'redcap',
+      'master_log', 'tlfb', 'ddt', 'arrest', 'bridge', 'attr_label',
+      'attr_var_labels', 'drop_consolidated', 'calculated'
+      )
+  )
+# TRUE
+```
+
+We purged the import path for memory management.
+
+```{r}
+rm(variable_map_path)
+```
+
+# Flagging PHI Variables
+
+We created a new variable within our data set, which would allow us to flag any variable that contained PHI.
+
+```{r}
+variable_map <- variable_map %>%
+  add_column(phi = FALSE)
+
+attributes(variable_map$phi)$label <- "Is this variable PHI?"
+```
+
+We identified the variables containing the subject's name, date of birth, or email as PHI.
+
+```{r}
+phi_vars <- c('name_first', 'name_last', 'name_middle', 'ml_dob', 'email')
+
+variable_map <- variable_map %>%
+  mutate(phi = ifelse((variable %in% phi_vars), TRUE, phi))
+
+rm(phi_vars)
+```
+
+# Renaming Variables
+
+While our initial variable names were useful in pre-processing, the majority of these variable names were not descriptive.
+To maintain the usefulness of the Variable Map in tracing processing changes for variables, we created a new column, `final_variable`.
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = variable) %>%
+  relocate(final_variable)
+
+attributes(variable_map$final_variable)$label <- paste(
+  "Finalized Variable Names"
+)
+```
+
+We then manually sorted through our variables and created our desired variable names.
+
+
+## Converting Single-Digits to Double-Digits
+
+We could adjust the numerical components of variable names in aggregate.
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = stringr::str_replace_all(variable, 
+                                             "\\d+", 
+                                             function(m) 
+                                               sprintf("%02d", as.integer(m))
+                                             )
+         )
+```
+
+## Administrative Section
+
+We manually inspected and renamed variables from the Administrative Section.
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'subject' ~ 'id',
+    variable == 'today' ~ 'visit_date',
+    variable == 'ii' ~ 'interviewer',
+    variable == 'name_first' ~ 'subj_name_first',
+    variable == 'name_middle' ~ 'subj_name_middle',
+    variable == 'name_last' ~ 'subj_name_last',
+    variable == 'ctime' ~ 'time_start',
+    variable == 'endtime' ~ 'time_end',
+    variable == 'maca_mdd_timestamp' ~ 'time_mdd_start',
+    variable == 'maca_mdd_complete' ~ 'time_mdd_end',
+    variable == 'ps_timestamp' ~ 'time_ps_start',
+    variable == 'ps_complete' ~ 'time_ps_end',
+    variable == 'email' ~ 'subj_email',
+    variable == 'days_followed' ~ 'tlfb_days_followed',
+    variable == 'flag_outofwindow' ~ 'tlfb_flag_outofwindow',
+    variable == 'v2_status' ~ 'subj_randomized_status',
+    TRUE ~ final_variable
+    ))
+```
+
+## Screening Section
+
+We manually reviewed and renamed variables from the Screening Instrument.
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'gender' ~ 'sq_01_subj_gender',
+    variable == 'ml_gender' ~ 'sq_01_subj_gender_ml',
+    variable == 'sq_2' ~ 'sq_02_subj_hispanic',
+    variable == 'ml_hispanic_latino' ~ 'sq_02_subj_hispanic_ml',
+    variable == 'sq_3' ~ 'sq_03_subj_race',
+    variable == 'ml_race' ~ 'sq_03_subj_race_ml',
+    variable == 'sq_4' ~ 'sq_04_subj_age',
+    variable == 'calc_age' ~ 'sq_04_subj_age_calc',
+    variable == 'ml_dob' ~ 'sq_04_subj_dob_ml',
+    variable == 'ml_age' ~ 'sq_04_subj_age_ml',
+    variable == 'sq_5' ~ 'sq_05_residency',
+    variable == 'sq_6' ~ 'sq_06_english',
+    variable == 'sq_7' ~ 'sq_07_release',
+    variable == 'sq_7a' ~ 'sq_07a_release',
+    variable == 'sq_7b' ~ 'sq_07b_release_flier',
+    variable == 'sq_7c' ~ 'sq_07c_release_other',
+    variable == 'sq_7d' ~ 'sq_07d_release_verified',
+    variable == 'sq_8' ~ 'sq_08_homeless',
+    variable == 'sq_9' ~ 'sq_09_slept_loc',
+    variable == 'sq_9l' ~ 'sq_09l_slept_loc_shelter',
+    variable == 'sq_10' ~ 'sq_10_bridge_enrolled',
+    variable == 'sq_11' ~ 'sq_11_willing',
+    variable == 'sq_12' ~ 'sq_12_cellphone_has',
+    variable == 'sq_13' ~ 'sq_13_cellphone_payer',
+    variable == 'sq_14' ~ 'sq_14_cellphone_talkmins',
+    variable == 'sq_15' ~ 'sq_15_cellphone_smart',
+    variable == 'sq_16' ~ 'sq_16_cellphone_data',
+    variable == 'sq_17' ~ 'sq_17_cellphone_change',
+    variable == 'sq_18' ~ 'sq_18_media',
+    variable == 'sq_18a' ~ 'sq_18_media_email',
+    variable == 'sq_18b' ~ 'sq_18_media_fb',
+    variable == 'sq_18c' ~ 'sq_18_media_google',
+    variable == 'sq_18d' ~ 'sq_18_media_twitter',
+    variable == 'sq_18e' ~ 'sq_18_media_blogs',
+    variable == 'sq_18f' ~ 'sq_18_media_instagram',
+    variable == 'sq_18g' ~ 'sq_18_media_snapchat',
+    variable == 'sq_18h' ~ 'sq_18_media_linkedin',
+    variable == 'sq_18i' ~ 'sq_18_media_none',
+    variable == 'sq_19' ~ 'sq_19_internet_freq',
+    variable == 'sq_20' ~ 'sq_20_fb_active',
+    variable == 'sq_21' ~ 'sq_21_fb_freq',
+    variable == 'sq_22' ~ 'sq_22_id',
+    variable == 'sq_22a' ~ 'sq_22_id_dl',
+    variable == 'sq_22b' ~ 'sq_22_id_ss',
+    variable == 'sq_22c' ~ 'sq_22_id_govt',
+    variable == 'sq_22d' ~ 'sq_22_id_birth',
+    variable == 'sq_22e' ~ 'sq_22_id_passport',
+    variable == 'sq_22f' ~ 'sq_22_id_military',
+    variable == 'sq_22g' ~ 'sq_22_id_bridge',
+    variable == 'sq_22h' ~ 'sq_22_id_other',
+    variable == 'sq_23' ~ 'sq_23_consent',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from the Mini-Mental State Exam
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'mms_1' ~ 'mms_01_time',
+    variable == 'mms_1a' ~ 'mms_01_time_year',
+    variable == 'mms_1b' ~ 'mms_01_time_season',
+    variable == 'mms_1c' ~ 'mms_01_time_date',
+    variable == 'mms_1d' ~ 'mms_01_time_day',
+    variable == 'mms_1e' ~ 'mms_01_time_month',
+    variable == 'mms_2' ~ 'mms_02_loc',
+    variable == 'mms_2a' ~ 'mms_02_loc_state',
+    variable == 'mms_2b' ~ 'mms_02_loc_county',
+    variable == 'mms_2c' ~ 'mms_02_loc_city',
+    variable == 'mms_2d' ~ 'mms_02_loc_bldg',
+    variable == 'mms_2e' ~ 'mms_02_loc_floor',
+    variable == 'mms_3' ~ 'mms_03_word',
+    variable == 'mms_3g' ~ 'mms_03_word_penny',
+    variable == 'mms_3h' ~ 'mms_03_word_apple',
+    variable == 'mms_3i' ~ 'mms_03_word_table',
+    variable == 'mms_3j' ~ 'mms_03_word_none',
+    variable == 'recal_1' ~ 'mms_03_word_score',
+    variable == 'mms_4' ~ 'mms_04a_count',
+    variable == 'mms_4a' ~ 'mms_04a_count_93',
+    variable == 'mms_4b' ~ 'mms_04a_count_86',
+    variable == 'mms_4c' ~ 'mms_04a_count_79',
+    variable == 'mms_4d' ~ 'mms_04a_count_72',
+    variable == 'mms_4e' ~ 'mms_04a_count_65',
+    variable == 'mms_4f' ~ 'mms_04a_count_none',
+    variable == 'count' ~ 'mms_04a_count_score',
+    variable == 'mms_4v' ~ 'mms_04b_world',
+    variable == 'mms_4va' ~ 'mms_04b_world_d',
+    variable == 'mms_4vb' ~ 'mms_04b_world_l',
+    variable == 'mms_4vc' ~ 'mms_04b_world_r',
+    variable == 'mms_4vd' ~ 'mms_04b_world_o',
+    variable == 'mms_4ve' ~ 'mms_04b_world_w',
+    variable == 'mms_4vf' ~ 'mms_04b_world_none',
+    variable == 'num_calc' ~ 'mms_04b_world_score',
+    variable == 'mms_4v' ~ 'mms_04b_world',
+    variable == 'mms_5' ~ 'mms_05_word2',
+    variable == 'mms_5a' ~ 'mms_05_word2_penny',
+    variable == 'mms_5b' ~ 'mms_05_word2_apple',
+    variable == 'mms_5c' ~ 'mms_05_word2_table',
+    variable == 'mms_5d' ~ 'mms_05_word2_none',
+    variable == 'recal_2' ~ 'mms_05_word2_score',
+    variable == 'mms_6' ~ 'mms_06_obj',
+    variable == 'mms_6a' ~ 'mms_06_obj_pen',
+    variable == 'mms_6b' ~ 'mms_06_obj_door',
+    variable == 'mms_6c' ~ 'mms_06_obj_none',
+    variable == 'object' ~ 'mms_06_obj_score',
+    variable == 'mms_7' ~ 'mms_07_phrase',
+    variable == 'mms_8' ~ 'mms_08_paper',
+    variable == 'mms_8a' ~ 'mms_08_paper_hand',
+    variable == 'mms_8b' ~ 'mms_08_paper_fold',
+    variable == 'mms_8c' ~ 'mms_08_paper_floor',
+    variable == 'mms_8d' ~ 'mms_08_paper_none',
+    variable == 'paper' ~ 'mms_08_paper_score',
+    variable == 'mms_9' ~ 'mms_09_read',
+    variable == 'mms_10' ~ 'mms_10_write',
+    variable == 'mms_11' ~ 'mms_11_copy',
+    variable == 'mms_s_main' ~ 'mms_score_main',
+    variable == 'mms_s_alt' ~ 'mms_score_alt',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from the REALM
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'realm' ~ 'realm',
+    variable == 'realma' ~ 'realm_01_fat',
+    variable == 'realmb' ~ 'realm_02_flu',
+    variable == 'realmc' ~ 'realm_03_behavior',
+    variable == 'realmd' ~ 'realm_04_exercise',
+    variable == 'realme' ~ 'realm_05_menopause',
+    variable == 'realmf' ~ 'realm_06_rectal',
+    variable == 'realmg' ~ 'realm_07_antibiotic',
+    variable == 'realmh' ~ 'realm_08_anemia',
+    variable == 'realmi' ~ 'realm_09_jaundice',
+    variable == 'realm_s' ~ 'realm_score',
+    TRUE ~ final_variable
+    ))
+```
+
+We added the prefix 'anth_' to all anthropometric variables.
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = ifelse(
+      (section == "Screening" & instrument == "Anthropometrics"),
+      paste0('anth_', variable),
+      final_variable
+      )
+    )
+```
+
+## Demographic Section
+
+We manually reviewed and renamed variables from the Demographic Questionnaire. This included fixing a typo in `dme_6b`.
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'dem_1' ~ 'dem_01_marital',
+    variable == 'dem_2' ~ 'dem_02_children',
+    variable == 'dem_3' ~ 'dem_03_race',
+    variable == 'dem_4' ~ 'dem_04_mrace',
+    variable == 'dem_4a' ~ 'dem_04_mrace_white',
+    variable == 'dem_4b' ~ 'dem_04_mrace_black',
+    variable == 'dem_4c' ~ 'dem_04_mrace_asian',
+    variable == 'dem_4d' ~ 'dem_04_mrace_pi',
+    variable == 'dem_4e' ~ 'dem_04_mrace_ai',
+    variable == 'dem_4f' ~ 'dem_04_mrace_other',
+    variable == 'dem_5' ~ 'dem_05_edu',
+    variable == 'dem_5a' ~ 'dem_05_edu_hs_ged',
+    variable == 'dem_6' ~ 'dem_06_empl',
+    variable == 'dem_6a' ~ 'dem_06_empl_hours',
+    variable == 'dme_6b' ~ 'dem_06_empl_week',
+    variable == 'dem_7' ~ 'dem_07_ins',
+    variable == 'dem_7a' ~ 'dem_07_ins_medicare',
+    variable == 'dem_7b' ~ 'dem_07_ins_medicaid',
+    variable == 'dem_7c' ~ 'dem_07_ins_military',
+    variable == 'dem_7d' ~ 'dem_07_ins_private',
+    variable == 'dem_7e' ~ 'dem_07_ins_none',
+    variable == 'any_health_insurance' ~ 'dem_07_ins_any',
+    variable == 'dem_8' ~ 'dem_08_ss',
+    variable == 'dem_9' ~ 'dem_09_ss_amt',
+    variable == 'dem_10' ~ 'dem_10_foodstamps',
+    variable == 'dem_11' ~ 'dem_11_foodstamps_amt',
+    variable == 'dem_12' ~ 'dem_12_inc',
+    variable == 'dem_12a' ~ 'dem_12_inc_work',
+    variable == 'dem_12b' ~ 'dem_12_inc_crime',
+    variable == 'dem_12c' ~ 'dem_12_inc_disab',
+    variable == 'dem_12d' ~ 'dem_12_inc_benefit',
+    variable == 'dem_12e' ~ 'dem_12_inc_selfemp',
+    variable == 'dem_12f' ~ 'dem_12_inc_sex',
+    variable == 'dem_12g' ~ 'dem_12_inc_drugs',
+    variable == 'dem_12h' ~ 'dem_12_inc_social',
+    variable == 'dem_12i' ~ 'dem_12_inc_student',
+    variable == 'dem_12j' ~ 'dem_12_inc_support',
+    variable == 'dem_12k' ~ 'dem_12_inc_other',
+    variable == 'dem_12l' ~ 'dem_12_inc_none',
+    variable == 'dem_13' ~ 'dem_13_income',
+    variable == 'dem_13a' ~ 'dem_13_income_a',
+    variable == 'dem_13b' ~ 'dem_13_income_b',
+    variable == 'dem_13c' ~ 'dem_13_income_c',
+    variable == 'dem_13d' ~ 'dem_13_income_d',
+    variable == 'dem_13e' ~ 'dem_13_income_e',
+    variable == 'dem_13f' ~ 'dem_13_income_f',
+    variable == 'dem_13g' ~ 'dem_13_income_g',
+    variable == 'dem_13h' ~ 'dem_13_income_h',
+    variable == 'dem_13_val' ~ 'dem_13_income_val',
+    variable == 'dem_14' ~ 'dem_14_income_mnth',
+    variable == 'dem_14a' ~ 'dem_14_income_mnth_a',
+    variable == 'dem_14b' ~ 'dem_14_income_mnth_b',
+    variable == 'dem_14c' ~ 'dem_14_income_mnth_c',
+    variable == 'dem_14d' ~ 'dem_14_income_mnth_d',
+    variable == 'dem_14e' ~ 'dem_14_income_mnth_e',
+    variable == 'dem_14f' ~ 'dem_14_income_mnth_f',
+    variable == 'dem_14g' ~ 'dem_14_income_mnth_g',
+    variable == 'dem_14h' ~ 'dem_14_income_mnth_h',
+    variable == 'dem_14_val' ~ 'dem_14_income_mnth_val',
+    variable == 'dem_15' ~ 'dem_15_veteran',
+    variable == 'dem_16' ~ 'dem_16_minority',
+    variable == 'dem_17' ~ 'dem_17_sex_orientation',
+    variable == 'dem_18' ~ 'dem_18_transgender',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from the Brief Homelessness Questionnaire
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'bh_1' ~ 'bh_01_time_lifetime',
+    variable == 'bh_1y' ~ 'bh_01_time_lifetime_year',
+    variable == 'bh_1m' ~ 'bh_01_time_lifetime_month',
+    variable == 'bh_1d' ~ 'bh_01_time_lifetime_day',
+    variable == 'bh_2' ~ 'bh_02_num_times',
+    variable == 'bh_3' ~ 'bh_03_age_first',
+    variable == 'bh_4' ~ 'bh_04_time_recent',
+    variable == 'bh_4y' ~ 'bh_04_time_recent_year',
+    variable == 'bh_4m' ~ 'bh_04_time_recent_month',
+    variable == 'bh_4d' ~ 'bh_04_time_recent_day',
+    variable == 'bh_5' ~ 'bh_05_num_childhood',
+    variable == 'bh_6' ~ 'bh_06_num_3yrs',
+    variable == 'bh_7' ~ 'bh_07_bridge_time',
+    variable == 'bh_7y' ~ 'bh_07_bridge_time_year',
+    variable == 'bh_7m' ~ 'bh_07_bridge_time_month',
+    variable == 'bh_7w' ~ 'bh_07_bridge_time_week',
+    variable == 'bh_8' ~ 'bh_08_attend_sub',
+    variable == 'bh_9' ~ 'bh_09_mh_treatmnt',
+    variable == 'bh_10' ~ 'bh_10_mh_treatmnt_type',
+    variable == 'bh_11a' ~ 'bh_11_time_shelter',
+    variable == 'bh_12a' ~ 'bh_12_reasons',
+    variable == 'bh_12aa' ~ 'bh_12_reasons_na',
+    variable == 'bh_12ab' ~ 'bh_12_reasons_unempl',
+    variable == 'bh_12ac' ~ 'bh_12_reasons_evicted',
+    variable == 'bh_12ad' ~ 'bh_12_reasons_substance',
+    variable == 'bh_12ae' ~ 'bh_12_reasons_mh',
+    variable == 'bh_12af' ~ 'bh_12_reasons_med_bills',
+    variable == 'bh_12ag' ~ 'bh_12_reasons_family',
+    variable == 'bh_12ah' ~ 'bh_12_reasons_legal',
+    variable == 'bh_12ai' ~ 'bh_12_reasons_reint',
+    variable == 'bh_12aj' ~ 'bh_12_reasons_disaster',
+    variable == 'bh_12ak' ~ 'bh_12_reasons_dv',
+    variable == 'bh_12al' ~ 'bh_12_reasons_other',
+    variable == 'bh_13a' ~ 'bh_13_arrests_drug_count',
+    variable == 'bh_13aa' ~ 'bh_13_arrests_drug_pos',
+    variable == 'bh_13ab' ~ 'bh_13_arrests_drug_dist',
+    variable == 'bh_13ac' ~ 'bh_13_arrests_drug_dui',
+    variable == 'bh_13ad' ~ 'bh_13_arrests_drug_disord',
+    variable == 'bh_13ae' ~ 'bh_13_arrests_drug_loiter',
+    variable == 'bh_13af' ~ 'bh_13_arrests_drug_none',
+    variable == 'bh_13b' ~ 'bh_13_arrests_theft_count',
+    variable == 'bh_13ba' ~ 'bh_13_arrests_theft_forgery',
+    variable == 'bh_13bb' ~ 'bh_13_arrests_theft_theft',
+    variable == 'bh_13bc' ~ 'bh_13_arrests_theft_mvtheft',
+    variable == 'bh_13bd' ~ 'bh_13_arrests_theft_robbery',
+    variable == 'bh_13be' ~ 'bh_13_arrests_theft_fraud',
+    variable == 'bh_13bf' ~ 'bh_13_arrests_theft_burglary',
+    variable == 'bh_13bg' ~ 'bh_13_arrests_theft_prost',
+    variable == 'bh_13bh' ~ 'bh_13_arrests_theft_none',
+    variable == 'bh_13c' ~ 'bh_13_arrests_viol_count',
+    variable == 'bh_13ca' ~ 'bh_13_arrests_viol_dv',
+    variable == 'bh_13cb' ~ 'bh_13_arrests_viol_assault',
+    variable == 'bh_13cc' ~ 'bh_13_arrests_viol_rape',
+    variable == 'bh_13cd' ~ 'bh_13_arrests_viol_sex',
+    variable == 'bh_13ce' ~ 'bh_13_arrests_viol_weap',
+    variable == 'bh_13cf' ~ 'bh_13_arrests_viol_murder',
+    variable == 'bh_13cg' ~ 'bh_13_arrests_viol_arson',
+    variable == 'bh_13ch' ~ 'bh_13_arrests_viol_none',
+    variable == 'bh_14' ~ 'bh_14_new_arrests',
+    variable == 'bh_14b' ~ 'bh_14_new_arrest_dur',
+    variable == 'bh_14by' ~ 'bh_14_new_arrest_dur_year',
+    variable == 'bh_14bm' ~ 'bh_14_new_arrest_dur_month',
+    variable == 'bh_14bw' ~ 'bh_14_new_arrest_dur_week',
+    variable == 'bh_14bd' ~ 'bh_14_new_arrest_dur_day',
+    variable == 'bh_15' ~ 'bh_15_incarc_count',
+    variable == 'bh_15a' ~ 'bh_15_incarc_drug_etoh',
+    variable == 'bh_16' ~ 'bh_16_incarc_intent_count',
+    variable == 'bh_17' ~ 'bh_17_incarc_time',
+    variable == 'bh_17y' ~ 'bh_17_incarc_time_year',
+    variable == 'bh_17m' ~ 'bh_17_incarc_time_month',
+    variable == 'bh_17w' ~ 'bh_17_incarc_time_week',
+    variable == 'bh_18' ~ 'bh_18_supv_now',
+    variable == 'bh_18b' ~ 'bh_18_supv',
+    variable == 'bh_18ba' ~ 'bh_18_supv_prob',
+    variable == 'bh_18bb' ~ 'bh_18_supv_parole',
+    variable == 'bh_18bc' ~ 'bh_18_supv_ptr',
+    variable == 'bh_18bd' ~ 'bh_18_supv_day',
+    variable == 'bh_18be' ~ 'bh_18_supv_dtc',
+    variable == 'bh_18bf' ~ 'bh_18_supv_other_court',
+    variable == 'bh_18bg' ~ 'bh_18_supv_none',
+    variable == 'bh_18bh' ~ 'bh_18_supv_other',
+    variable == 'bh_18b1' ~ 'bh_18_supv_other_txt',
+    variable == 'bh_19' ~ 'bh_19_felony',
+    variable == 'bh_20' ~ 'bh_20_conv_innocent',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from the MacArthur Scale of Subjective Social Status
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'sss_1' ~ 'sss_01_community',
+    variable == 'sss_2' ~ 'sss_02_usa',
+    variable == 'well_being_1' ~ 'sss_03_now',
+    variable == 'well_being_2' ~ 'sss_04_5yrs',
+    variable == 'well_being_3' ~ 'sss_05_financial',
+    TRUE ~ final_variable
+    ))
+```
+
+## Health Section
+
+We manually reviewed and renamed variables from the Patient Health Questionnaire
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'phq_1' ~ 'phq_01_interest',
+    variable == 'phq_2' ~ 'phq_02_down',
+    variable == 'phq_3' ~ 'phq_03_sleep',
+    variable == 'phq_4' ~ 'phq_04_tired',
+    variable == 'phq_5' ~ 'phq_05_appetite',
+    variable == 'phq_6' ~ 'phq_06_failure',
+    variable == 'phq_7' ~ 'phq_07_concentrating',
+    variable == 'phq_8' ~ 'phq_08_speed',
+    variable == 'phq_1_dichot' ~ 'phq_01_interest_dichot',
+    variable == 'phq_2_dichot' ~ 'phq_02_down_dichot',
+    variable == 'phq_3_dichot' ~ 'phq_03_sleep_dichot',
+    variable == 'phq_4_dichot' ~ 'phq_04_tired_dichot',
+    variable == 'phq_5_dichot' ~ 'phq_05_appetite_dichot',
+    variable == 'phq_6_dichot' ~ 'phq_06_failure_dichot',
+    variable == 'phq_7_dichot' ~ 'phq_07_concentrating_dichot',
+    variable == 'phq_8_dichot' ~ 'phq_08_spee_d_dichot',
+    variable == 'phq_9' ~ 'phq_09_nervous',
+    variable == 'phq_10' ~ 'phq_10_control',
+    variable == 'phq_11' ~ 'phq_11_different',
+    variable == 'phq_12' ~ 'phq_12_relax',
+    variable == 'phq_13' ~ 'phq_13_restless',
+    variable == 'phq_14' ~ 'phq_14_irritable',
+    variable == 'phq_15' ~ 'phq_15_afraid',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from the SF12 Health Survey
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'hs_1' ~ 'hs_01_general',
+    variable == 'hs_1_dichot' ~ 'hs_01_general_dichot',
+    variable == 'hs_2' ~ 'hs_02_mod_act',
+    variable == 'hs_3' ~ 'hs_03_stairs',
+    variable == 'hs_4' ~ 'hs_04_accomplish_physical',
+    variable == 'hs_5' ~ 'hs_05_work',
+    variable == 'hs_6' ~ 'hs_06_accomplish_mental',
+    variable == 'hs_7' ~ 'hs_07_less_care',
+    variable == 'hs_8' ~ 'hs_08_pain',
+    variable == 'hs_9' ~ 'hs_09_calm',
+    variable == 'hs_10' ~ 'hs_10_energy',
+    variable == 'hs_11' ~ 'hs_11_down',
+    variable == 'hs_12' ~ 'hs_12_social',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from the Health Related Quality of Life
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'hrq_1' ~ 'hrq_01_physical',
+    variable == 'hrq_2' ~ 'hrq_02_mental',
+    variable == 'hrq_3' ~ 'hrq_03_limited',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from Self-Rated Health
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 's_2' ~ 's_02_behav',
+    variable == 's_2a' ~ 's_02_behav_smoke',
+    variable == 's_2b' ~ 's_02_behav_sex',
+    variable == 's_2c' ~ 's_02_behav_drugs',
+    variable == 's_2d' ~ 's_02_behav_diet',
+    variable == 's_2e' ~ 's_02_behav_weight',
+    variable == 's_2f' ~ 's_02_behav_activity',
+    variable == 's_2g' ~ 's_02_behav_sleep',
+    variable == 's_2h' ~ 's_02_behav_none',
+    variable == 'sr_3a' ~ 's_02_behav_smoke_thoughts',
+    variable == 'sr_3b' ~ 's_02_behav_sex_thoughts',
+    variable == 'sr_3c' ~ 's_02_behav_drugs_thoughts',
+    variable == 'sr_3d' ~ 's_02_behav_diet_thoughts',
+    variable == 'sr_3e' ~ 's_02_behav_weight_thoughts',
+    variable == 'sr_3f' ~ 's_02_behav_activity_thoughts',
+    variable == 's_3' ~ 's_03_substance_hx_ever',
+    variable == 's_4' ~ 's_04_substance_hx',
+    variable == 's_4a' ~ 's_04_substance_hx_etoh',
+    variable == 's_4b' ~ 's_04_substance_hx_cannabis',
+    variable == 's_4c' ~ 's_04_substance_hx_cocaine',
+    variable == 's_4d' ~ 's_04_substance_hx_k2',
+    variable == 's_4e' ~ 's_04_substance_hx_opiate',
+    variable == 's_4f' ~ 's_04_substance_hx_amphetamine',
+    variable == 's_4g' ~ 's_04_substance_hx_sedative',
+    variable == 's_4h' ~ 's_04_substance_hx_other',
+    variable == 's_5' ~ 's_05_er_count',
+    variable == 's_6' ~ 's_06_hospital_count',
+    variable == 's_7' ~ 's_07_cardio_hx',
+    variable == 's_7a' ~ 's_07_cardio_hx_chd',
+    variable == 's_7b' ~ 's_07_cardio_hx_stroke',
+    variable == 's_7c' ~ 's_07_cardio_hx_pad',
+    variable == 's_7d' ~ 's_07_cardio_hx_aa',
+    variable == 's_7e' ~ 's_07_cardio_hx_other',
+    variable == 's_7f' ~ 's_07_cardio_hx_unk',
+    variable == 's_7g' ~ 's_07_cardio_hx_none',
+    variable == 's_8' ~ 's_08_pulm_hx',
+    variable == 's_8a' ~ 's_08_pulm_hx_bronch',
+    variable == 's_8b' ~ 's_08_pulm_hx_copd',
+    variable == 's_8c' ~ 's_08_pulm_hx_emphy',
+    variable == 's_8d' ~ 's_08_pulm_hx_tb',
+    variable == 's_8e' ~ 's_08_pulm_hx_other',
+    variable == 's_8f' ~ 's_08_pulm_hx_unk',
+    variable == 's_8g' ~ 's_08_pulm_hx_none',
+    variable == 's_9' ~ 's_09_cancer_hx',
+    variable == 's_9a' ~ 's_09_cancer_hx_lung',
+    variable == 's_9b' ~ 's_09_cancer_hx_urinary',
+    variable == 's_9c' ~ 's_09_cancer_hx_kidney',
+    variable == 's_9d' ~ 's_09_cancer_hx_pancreas',
+    variable == 's_9e' ~ 's_09_cancer_hx_oral',
+    variable == 's_9f' ~ 's_09_cancer_hx_prostate',
+    variable == 's_9g' ~ 's_09_cancer_hx_colon',
+    variable == 's_9h' ~ 's_09_cancer_hx_cervical',
+    variable == 's_9i' ~ 's_09_cancer_hx_melanoma',
+    variable == 's_9j' ~ 's_09_cancer_hx_nhlymph',
+    variable == 's_9k' ~ 's_09_cancer_hx_leukemia',
+    variable == 's_9l' ~ 's_09_cancer_hx_breast',
+    variable == 's_9m' ~ 's_09_cancer_hx_uterine',
+    variable == 's_9n' ~ 's_09_cancer_hx_thyroid',
+    variable == 's_9o' ~ 's_09_cancer_hx_ovary',
+    variable == 's_9p' ~ 's_09_cancer_hx_other',
+    variable == 's_9q' ~ 's_09_cancer_hx_unk',
+    variable == 's_9r' ~ 's_09_cancer_hx_none',
+    variable == 's_10' ~ 's_10_hypertension',
+    variable == 's_11' ~ 's_11_diabetes',
+    variable == 's_12' ~ 's_12_cholesterol',
+    variable == 's_13' ~ 's_13_allergies',
+    variable == 's_14' ~ 's_14_hepatitis',
+    variable == 's_14a' ~ 's_14_hepatitis_a',
+    variable == 's_14b' ~ 's_14_hepatitis_b',
+    variable == 's_14c' ~ 's_14_hepatitis_c',
+    variable == 's_14d' ~ 's_14_hepatitis_none',
+    variable == 's_15' ~ 's_15_arthritis',
+    variable == 's_16' ~ 's_16_hiv',
+    variable == 's_17' ~ 's_17_hiv_risk',
+    variable == 's_18' ~ 's_18_meds',
+    variable == 's_18a' ~ 's_18_meds_heart',
+    variable == 's_18b' ~ 's_18_meds_lung',
+    variable == 's_18c' ~ 's_18_meds_cancer',
+    variable == 's_18d' ~ 's_18_meds_hypertension',
+    variable == 's_18e' ~ 's_18_meds_diabetes',
+    variable == 's_18f' ~ 's_18_meds_cholesterol',
+    variable == 's_18g' ~ 's_18_meds_allergies',
+    variable == 's_18h' ~ 's_18_meds_hepatitis',
+    variable == 's_18i' ~ 's_18_meds_arthritis',
+    variable == 's_18j' ~ 's_18_meds_hiv',
+    variable == 's_18k' ~ 's_18_meds_hiv_prevention',
+    variable == 's_18l' ~ 's_18_meds_none',
+    variable == 's_19' ~ 's_19_mh_depression',
+    variable == 's_20' ~ 's_20_mh_schizo',
+    variable == 's_21' ~ 's_21_mh_bipolar',
+    variable == 's_22' ~ 's_22_mh_ptsd',
+    variable == 's_23' ~ 's_23_mh_anxiety',
+    variable == 's_24' ~ 's_24_mh_meds',
+    variable == 's_24a' ~ 's_24_mh_meds_depression',
+    variable == 's_24b' ~ 's_24_mh_meds_schizo',
+    variable == 's_24c' ~ 's_24_mh_meds_bipolar',
+    variable == 's_24d' ~ 's_24_mh_meds_anxiety',
+    variable == 's_24e' ~ 's_24_mh_meds_ptsd',
+    variable == 's_24f' ~ 's_24_mh_meds_none',
+    variable == 's_25a' ~ 's_25_mh_meds_dep_took',
+    variable == 's_26a' ~ 's_26_mh_meds_dep_missed',
+    variable == 's_26aa' ~ 's_26_mh_meds_dep_missed_sideeffects',
+    variable == 's_26ab' ~ 's_26_mh_meds_dep_missed_forgot',
+    variable == 's_26ac' ~ 's_26_mh_meds_dep_missed_ineffective',
+    variable == 's_26ad' ~ 's_26_mh_meds_dep_missed_unneeded',
+    variable == 's_26ae' ~ 's_26_mh_meds_dep_missed_pharmacy',
+    variable == 's_26af' ~ 's_26_mh_meds_dep_missed_refill',
+    variable == 's_26ag' ~ 's_26_mh_meds_dep_missed_other',
+    variable == 's_25b' ~ 's_25_mh_meds_schizo_took',
+    variable == 's_26b' ~ 's_26_mh_meds_schizo_missed',
+    variable == 's_26ba' ~ 's_26_mh_meds_schizo_missed_sideeffects',
+    variable == 's_26bb' ~ 's_26_mh_meds_schizo_missed_forgot',
+    variable == 's_26bc' ~ 's_26_mh_meds_schizo_missed_ineffective',
+    variable == 's_26bd' ~ 's_26_mh_meds_schizo_missed_unneeded',
+    variable == 's_26be' ~ 's_26_mh_meds_schizo_missed_pharmacy',
+    variable == 's_26bf' ~ 's_26_mh_meds_schizo_missed_refill',
+    variable == 's_26bg' ~ 's_26_mh_meds_schizo_missed_other',
+    variable == 's_25c' ~ 's_25_mh_meds_bipolar_took',
+    variable == 's_26c' ~ 's_26_mh_meds_bipolar_missed',
+    variable == 's_26ca' ~ 's_26_mh_meds_bipolar_missed_sideeffects',
+    variable == 's_26cb' ~ 's_26_mh_meds_bipolar_missed_forgot',
+    variable == 's_26cc' ~ 's_26_mh_meds_bipolar_missed_ineffective',
+    variable == 's_26cd' ~ 's_26_mh_meds_bipolar_missed_unneeded',
+    variable == 's_26ce' ~ 's_26_mh_meds_bipolar_missed_pharmacy',
+    variable == 's_26cf' ~ 's_26_mh_meds_bipolar_missed_refill',
+    variable == 's_26cg' ~ 's_26_mh_meds_bipolar_missed_other',
+    variable == 's_25d' ~ 's_25_mh_meds_anxiety_took',
+    variable == 's_26d' ~ 's_26_mh_meds_anxiety_missed',
+    variable == 's_26da' ~ 's_26_mh_meds_anxiety_missed_sideeffects',
+    variable == 's_26db' ~ 's_26_mh_meds_anxiety_missed_forgot',
+    variable == 's_26dc' ~ 's_26_mh_meds_anxiety_missed_ineffective',
+    variable == 's_26dd' ~ 's_26_mh_meds_anxiety_missed_unneeded',
+    variable == 's_26de' ~ 's_26_mh_meds_anxiety_missed_pharmacy',
+    variable == 's_26df' ~ 's_26_mh_meds_anxiety_missed_refill',
+    variable == 's_26dg' ~ 's_26_mh_meds_anxiety_missed_other',
+    variable == 's_25e' ~ 's_25_mh_meds_ptsd_took',
+    variable == 's_26e' ~ 's_26_mh_meds_ptsd_missed',
+    variable == 's_26ea' ~ 's_26_mh_meds_ptsd_missed_sideeffects',
+    variable == 's_26eb' ~ 's_26_mh_meds_ptsd_missed_forgot',
+    variable == 's_26ec' ~ 's_26_mh_meds_ptsd_missed_ineffective',
+    variable == 's_26ed' ~ 's_26_mh_meds_ptsd_missed_unneeded',
+    variable == 's_26ee' ~ 's_26_mh_meds_ptsd_missed_pharmacy',
+    variable == 's_26ef' ~ 's_26_mh_meds_ptsd_missed_refill',
+    variable == 's_26eg' ~ 's_26_mh_meds_ptsd_missed_other',
+    variable == 's_27' ~ 's_27_friends_etoh',
+    variable == 's_28' ~ 's_28_friends_drugs',
+    variable == 's_29' ~ 's_29_substance_dx_ever',
+    variable == 's_30' ~ 's_30_substance_dx',
+    variable == 's_30a' ~ 's_30_substance_dx_etoh',
+    variable == 's_30b' ~ 's_30_substance_dx_cannabis',
+    variable == 's_30c' ~ 's_30_substance_dx_cocaine',
+    variable == 's_30d' ~ 's_30_substance_dx_opiate',
+    variable == 's_30e' ~ 's_30_substance_dx_amphetamine',
+    variable == 's_30f' ~ 's_30_substance_dx_sedative',
+    variable == 's_30g' ~ 's_30_substance_dx_other',
+    variable == 's_31' ~ 's_31_substance_inj',
+    variable == 's_32' ~ 's_32_substance_use',
+    variable == 's_32a' ~ 's_32_substance_use_etoh',
+    variable == 's_32b' ~ 's_32_substance_use_cannabis',
+    variable == 's_32c' ~ 's_32_substance_use_cocaine',
+    variable == 's_32d' ~ 's_32_substance_use_k2',
+    variable == 's_32e' ~ 's_32_substance_use_opiate',
+    variable == 's_32f' ~ 's_32_substance_use_amphetamine',
+    variable == 's_32g' ~ 's_32_substance_use_sedative',
+    variable == 's_32h' ~ 's_32_substance_use_other',
+    variable == 's_32i' ~ 's_32_substance_use_none',
+    variable == 's_33' ~ 's_33_dental_brush',
+    variable == 's_34' ~ 's_34_dental_missing',
+    variable == 's_35' ~ 's_35_concussion',
+    variable == 's_36' ~ 's_36_concussion_time',
+    variable == 's_37' ~ 's_37_soda',
+    variable == 's_38' ~ 's_38_medical_forms',
+    variable == 's_39a' ~ 's_39_disability_limited',
+    variable == 's_39b' ~ 's_39_disability_benefits',
+    variable == 's_40' ~ 's_40_pain_scale',
+    variable == 's_41' ~ 's_41_app_belief',
+    variable == 's_42' ~ 's_42_app_health',
+    variable == 's_43' ~ 's_43_app_use',
+    variable == 's_43a' ~ 's_43_app_use_diet',
+    variable == 's_43b' ~ 's_43_app_use_meds',
+    variable == 's_43c' ~ 's_43_app_use_mood',
+    variable == 's_43d' ~ 's_43_app_use_activity',
+    variable == 's_43e' ~ 's_43_app_use_sleep',
+    variable == 's_43f' ~ 's_43_app_use_smoke',
+    variable == 's_43g' ~ 's_43_app_use_stress',
+    variable == 's_43h' ~ 's_43_app_use_weight',
+    variable == 's_43i' ~ 's_43_app_use_other',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from the TCU Drug Screen 5
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'ds_1' ~ 'ds_01_longer_use',
+    variable == 'ds_2' ~ 'ds_02_reduce_failed',
+    variable == 'ds_3' ~ 'ds_03_time_spent',
+    variable == 'ds_4' ~ 'ds_04_craving',
+    variable == 'ds_5' ~ 'ds_05_limited',
+    variable == 'ds_6' ~ 'ds_06_social_issues',
+    variable == 'ds_7' ~ 'ds_07_time_lost',
+    variable == 'ds_8' ~ 'ds_08_danger',
+    variable == 'ds_9' ~ 'ds_09_health_issues',
+    variable == 'ds_10a' ~ 'ds_10_tol_increase_dose',
+    variable == 'ds_10b' ~ 'ds_10_tol_reduced_effect',
+    variable == 'ds_10_val' ~ 'ds_10_tol',
+    variable == 'ds_11a' ~ 'ds_11_withdrawal_symp',
+    variable == 'ds_11b' ~ 'ds_11_withdrawal_avoidance',
+    variable == 'ds_11_val' ~ 'ds_11_withdrawal',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from the Primary Care PTSD Screen (PC-PTSD)
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'ptsd_1' ~ 'ptsd_01_nightmares',
+    variable == 'ptsd_2' ~ 'ptsd_02_avoidance',
+    variable == 'ptsd_3' ~ 'ptsd_03_hypervigilance',
+    variable == 'ptsd_4' ~ 'ptsd_04_dissociation',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from the BRFSS Adverse Childhood Experience (ACE) Module
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'brac_1' ~ 'brac_01_mh',
+    variable == 'brac_2' ~ 'brac_02_etoh',
+    variable == 'brac_3' ~ 'brac_03_drugs',
+    variable == 'brac_4' ~ 'brac_04_incarc',
+    variable == 'brac_5' ~ 'brac_05_divorce',
+    variable == 'brac_6' ~ 'brac_06_dv',
+    variable == 'brac_7' ~ 'brac_07_abuse_physical',
+    variable == 'brac_8' ~ 'brac_08_abuse_verbal',
+    variable == 'brac_9' ~ 'brac_09_abuse_sexual_touched',
+    variable == 'brac_10' ~ 'brac_10_abuse_sexual_touching',
+    variable == 'brac_11' ~ 'brac_11_abuse_sexual_acts',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from Tobacco History
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 't_1' ~ 't_01_cigarettes_lifetime_100',
+    variable == 't_2' ~ 't_02_cigarettes_30days',
+    variable == 't_3a' ~ 't_03_quit_time',
+    variable == 't_3ay' ~ 't_03_quit_time_year',
+    variable == 't_3am' ~ 't_03_quit_time_month',
+    variable == 't_3ab' ~ 't_03_smoking_years',
+    variable == 't_4' ~ 't_04_cigarettes_freq',
+    variable == 't_5' ~ 't_05_cigarettes_24hrs_cat',
+    variable == 't_5a1' ~ 't_05_cigarettes_24hrs_1_5',
+    variable == 't_5a2' ~ 't_05_cigarettes_24hrs_6_10',
+    variable == 't_5a3' ~ 't_05_cigarettes_24hrs_11_15',
+    variable == 't_5a4' ~ 't_05_cigarettes_24hrs_16_20',
+    variable == 't_5a5' ~ 't_05_cigarettes_24hrs_21_25',
+    variable == 't_5a6' ~ 't_05_cigarettes_24hrs_26',
+    variable == 't_5_val' ~ 't_05_cigarettes_24hrs_count',
+    variable == 't_6' ~ 't_06_cigarettes_daily_cat',
+    variable == 't_6a1' ~ 't_06_cigarettes_daily_1_5',
+    variable == 't_6a2' ~ 't_06_cigarettes_daily_6_10',
+    variable == 't_6a3' ~ 't_06_cigarettes_daily_11_15',
+    variable == 't_6a4' ~ 't_06_cigarettes_daily_16_20',
+    variable == 't_6a5' ~ 't_06_cigarettes_daily_21_25',
+    variable == 't_6a6' ~ 't_06_cigarettes_daily_26',
+    variable == 't_6_val' ~ 't_06_cigarettes_daily_count',
+    variable == 't_7' ~ 't_07_cigarettes_expense',
+    variable == 't_8' ~ 't_08_cigarettes_smoking_years',
+    variable == 't_9' ~ 't_09_cigarettes_menthol',
+    variable == 't_10' ~ 't_10_cigarettes_quit_count_30days',
+    variable == 't_11' ~ 't_11_cigarettes_start_age',
+    variable == 't_12' ~ 't_12_cigarettes_quit_count_lifetime_cat',
+    variable == 't_12a' ~ 't_12_cigarettes_quit_count_lifetime_11_15',
+    variable == 't_12b' ~ 't_12_cigarettes_quit_count_lifetime_16_20',
+    variable == 't_13' ~ 't_13_work_policy',
+    variable == 't_14' ~ 't_14_quit_aids',
+    variable == 't_14a' ~ 't_14_quit_aids_med_chantix',
+    variable == 't_14b' ~ 't_14_quit_aids_med_wellbutrin',
+    variable == 't_14c' ~ 't_14_quit_aids_med_patch',
+    variable == 't_14d' ~ 't_14_quit_aids_med_gum',
+    variable == 't_14e' ~ 't_14_quit_aids_med_other',
+    variable == 't_14f' ~ 't_14_quit_aids_e_cig',
+    variable == 't_14g' ~ 't_14_quit_aids_helpline',
+    variable == 't_14h' ~ 't_14_quit_aids_app',
+    variable == 't_14i' ~ 't_14_quit_aids_none',
+    variable == 't_15' ~ 't_15_quit_aid_helpful',
+    variable == 't_16' ~ 't_16_treatment_30days',
+    variable == 't_17' ~ 't_17_meds_30days',
+    variable == 't_18' ~ 't_18_interest_chantix',
+    variable == 't_19' ~ 't_19_interest_wellbutrin',
+    variable == 't_20' ~ 't_20_interest_patch',
+    variable == 't_21' ~ 't_21_interest_gum',
+    variable == 't_22' ~ 't_22_interest_top',
+    variable == 't_23' ~ 't_23_quit_barrier',
+    variable == 't_23a' ~ 't_23_quit_barrier_cravings',
+    variable == 't_23b' ~ 't_23_quit_barrier_social',
+    variable == 't_23c' ~ 't_23_quit_barrier_weight',
+    variable == 't_23d' ~ 't_23_quit_barrier_habit',
+    variable == 't_23e' ~ 't_23_quit_barrier_stress',
+    variable == 't_23f' ~ 't_23_quit_barrier_stress_coping',
+    variable == 't_23g' ~ 't_23_quit_barrier_avoiding_smokers',
+    variable == 't_23h' ~ 't_23_quit_barrier_other',
+    variable == 't_24' ~ 't_24_freq_change_year',
+    variable == 't_25' ~ 't_25_aid_helpful',
+    variable == 't_26a' ~ 't_26_aid_preference',
+    variable == 't_26aa' ~ 't_26_aid_preference_med',
+    variable == 't_26ab' ~ 't_26_aid_preference_group',
+    variable == 't_26ac' ~ 't_26_aid_preference_app',
+    variable == 't_26ad' ~ 't_26_aid_preference_counseling',
+    variable == 't_26ae' ~ 't_26_aid_preference_helpline',
+    variable == 't_26af' ~ 't_26_aid_preference_none',
+    variable == 't_27' ~ 't_27_aid_interest_meds',
+    variable == 't_28' ~ 't_28_smoking_risk_quit',
+    variable == 't_29' ~ 't_29_smoking_risk_noquit',
+    variable == 't_30' ~ 't_30_quit_likelihood',
+    variable == 't_31' ~ 't_31_alt_prod_ever',
+    variable == 't_31a' ~ 't_31_alt_prod_ever_snus',
+    variable == 't_31b' ~ 't_31_alt_prod_ever_roll',
+    variable == 't_31c' ~ 't_31_alt_prod_ever_hookah',
+    variable == 't_31d' ~ 't_31_alt_prod_ever_dissolve',
+    variable == 't_31e' ~ 't_31_alt_prod_ever_e_cig',
+    variable == 't_31f' ~ 't_31_alt_prod_ever_cigar',
+    variable == 't_31g' ~ 't_31_alt_prod_ever_cigarillo',
+    variable == 't_31h' ~ 't_31_alt_prod_ever_chew',
+    variable == 't_31i' ~ 't_31_alt_prod_ever_other',
+    variable == 't_31j' ~ 't_31_alt_prod_ever_none',
+    variable == 't_31_b' ~ 't_31_alt_prod_ever_e_cig_type_cat',
+    variable == 't_31ba' ~ 't_31_alt_prod_ever_e_cig_type_1g',
+    variable == 't_31bb' ~ 't_31_alt_prod_ever_e_cig_type_2g',
+    variable == 't_31bc' ~ 't_31_alt_prod_ever_e_cig_type_3g',
+    variable == 't_32' ~ 't_32_alt_prod_regular',
+    variable == 't_33' ~ 't_33_alt_prod_30days',
+    variable == 't_33a' ~ 't_33_alt_prod_30days_snus',
+    variable == 't_33b' ~ 't_33_alt_prod_30days_roll',
+    variable == 't_33c' ~ 't_33_alt_prod_30days_hookah',
+    variable == 't_33d' ~ 't_33_alt_prod_30days_dissolve',
+    variable == 't_33e' ~ 't_33_alt_prod_30days_e_cig',
+    variable == 't_33f' ~ 't_33_alt_prod_30days_cigar',
+    variable == 't_33g' ~ 't_33_alt_prod_30days_cigarillo',
+    variable == 't_33h' ~ 't_33_alt_prod_30days_chew',
+    variable == 't_33i' ~ 't_33_alt_prod_30days_other',
+    variable == 't_33j' ~ 't_33_alt_prod_30days_none',
+    variable == 't_34' ~ 't_34_spouse',
+    variable == 't_35' ~ 't_35_spouse_smoke',
+    variable == 't_36' ~ 't_36_num_smokers_weekday',
+    variable == 't_37' ~ 't_37_num_smokers_weekend',
+    variable == 't_38' ~ 't_38_num_friends',
+    variable == 't_39' ~ 't_39_num_friends_smoke',
+    variable == 't_40' ~ 't_40_num_friends_smoke_5best',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from the Heaviness of Smoking Index
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'hsi_1' ~ 'hsi_01_num_cigarettes_day',
+    variable == 'hsi_2' ~ 'hsi_02_soon_first_smoke',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from the Behavioral Risk Factor Surveillance System (BRFSS) Inadequate Sleep
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'brs_1' ~ 'brs_01_lack_sleep_days',
+    variable == 'brs_2' ~ 'brs_02_avg_sleep',
+    variable == 'brs_2_dichot' ~ 'brs_02_avg_sleep_dichot',
+    variable == 'brs_3' ~ 'brs_03_snore',
+    variable == 'brs_4' ~ 'brs_04_unintent_sleep',
+    variable == 'brs_4' ~ 'brs_04_uninent_sleep_dichot',
+    variable == 'brs_5' ~ 'brs_05_unintent_sleep_driving',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from the Alcohol Quantity and Frequency Questionnaire
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'drinks' ~ 'af_drinks',
+    variable == 'af_1' ~ 'af_01_ever_3years',
+    variable == 'af_2m' ~ 'af_02_avg_mon',
+    variable == 'af_3tu' ~ 'af_03_avg_tues',
+    variable == 'af_4w' ~ 'af_04_avg_wed',
+    variable == 'af_5th' ~ 'af_05_avg_thurs',
+    variable == 'af_6f' ~ 'af_06_avg_fri',
+    variable == 'af_6sa' ~ 'af_07_avg_sat',
+    variable == 'af_8su' ~ 'af_08_avg_sun',
+    variable == 'af_1_val' ~ 'af_01_avg_week',
+    variable == 'af_1_heavy' ~ 'af_01_heavy',
+    variable == 'af_9' ~ 'af_09_heavy_day_30days_cat',
+    variable == 'af_9a' ~ 'af_09_heavy_day_30days_0_10',
+    variable == 'af_9b' ~ 'af_09_heavy_day_30days_11_20',
+    variable == 'af_9c' ~ 'af_09_heavy_day_30days_21_30',
+    variable == 'af_9_val' ~ 'af_09_heavy_day_total',
+    variable == 'af_9_binge' ~ 'af_09_binge_30days',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from the Alcohol and Drug Timeline Follow-Back (TLFB)
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'totaldrinks' ~ 'tlfb_drinks_total',
+    variable == 'num_alc_abstinent_days' ~ 'tlfb_alc_abstinent_days',
+    variable == 'num_drinking_days' ~ 'tlfb_alc_drink_days',
+    variable == 'ave_drinks_day' ~ 'tlfb_alc_drink_days_avg',
+    variable == 'heavy_drinking_days' ~ 'tlfb_alc_drink_heavy_days',
+    variable == 'greatest_drinks_1_day' ~ 'tlfb_alc_greatest_drink_1day',
+    variable == 'drinks_wk' ~ 'tlfb_alc_drink_days_week',
+    variable == 'num_days_using_drugs' ~ 'tlfb_drug_days',
+    variable == 'per_days_using_drugs' ~ 'tlfb_drug_days_perc',
+    variable == 'per_drug_abstinent_days' ~ 'tlfb_drug_abstinent_days_perc',
+    variable == 'drug_use_days_yr' ~ 'tlfb_drug_days_year',
+    variable == 'drug_use_days_week' ~ 'tlfb_drug_days_week',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from the Personality Beliefs Questionnaire
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'pbq_1' ~ 'pbq_01_whatever_get_away',
+    variable == 'pbq_2' ~ 'pbq_02_strong_survive',
+    variable == 'pbq_3' ~ 'pbq_03_whatever_necessary',
+    variable == 'pbq_4' ~ 'pbq_04_persecution',
+    variable == 'pbq_5' ~ 'pbq_05_entitled',
+    variable == 'pbq_6' ~ 'pbq_06_push',
+    variable == 'pbq_7' ~ 'pbq_07_force',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from the USDA Food Security Survey
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'fss_1' ~ 'fss_01_didnt_last',
+    variable == 'fss_2' ~ 'fss_02_balanced',
+    variable == 'fss_3' ~ 'fss_03_skip',
+    variable == 'fss_3a' ~ 'fss_03_skip_freq',
+    variable == 'fss_4' ~ 'fss_04_less',
+    variable == 'fss_5' ~ 'fss_05_hungry',
+    variable == 'ffs_1_dichot' ~ 'fss_01_didnt_last_dichot',
+    variable == 'fss_2_dichot' ~ 'fss_02_balanced_dichot',
+    variable == 'fss_3_dichot' ~ 'fss_03_skip_dichot',
+    variable == 'fss_3a_dichot' ~ 'fss_03_skip_freq_dichot',
+    variable == 'fss_4_dichot' ~ 'fss_04_less_dichot',
+    variable == 'fss_5_dichot' ~ 'fss_05_hungry_dichot',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from the Meal Survey
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'ms_1' ~ 'ms_01_meals_24hrs',
+    variable == 'ms_2' ~ 'ms_02_meals_24hrs_shelter',
+    variable == 'ms_3' ~ 'ms_03_meals_24hrs_fruit_veg',
+    variable == 'ms_4' ~ 'ms_04_meals_missed_week',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from the TCU CJ Client Evaluation of Self and Treatment (CJ CEST)
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'cj_1' ~ 'cj_01_use_12month',
+    variable == 'cj_2' ~ 'cj_02_help_need',
+    variable == 'cj_3' ~ 'cj_03_help_need_urgent',
+    variable == 'cj_4' ~ 'cj_04_willing_lose_friends',
+    variable == 'cj_5' ~ 'cj_05_out_of_control',
+    variable == 'cj_6' ~ 'cj_06_problems',
+    variable == 'cj_7' ~ 'cj_07_straightened_out',
+    variable == 'cj_8' ~ 'cj_08_help_need_emotional',
+    variable == 'cj_9' ~ 'cj_09_help_need_counseling',
+    variable == 'cj_10' ~ 'cj_10_help_need_education',
+    variable == 'cj_11' ~ 'cj_11_help_need_group',
+    variable == 'cj_12' ~ 'cj_12_help_need_medical',
+    variable == 'cj_13' ~ 'cj_13_bridge_sched_convenient',
+    variable == 'cj_14' ~ 'cj_14_bridge_discipline',
+    variable == 'cj_15' ~ 'cj_15_bridge_organized',
+    variable == 'cj_16' ~ 'cj_16_bridge_satisfied',
+    variable == 'cj_17' ~ 'cj_17_bridge_efficient',
+    variable == 'cj_18' ~ 'cj_18_bridge_counseling',
+    variable == 'cj_19' ~ 'cj_19_bridge_convenient',
+    variable == 'cj_20' ~ 'cj_20_proud',
+    variable == 'cj_21' ~ 'cj_21_failure',
+    variable == 'cj_22' ~ 'cj_22_respect',
+    variable == 'cj_23' ~ 'cj_23_no_good',
+    variable == 'cj_24' ~ 'cj_24_satisfied',
+    variable == 'cj_25' ~ 'cj_25_unimportant',
+    variable == 'cj_26' ~ 'cj_26_weapons',
+    variable == 'cj_27' ~ 'cj_27_anger',
+    variable == 'cj_28' ~ 'cj_28_temper',
+    variable == 'cj_29' ~ 'cj_29_enjoy_fear',
+    variable == 'cj_30' ~ 'cj_30_mistreated',
+    variable == 'cj_31' ~ 'cj_31_anger_easy',
+    variable == 'cj_32' ~ 'cj_32_violence_urges',
+    variable == 'cj_33' ~ 'cj_33_violence_anger',
+    variable == 'cj_34' ~ 'cj_34_safe_limit',
+    variable == 'cj_35' ~ 'cj_35_danger_avoid',
+    variable == 'cj_36' ~ 'cj_36_careful',
+    variable == 'cj_37' ~ 'cj_37_strange',
+    variable == 'cj_38' ~ 'cj_38_chances',
+    variable == 'cj_39' ~ 'cj_39_fast_life',
+    variable == 'cj_40' ~ 'cj_40_wild_friends',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from Sexual Behaviors
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'sb_1' ~ 'sb_01_ever',
+    variable == 'sb_2' ~ 'sb_02_age_first',
+    variable == 'sb_3' ~ 'sb_03_num_partners_12months',
+    variable == 'sb_4' ~ 'sb_04_num_partners_new_12months',
+    variable == 'sb_5' ~ 'sb_05_unprotected_count_12months',
+    variable == 'sb_6' ~ 'sb_06_sex_work',
+    variable == 'sb_7' ~ 'sb_07_stis_ever',
+    variable == 'sb_7a' ~ 'sb_07_stis_ever_herpes',
+    variable == 'sb_7b' ~ 'sb_07_stis_ever_warts',
+    variable == 'sb_7c' ~ 'sb_07_stis_ever_hpv',
+    variable == 'sb_7d' ~ 'sb_07_stis_ever_gonorrhea',
+    variable == 'sb_7e' ~ 'sb_07_stis_ever_chlamydia',
+    variable == 'sb_7f' ~ 'sb_07_stis_ever_syphilis',
+    variable == 'sb_7g' ~ 'sb_07_stis_ever_none',
+    variable == 'sb_8' ~ 'sb_08_assault',
+    variable == 'sb_9' ~ 'sb_09_forced',
+    TRUE ~ final_variable
+    ))
+```
+
+## Stress Section
+
+We manually reviewed and renamed variables from the Detroit Area Study Assessment of Day-to-Day Discrimination
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'dd_1' ~ 'dd_01_courtesy',
+    variable == 'dd_2' ~ 'dd_02_respect',
+    variable == 'dd_3' ~ 'dd_03_service',
+    variable == 'dd_4' ~ 'dd_04_less_smart',
+    variable == 'dd_5' ~ 'dd_05_afraid',
+    variable == 'dd_6' ~ 'dd_06_dishonest',
+    variable == 'dd_7' ~ 'dd_07_inferior',
+    variable == 'dd_8' ~ 'dd_08_verbal_abuse',
+    variable == 'dd_9' ~ 'dd_09_physical_threat',
+    variable == 'dd_10' ~ 'dd_10_reason',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from the MacAurthur Major Discrimination
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'mmd_1a' ~ 'mmd_01_edu_discouraged',
+    variable == 'mmd_1b' ~ 'mmd_01_edu_scholarship',
+    variable == 'mmd_1c' ~ 'mmd_01_work_hire',
+    variable == 'mmd_1d' ~ 'mmd_01_work_promotion',
+    variable == 'mmd_1e' ~ 'mmd_01_work_fired',
+    variable == 'mmd_1f' ~ 'mmd_01_neighbor_entry',
+    variable == 'mmd_1g' ~ 'mmd_01_neighbor_left',
+    variable == 'mmd_1h' ~ 'mmd_01_police',
+    variable == 'mmd_1i' ~ 'mmd_01_loan',
+    variable == 'mmd_1j' ~ 'mmd_01_medical',
+    variable == 'mmd_1k' ~ 'mmd_01_service',
+    variable == 'mmd_2' ~ 'mmd_02_reason',
+    variable == 'mmd_3' ~ 'mmd_03_interference',
+    variable == 'mmd_4' ~ 'mmd_04_difficult',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from the Urban Life Stress Scale
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'uls_1' ~ 'uls_01_finance',
+    variable == 'uls_2' ~ 'uls_02_work',
+    variable == 'uls_3' ~ 'uls_03_parenting',
+    variable == 'uls_4' ~ 'uls_04_death',
+    variable == 'uls_5' ~ 'uls_05_housing',
+    variable == 'uls_6' ~ 'uls_06_physical',
+    variable == 'uls_7' ~ 'uls_07_neighborhood',
+    variable == 'uls_8' ~ 'uls_08_transport',
+    variable == 'uls_9' ~ 'uls_019_education',
+    variable == 'uls_10' ~ 'uls_10_romance',
+    variable == 'uls_11' ~ 'uls_11_family',
+    variable == 'uls_12' ~ 'uls_12_public',
+    variable == 'uls_13' ~ 'uls_13_crime',
+    variable == 'uls_14' ~ 'uls_14_gang',
+    variable == 'uls_15' ~ 'uls_15_discrimination',
+    variable == 'uls_16' ~ 'uls_16_social',
+    variable == 'uls_17' ~ 'uls_17_substance',
+    variable == 'uls_18' ~ 'uls_18_communication',
+    variable == 'uls_19' ~ 'uls_19_family_violence',
+    variable == 'uls_20' ~ 'uls_20_other_races',
+    variable == 'uls_21' ~ 'uls_21_police',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from Personal Victimization
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'pv_1' ~ 'pv_01_violence_victim_30days',
+    variable == 'pv_2' ~ 'pv_02_violence_witness_30days',
+    variable == 'pv_3' ~ 'pv_03_violence_witness_6months',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from the Perceived Stress Scale
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'ps_1' ~ 'ps_01_no_control',
+    variable == 'ps_2' ~ 'ps_02_confident',
+    variable == 'ps_3' ~ 'ps_03_going_your_way',
+    variable == 'ps_4' ~ 'ps_04_unable_to_overcome',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from the Distress Tolerance Scale
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'dts_1' ~ 'dts_01_unbearable',
+    variable == 'dts_2' ~ 'dts_02_dominating',
+    variable == 'dts_3' ~ 'dts_03_cant_handle',
+    variable == 'dts_4' ~ 'dts_04_intense',
+    variable == 'dts_5' ~ 'dts_05_nothing_worse',
+    variable == 'dts_6' ~ 'dts_06_acceptable',
+    variable == 'dts_7' ~ 'dts_07_tolerate_same',
+    variable == 'dts_8' ~ 'dts_08_unacceptable',
+    variable == 'dts_9' ~ 'dts_09_avoid',
+    variable == 'dts_10' ~ 'dts_10_tolerate_less',
+    variable == 'dts_11' ~ 'dts_11_major_ordeal',
+    variable == 'dts_12' ~ 'dts_12_ashamed',
+    variable == 'dts_13' ~ 'dts_13_afraid',
+    variable == 'dts_14' ~ 'dts_14_stop',
+    variable == 'dts_15' ~ 'dts_15_immediacy',
+    variable == 'dts_16' ~ 'dts_16_concentrate',
+    TRUE ~ final_variable
+    ))
+```
+
+## Negative Affect Section
+
+We manually reviewed and renamed variables from the Aggression Questionnaire (AQ-12)
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'aq_1' ~ 'aq_01_violence_willing',
+    variable == 'aq_2' ~ 'aq_02_violence_hx',
+    variable == 'aq_3' ~ 'aq_03_threaten_hx',
+    variable == 'aq_4' ~ 'aq_04_disagreeable',
+    variable == 'aq_5' ~ 'aq_05_argument_hx',
+    variable == 'aq_6' ~ 'aq_06_argument_friends',
+    variable == 'aq_7' ~ 'aq_07_quick',
+    variable == 'aq_8' ~ 'aq_08_lack_of_reason',
+    variable == 'aq_9' ~ 'aq_09_uncontrolled',
+    variable == 'aq_10' ~ 'aq_10_raw_deal',
+    variable == 'aq_11' ~ 'aq_11_other_breaks',
+    variable == 'aq_12' ~ 'aq_12_bitter',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from the Center for Epidemiological Studies Depression (CES-D)
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'ces_1' ~ 'ces_01_bother',
+    variable == 'ces_2' ~ 'ces_02_concentrate',
+    variable == 'ces_3' ~ 'ces_03_depressed',
+    variable == 'ces_4' ~ 'ces_04_effort',
+    variable == 'ces_5' ~ 'ces_05_hopeful',
+    variable == 'ces_6' ~ 'ces_06_fearful',
+    variable == 'ces_7' ~ 'ces_07_restless',
+    variable == 'ces_8' ~ 'ces_08_happy',
+    variable == 'ces_9' ~ 'ces_09_lonely',
+    variable == 'ces_10' ~ 'ces_10_get_going',
+    variable == 'ces_1_dichot' ~ 'ces_01_bother_dichot',
+    variable == 'ces_2_dichot' ~ 'ces_02_concentrate_dichot',
+    variable == 'ces_3_dichot' ~ 'ces_03_depressed_dichot',
+    variable == 'ces_4_dichot' ~ 'ces_04_effort_dichot',
+    variable == 'ces_5_dichot' ~ 'ces_05_hopeful_dichot',
+    variable == 'ces_6_dichot' ~ 'ces_06_fearful_dichot',
+    variable == 'ces_7_dichot' ~ 'ces_07_restless_dichot',
+    variable == 'ces_8_dichot' ~ 'ces_08_happy_dichot',
+    variable == 'ces_9_dichot' ~ 'ces_09_lonely_dichot',
+    variable == 'ces_10_dichot' ~ 'ces_10_get_going_dichot',
+    TRUE ~ final_variable
+    ))
+```
+
+## Interpersonal/Intrapersonal Resources Section
+
+We manually reviewed and renamed variables from the Interpersonal Support Evaluation List
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'is_1' ~ 'is_01_trip',
+    variable == 'is_2' ~ 'is_02_fears',
+    variable == 'is_3' ~ 'is_03_chores',
+    variable == 'is_4' ~ 'is_04_problem_family',
+    variable == 'is_5' ~ 'is_05_movie',
+    variable == 'is_6' ~ 'is_06_problem_personal',
+    variable == 'is_7' ~ 'is_07_invited_not_often',
+    variable == 'is_8' ~ 'is_08_out_of_town',
+    variable == 'is_9' ~ 'is_09_lunch',
+    variable == 'is_10' ~ 'is_10_stranded',
+    variable == 'is_11' ~ 'is_11_crisis_family',
+    variable == 'is_12' ~ 'is_12_moving',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from the Religious Participation
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'rp_1' ~ 'rp_01_attendance_general',
+    variable == 'rp_2' ~ 'rp_02_attendance_week',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from the Lubben Social Network Scale 6
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'lsn_1' ~ 'lsn_01_family_monthly',
+    variable == 'lsn_2' ~ 'lsn_02_family_private',
+    variable == 'lsn_3' ~ 'lsn_03_family_help',
+    variable == 'lsn_4' ~ 'lsn_04_friends_monthly',
+    variable == 'lsn_5' ~ 'lsn_05_friends_private',
+    variable == 'lsn_6' ~ 'lsn_06_friends_help',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from the Homeless Timeline Follow Back (TLFB)
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'num_days_homeless' ~ 'tlfb_hl_homeless_days_num',
+    variable == 'per_days_homeless' ~ 'tlfb_hl_homeless_days_per',
+    variable == 'num_days_home' ~ 'tlfb_hl_home_days',
+    variable == 'est_days_homeless_yr' ~ 'tlfb_hl_homeless_days_year',
+    variable == 'avg_days_homeless_wk' ~ 'tlfb_hl_homeless_days_week',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from the Resource Utilization Questionnaire
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'r_1' ~ 'r_01_counsel_mh',
+    variable == 'r_2' ~ 'r_02_counsel_substance',
+    variable == 'r_3' ~ 'r_03_counsel_smoking',
+    variable == 'r_4' ~ 'r_04_doctor',
+    variable == 'r_5' ~ 'r_05_bed',
+    variable == 'r_6' ~ 'r_06_meal',
+    variable == 'r_7' ~ 'r_07_cm_meet',
+    variable == 'r_8' ~ 'r_08_cm_phone',
+    variable == 'r_9' ~ 'r_09_edu_group',
+    variable == 'r_10' ~ 'r_10_edu_work',
+    variable == 'r_11' ~ 'r_11_referrals',
+    variable == 'r_11b' ~ 'r_11_referrals_used',
+    variable == 'r_12' ~ 'r_12_legal_aid',
+    variable == 'r_13' ~ 'r_13_vital_doc',
+    variable == 'r_14' ~ 'r_14_family',
+    variable == 'r_15' ~ 'r_15_helpful',
+    variable == 'r_15a' ~ 'r_15_helpful_housing',
+    variable == 'r_15b' ~ 'r_15_helpful_edu_work',
+    variable == 'r_15c' ~ 'r_15_helpful_healthcare',
+    variable == 'r_15d' ~ 'r_15_helpful_mhcare',
+    variable == 'r_15e' ~ 'r_15_helpful_smoke',
+    variable == 'r_15f' ~ 'r_15_helpful_edu_gen',
+    variable == 'r_15g' ~ 'r_15_helpful_edu_ged',
+    variable == 'r_15h' ~ 'r_15_helpful_edu',
+    variable == 'r_15i' ~ 'r_15_helpful_drug',
+    variable == 'r_15j' ~ 'r_15_helpful_dv',
+    variable == 'r_15k' ~ 'r_15_helpful_exercise',
+    variable == 'r_15l' ~ 'r_15_helpful_childcare',
+    variable == 'r_15m' ~ 'r_15_helpful_legal',
+    variable == 'r_15n' ~ 'r_15_helpful_other',
+    variable == 'r_15o' ~ 'r_15_helpful_none',
+    TRUE ~ final_variable
+    ))
+```
+
+We manually reviewed and renamed variables from the Barriers to Phone Based Case Management
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'bpm_1' ~ 'bpm_01_comfortable_office',
+    variable == 'bpm_2' ~ 'bpm_02_comfortable_phone',
+    variable == 'bpm_3' ~ 'bpm_03_comfortable_text',
+    variable == 'bpm_4' ~ 'bpm_04_preferred',
+    variable == 'bpm_5' ~ 'bpm_05_barrier',
+    variable == 'bpm_5a' ~ 'bpm_05_barrier_phone',
+    variable == 'bpm_5b' ~ 'bpm_05_barrier_minutes',
+    variable == 'bpm_5c' ~ 'bpm_05_barrier_cm_number',
+    variable == 'bpm_5d' ~ 'bpm_05_barrier_cm_available',
+    variable == 'bpm_5e' ~ 'bpm_05_barrier_interest',
+    variable == 'bpm_5f' ~ 'bpm_05_barrier_preference',
+    variable == 'bpm_5g' ~ 'bpm_05_none',
+    TRUE ~ final_variable
+    ))
+```
+
+## Treatment Quality and Satisfaction Section
+
+We manually reviewed and renamed variables from the Treatment Quality and Satisfaction Survey
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'tq_1_1' ~ 'tq_01_bridge_helpful',
+    variable == 'tq_2_1' ~ 'tq_02_cm_helpful',
+    variable == 'tq_3_2' ~ 'tq_03_assessment_num',
+    variable == 'tq_4_2' ~ 'tq_04_phone_aware',
+    variable == 'tq_5_3' ~ 'tq_05_app_call_cm_use',
+    variable == 'tq_6_3' ~ 'tq_06_app_call_cm_helpful',
+    variable == 'tq_7_3' ~ 'tq_07_app_call_crisis_use',
+    variable == 'tq_8_3' ~ 'tq_08_app_call_crisis_helpful',
+    variable == 'tq_9_2' ~ 'tq_09_app_helpful',
+    variable == 'tq_10_2' ~ 'tq_10_app_annoying',
+    variable == 'yq_11_2' ~ 'tq_11_app_recommend',
+    variable == 'tq_12_2' ~ 'tq_12_app_interest',
+    variable == 'tq_13_2' ~ 'tq_13_assessment_accuracy',
+    variable == 'tq_14_1' ~ 'tq_14_phone_swap',
+    TRUE ~ final_variable
+    ))
+```
+
+## COVID-19 Pandemic Related Data Section
+
+We manually reviewed and renamed variables from the COVID-19 Vaccination Questionnaire
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'vac_2y' ~ 'vac_02_year',
+    variable == 'vac_2m' ~ 'vac_02_month',
+    variable == 'vac_2d' ~ 'vac_02_day',
+    variable == 'vac_3y' ~ 'vac_03_year',
+    variable == 'vac_3m' ~ 'vac_03_month',
+    variable == 'vac_3d' ~ 'vac_03_day',
+    TRUE ~ final_variable
+    ))
+```
+
+## Arrest Data Section
+
+We manually reviewed and renamed variables from the Arrest Data
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = case_when(
+    variable == 'arrested_during_followup' ~ 'arrest_during_followup',
+    TRUE ~ final_variable
+    ))
+```
+
+
+## Eliminating `final_variable` in Dropped Rows
+
+The `final_variable` should be empty for variables that we intended to drop from our data set. We replaced any `final_variable` values for these items with a missing (`NA`) value in our Variable Map.
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(final_variable = ifelse(drop_consolidated, NA, final_variable))
+```
+
+# Adding Source to Variables
+
+We initialized a source column in our variable map.
+
+```{r}
+variable_map <- variable_map %>%
+  add_column(source = NA)
+
+attributes(variable_map$source)$label <- "Variable Source"
+```
+
+We added the source identifiers for the variables collected in the Arrest, Bridge Session, TLFB, and DDT Data.
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(
+    source = ifelse(!is.na(bridge), "Bridge Session Data", source)
+    ) %>%
+  mutate(
+    source = ifelse(!is.na(arrest), "Arrest Data", source)
+    ) %>%
+  mutate(
+    source = ifelse(!is.na(tlfb), "V1, V3, V4, V5", source)
+    ) %>%
+  mutate(
+    source = ifelse(!is.na(ddt), "V1, V3, V4, V5", source)
+    )
+```
+
+We added the source identifer to each variable in the QDS or REDCap data, indicating which visit it was collected in. This was done by using the QDS data sets.
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(source = ifelse(
+        (!is.na(qds_v1) | !is.na(qds_v2) | !is.na(qds_v3) | !is.na(qds_v4) | 
+           !is.na(qds_v5)),
+        NA,
+        source
+      )
+    ) %>%
+  mutate(source = ifelse(!is.na(qds_v1), "V1", source)) %>%
+  mutate(source = ifelse(
+        !is.na(qds_v2), 
+        paste(source[!is.na(source)], "V2", sep = ", "), 
+        source
+      )
+    ) %>%
+  mutate(source = ifelse(
+        !is.na(qds_v3), 
+        paste(source[!is.na(source)], "V3", sep = ", "), 
+        source
+      )
+    ) %>%
+  mutate(source = ifelse(
+        !is.na(qds_v4), 
+        paste(source[!is.na(source)], "V4", sep = ", "), 
+        source
+      )
+    ) %>%
+  mutate(source = ifelse(
+        !is.na(qds_v5), 
+        paste(source[!is.na(source)], "V5", sep = ", "), 
+        source
+      )
+    ) 
+```
+
+We overrode any variables from the Master Log, to indicate they were from the Master Log (as their values overrode any others). We assigned the source value to all Arrest and Bridge Session Data.
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(
+    source = ifelse(!is.na(master_log), "Master Log", source)
+         )
+```
+
+We added a source of "calculated" to any calculated variables.
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(
+    source = ifelse(calculated, "Calculated", source)
+  )
+```
+
+The remaining seven variables were unique to the REDCap data set. 
+
+```{r}
+pull(
+  variable_map %>%
+    filter(is.na(source)) %>%
+      select(variable)
+  )
+
+# [1] "redcap_event_name"  "maca_mdd_timestamp"
+# [3] "maca_mdd_complete"  "ps_timestamp"      
+# [5] "ps_complete"        "email"             
+# [7] "sq_7b_1" 
+```
+
+We manually added the source to these seven variables.
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(source = case_when(
+      variable == 'redcap_event_name' ~ 'V1, V2, V3, V4, V5',
+      variable == 'email' ~ 'V1, V2, V3, V4, V5',
+      variable == 'maca_mdd_timestamp' ~ 'V2',
+      variable == 'maca_mdd_complete' ~ 'V2',
+      variable == 'ps_timestamp' ~ 'V2, V3, V4, V5',
+      variable == 'ps_complete' ~ 'V2, V3, V4, V5',
+      variable == 'sq_7b_1' ~ 'V1',
+      TRUE ~ source
+      )
+    )
+```
+
+# Reducing Care Manager and Interviewer to Numeric Factors
+
+## Care Manager
+
+We identified 66 unique Care Manager values. On manual inspection, there were several individuals represented with their name in "First LastInitial", "First Last", or "First" format, with otherwise distinctive names that gave the team confidence these values were identical.
+
+```{r}
+care_managers <- na.omit(sort(unique(combined_data$care_manager)))
+
+length(care_managers)
+# 66
+```
+
+We performed point-modifications to combine these values. To avoid revealing an individual's name in the code, numeric indexing of using the sorted list of unique values was utilized. **Note: If the data changes significantly, and the unique values for care managers change, this indexing may no longer be valid.**
+
+```{r}
+combined_data <- combined_data %>%
+  mutate(care_manager = case_when(
+      care_manager == care_managers[1] ~ care_managers[2],
+      care_manager == care_managers[3] ~ care_managers[4],
+      care_manager == care_managers[6] ~ care_managers[7],
+      care_manager == care_managers[10] ~ care_managers[11],
+      care_manager == care_managers[14] ~ care_managers[15],
+      care_manager == care_managers[17] ~ care_managers[18],
+      care_manager == care_managers[19] ~ care_managers[21],
+      care_manager == care_managers[20] ~ care_managers[21],
+      care_manager == care_managers[22] ~ care_managers[23], 
+      care_manager == care_managers[25] ~ care_managers[26], 
+      care_manager == care_managers[28] ~ care_managers[30], 
+      care_manager == care_managers[29] ~ care_managers[30], 
+      care_manager == care_managers[32] ~ care_managers[33], 
+      care_manager == care_managers[34] ~ care_managers[35], 
+      care_manager == care_managers[38] ~ care_managers[39], 
+      care_manager == care_managers[42] ~ care_managers[43], 
+      care_manager == care_managers[46] ~ care_managers[47], 
+      care_manager == care_managers[48] ~ care_managers[49], 
+      care_manager == care_managers[50] ~ care_managers[51],
+      care_manager == care_managers[52] ~ care_managers[54],
+      care_manager == care_managers[53] ~ care_managers[54], 
+      care_manager == care_managers[56] ~ care_managers[57], 
+      care_manager == care_managers[58] ~ care_managers[59], 
+      care_manager == care_managers[60] ~ care_managers[61], 
+      care_manager == care_managers[65] ~ care_managers[66], 
+      TRUE ~ care_manager
+      )
+    )
+```
+
+This reduced our list to 41 unique care managers.
+
+```{r}
+care_managers <- na.omit(sort(unique(combined_data$care_manager)))
+
+length(care_managers)
+# 41
+```
+
+We replaced all care manager values with the index of the case manager in the sorted list, to reduce PHI and enable summary statistics of the care manager column as a factor.
+
+```{r}
+combined_data <- combined_data %>%
+  rowwise() %>%
+  mutate(care_manager = ifelse(
+      !is.na(care_manager), which(care_managers == care_manager), NA_integer_
+      )
+    ) %>%
+  ungroup() %>%
+  mutate(care_manager = as.factor(care_manager))
+```
+
+We added the variable label values to our variable map, which included the character names.
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(attr_var_labels = ifelse(
+      variable == 'care_manager',
+      list(setNames(c(1:length(care_managers)), care_managers)),
+      attr_var_labels
+    )
+  )
+```
+
+We purged the list of care managers for memory management.
+
+```{r}
+rm(care_managers)
+```
+
+## Interviewer
+
+We identified 26 unique Interviewers, represented by initials. However, initials varied by case (i.e. "AA", "Aa", "aA", and "aa" would be treated by R as different values, though identical to human readers).
+
+```{r}
+interviewers <- na.omit(sort(unique(combined_data$ii)))
+
+length(interviewers)
+# 26
+```
+
+We converted all interviewer initials to uppercase, and found 23 unique interviewers. No other significant similarities were found.
+
+```{r}
+combined_data <- combined_data %>%
+  mutate(ii = toupper(ii))
+
+interviewers <- na.omit(sort(unique(combined_data$ii)))
+
+length(interviewers)
+# 23
+```
+
+We replaced all interviewer values with the index of the interviewer in the sorted list, to reduce PHI and enable summary statistics of the interviewer column as a factor.
+
+```{r}
+combined_data <- combined_data %>%
+  rowwise() %>%
+  mutate(ii = ifelse(
+      !is.na(ii), which(interviewers == ii), NA_integer_
+      )
+    ) %>%
+  ungroup() %>%
+  mutate(ii = as.factor(ii))
+```
+
+We added the variable label values to our variable map, which included the character names.
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(attr_var_labels = ifelse(
+      variable == 'ii',
+      list(setNames(c(1:length(interviewers)), interviewers)),
+      attr_var_labels
+    )
+  )
+```
+
+We purged the list of interviewers for memory management.
+
+```{r}
+rm(interviewers)
+```
+
+# Identification and Labeling of other Factor Variables
+
+The Master Log variables did not automatically come with value labels for conversion into factors. As such, we converted values to match the QDS/REDCap equivalent for the Master Log variables.
+
+```{r}
+combined_data <- combined_data %>%
+  mutate(
+    ml_race = case_when(
+      ml_race == 'More Than One' ~ '1',
+      ml_race == 'W' ~ '2',
+      ml_race == 'AA' ~ '3',
+      ml_race == 'A' ~ '4',
+      ml_race == 'NH/PI' ~ '5',
+      ml_race == 'AI/AN' ~ '6',
+      ml_race == 'O/U' ~ '7',
+      TRUE ~ ml_race
+      ),
+    ml_gender = case_when(
+      ml_gender == 'M' ~ '0',
+      ml_gender == 'F' ~ '1',
+      ml_gender == 'Other' ~ '2',
+      TRUE ~ ml_gender
+    ),
+    ml_hispanic_latino = case_when(
+      ml_hispanic_latino == 'Y' ~ '1',
+      ml_hispanic_latino == 'N' ~ '0',
+      TRUE ~ ml_hispanic_latino
+    ),
+    v2_status = case_when(
+      v2_status == 'Randomized' ~ '1',
+      v2_status == 'No Show' ~ '2',
+      v2_status == 'Do Not Include' ~ '3',
+      TRUE ~ v2_status
+    ),
+    dropped_status = case_when(
+      dropped_status == 'Before Randomization' ~ '1',
+      dropped_status == 'After Randomization' ~ '2',
+      TRUE ~ dropped_status
+    )
+  ) %>%
+  mutate(across(c(
+    'ml_race', 'ml_gender', 'ml_hispanic_latino', 'v2_status', 
+    'dropped_status'
+    ),
+    as.numeric))
+  
+```
+
+We set value labels in our variable map for these modified variables.
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(attr_var_labels = case_when(
+    variable == 'ml_race' ~ 
+      variable_map[variable_map$variable == 'sq_3',]$attr_var_labels,
+    variable == 'ml_gender' ~ 
+      variable_map[variable_map$variable == 'gender',]$attr_var_labels,
+    variable == 'ml_hispanic_latino' ~
+      variable_map[variable_map$variable == 'sq_2',]$attr_var_labels,
+    variable == 'v2_status' ~
+      list(setNames(c(1:3), 
+                    c('Randomized', 'No Show', 'Do Not Include'))),
+    variable == 'dropped_status' ~
+      list(setNames(c(1:2), 
+                    c('Before Randomization', 'After Randomization'))),
+    TRUE~ attr_var_labels
+  ))
+```
+
+We also noted that the variable `overwt_obese` had a persistent error in the variable map, wherein the `attr_var_labels` were stored as a "call" type rather than list. We manually assigned the value to attempt to correct this error, and facilitate processing.
+
+```{r}
+variable_map[variable_map$variable == 'overwt_obese', ]$attr_var_labels[[1]] <- c(
+    'overweight or obese' = TRUE, 
+    'neither overweight nor obese' = FALSE
+)
+```
+
+We noted that the variable value labels stored for `sq_7b`, `weight`, `height`, `waist_c`, `co`, `s_4`, and `r_7` were not applicable to their current format. We eliminated these labels in the variable map.
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(attr_var_labels = ifelse(
+    variable %in% c('sq_7b', 'weight', 'height', 'waist_c', 'co', 's_4', 'r_7'),
+    list(NULL),
+    attr_var_labels
+  ))
+```
+
+# Ordering and Labeling Variables
+
+We removed the labels from all variable map columns, to avoid processing errors using 'pull()'.
+
+```{r}
+variable_map_stripped <- variable_map
+
+for (var_name in colnames(variable_map_stripped)){
+  attributes(variable_map_stripped[[var_name]])$label <- NULL
+}
+```
+
+We ensured that none of the `drop_consolidated` variables were kept, as all should be dropped.
+
+```{r}
+dropping_vars <- pull(
+  variable_map_stripped %>%
+    filter(drop_consolidated) %>%
+    select(variable)
+  )
+
+combined_data <- combined_data %>%
+  select(-any_of(dropping_vars))
+```
+
+We ensured any variable which had variable value labels was converted into a factor variable, rather than a numeric, logical, or character. We also converted the `subject` variable into a factor, and `time_to_complete` into hms.
+
+```{r}
+labeled_val_map <- variable_map_stripped %>%
+  filter(!drop_consolidated)
+
+combined_data <- vm_factor_apply_val_labels(
+  combined_data, labeled_val_map, 'variable'
+  ) %>%
+  mutate(
+    subject = as.factor(subject),
+    time_to_complete = as_hms(time_to_complete)
+    )
+```
+
+We ordered the variables within our variable map, filtered to only include variables present in our current combined data set, and isolated the variables. We used this ordered list to order the columns in our combined data set.
+
+```{r}
+variable_order <- pull(
+  variable_map %>%
+    arrange(sec_ord, inst_ord, item_ord) %>%
+    filter(variable %in% colnames(combined_data)) %>%
+    select(variable)
+  )
+
+combined_data <- combined_data[ ,variable_order]
+```
+
+Since the order was enforced, we were able to use this to rename all of our variables to our desired final variable names, in aggregate.
+
+```{r}
+final_variables <- pull(
+  variable_map %>%
+    arrange(sec_ord, inst_ord, item_ord) %>%
+    filter(variable %in% colnames(combined_data)) %>%
+    select(final_variable)
+  )
+
+colnames(combined_data) <- final_variables
+```
+
+We ensured the variables in our processed data set had our desired label, value labels, and source attributes.
+
+```{r}
+for (var_name in colnames(combined_data)){
+  attributes(
+    combined_data[[var_name]]
+    )$label <- pull(
+      variable_map_stripped %>%
+        filter(final_variable == var_name) %>%
+        select(attr_label)
+      )
+   attributes(
+     combined_data[[var_name]]
+     )$labels <- pull(
+       variable_map_stripped %>%
+          filter(final_variable == var_name) %>% 
+          select(attr_var_labels)
+       )[[1]] 
+   attributes(
+     combined_data[[var_name]]
+     )$source <- pull(
+       variable_map_stripped %>%
+          filter(final_variable == var_name) %>%
+          select(source)
+       )
+}
+```
+
+We purged the remaining variables for memory management.
+
+```{r}
+rm(var_name)
+rm(variable_order)
+rm(final_variables)
+rm(variable_map_stripped)
+rm(dropping_vars)
+rm(labeled_val_map)
+```
+
+# 💾 Saving the Data
+
+## Combined Data
+
+```{r}
+# RDS
+
+combined_data_path <- here(
+  "data", "Combined Participant Data", "combined_data_03.rds"
+  )
+
+write_rds(combined_data, combined_data_path)
+```
+
+We purged the related variables to reduce memory burden and protect against memory leak.
+
+```{r}
+rm(combined_data_path)
+rm(combined_data)
+```
+
+## Variable Map
+
+```{r}
+# RDS
+
+variable_map_path <- here(
+  "data", "Combined Participant Data", "variable_map_03.rds"
+  )
+
+write_rds(variable_map, variable_map_path)
+
+# EXCEL
+
+ variable_map_path <- here(
+   "data", "Combined Participant Data", "variable_map_03.xlsx"
+   )
+
+# Ensure labels are character to enable writing to EXCEL file
+
+variable_map <- variable_map %>%
+  mutate(attr_var_labels = as.character(attr_var_labels))
+ 
+write.xlsx(variable_map, variable_map_path)
+```
+
+We purged the related variables to reduce memory burden and protect against memory leak.
+
+```{r}
+rm(variable_map_path)
+rm(variable_map)
+```

@@ -72,6 +72,14 @@ vm_create_for_instrument <- function(instrument_name, desired_vars) {
     'item_ord' = seq(1:length(desired_vars))
   )
   
+  # Add label attribute to tibble columns
+  attr(inst_tibble[['variable']], 
+       'label') <- "Desired Standardized Variable Name"
+  attr(inst_tibble[['instrument']], 
+       'label') <- "Instrument Name"
+  attr(inst_tibble[['item_ord']], 
+       'label') <- "Order of item in instrument"
+  
   # Return tibble
   
   inst_tibble

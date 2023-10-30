@@ -1,0 +1,218 @@
+---
+title: "Combined Data Codebook"
+date: "2022-10-23 <br> Updated: `r Sys.Date()`"
+format: pdf
+editor: 
+  markdown: 
+    wrap: sentence
+---
+
+# ⭐️Overview
+
+This file generates a codebook from the combined Link2Care (L2C) data set and variable map using Codebookr.
+
+# 📦Load packages & Functions
+
+```{r, message=FALSE, warning=FALSE}
+library(dplyr, warn.conflicts = FALSE)
+library(codebookr, warn.conflicts = FALSE)
+library(purrr, warn.conflicts = FALSE)
+library(here, warn.conflicts = FALSE)
+library(stringr, warn.conflicts = FALSE)
+library(lubridate, warn.conflicts = FALSE)
+library(readxl, warn.conflicts = FALSE)
+library(openxlsx, warn.conflicts = FALSE)
+library(readr, warn.conflicts = FALSE)
+library(tidyverse, warn.conflicts = FALSE)
+```
+
+```{r}
+source(here("R", "vm_check.R"))
+```
+
+# 📥 Import data
+
+## Combined Data Set
+
+We imported our Combined Data Set
+
+```{r}
+combined_data_path <- here(
+  "data", "Combined Participant Data", "combined_data_03.rds"
+  )
+```
+
+Import the data.
+Check the most recent file modification dates and print for user when this file is being sourced.
+
+```{r message=FALSE}
+combined_data <- readRDS(combined_data_path)
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "Combined data imported with", nrow(combined_data), "rows and", 
+  ncol(combined_data), "columns.\n"
+)
+
+# Check the most recent file modification dates and print for user when this
+# file is being sourced.
+
+cat(
+      "Combined data last modified on OneDrive", 
+      as.character(file.info(combined_data_path)$mtime), "\n"
+    )
+
+# 2023-10-27: Combined data imported with 1610 rows and 1062 columns.
+# Combined data last modified on OneDrive 2023-10-27 16:06:04 
+```
+
+We purged the import path for memory management.
+
+```{r}
+rm(combined_data_path)
+```
+
+## Variable Map
+
+We imported our Variable Map.
+
+```{r}
+variable_map_path <- here(
+  "data", "Combined Participant Data", "variable_map_03.rds"
+  )
+```
+
+Import the data.
+Check the most recent file modification dates and print for user when this file is being sourced.
+
+```{r message=FALSE}
+variable_map <- readRDS(variable_map_path)
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "Variable Map imported with", nrow(variable_map), "rows and", 
+  ncol(variable_map), "columns.\n"
+)
+
+# Check the most recent file modification dates and print for user when this
+# file is being sourced.
+
+cat(
+      "Variable Map data last modified on OneDrive", 
+      as.character(file.info(variable_map_path)$mtime), "\n"
+    )
+
+# 2023-10-25: Variable Map imported with 1083 rows and 24 columns.
+# Variable Map data last modified on OneDrive 2023-10-26 11:15:18 
+```
+
+We ensured our Variable Map met our required minimum format.
+
+```{r}
+vm_check(variable_map)
+# TRUE
+```
+
+We purged the import path for memory management.
+
+```{r}
+rm(variable_map_path)
+```
+
+# Modifying Interviewer and Care Manager Columns
+
+We dropped the labels from the interviewer and case manager variables to protect these identifier variables.
+
+```{r}
+# INTERVIEWER
+
+var_val_labels <- tibble::tibble(
+      'val_text' = names(attributes(combined_data[['interviewer']])$labels)
+    ) %>%
+  rowwise() %>%
+      mutate(
+        'val' = attributes(combined_data[['interviewer']])$labels[[val_text]]
+        ) %>%
+  ungroup()
+
+combined_data[['interviewer']] <- factor(
+  combined_data[['interviewer']],
+  levels = var_val_labels$val_text,
+  labels = var_val_labels$val
+  )
+
+combined_data[['interviewer']] <- factor(
+  combined_data[['interviewer']],
+  levels = var_val_labels$val,
+  labels = var_val_labels$val
+  )
+
+attributes(combined_data[['interviewer']])$labels <- NULL
+
+# CARE MANAGER
+
+var_val_labels <- tibble::tibble(
+      'val_text' = names(attributes(combined_data[['care_manager']])$labels)
+    ) %>%
+  rowwise() %>%
+      mutate(
+        'val' = attributes(combined_data[['care_manager']])$labels[[val_text]]
+        ) %>%
+  ungroup()
+
+combined_data[['care_manager']] <- factor(
+  combined_data[['care_manager']],
+  levels = var_val_labels$val_text,
+  labels = var_val_labels$val
+  )
+
+combined_data[['care_manager']] <- factor(
+  combined_data[['care_manager']],
+  levels = var_val_labels$val,
+  labels = var_val_labels$val
+  )
+
+attributes(combined_data[['care_manager']])$labels <- NULL
+```
+
+# Blocking Summary Statistics on PHI and Other Variables
+
+We identified our PHI variables, for which we wanted to block summary statistics.
+
+```{r}
+blocking_vars <- pull(
+  variable_map %>%
+    filter(phi) %>%
+    select(final_variable)
+  )
+```
+
+# Codebook Generation
+
+We generated our codebook, with title, subtitle, and description. We blocked summary statistics on our PHI fields.
+
+```{r, message = FALSE}
+book <- codebook(
+  df = combined_data,
+  title = "Link2Care Subject Data",
+  no_summary_stats = blocking_vars,
+  keep_blank_attributes = FALSE)
+```
+
+# 💾 Exporting Codebook to DOCX Format
+
+```{r}
+print(book, here("codebooks", "Link2Care Combined Subject Data.docx"))
+```
+
+
+```{r}
+rm(book)
+rm(variable_map)
+rm(combined_data)
+rm(blocking_vars)
+rm(var_val_labels)
+```
+

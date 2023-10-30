@@ -1,5 +1,78 @@
 flag_unmatching_variables <- function(source_list, desired_vars,
                                       incl_keys, excl_keys){
+  # Check the variables selected from a source (or list of sources), after
+  # standardization with standardize_col_names(), against the desired
+  # standardized names. Uses tidyselect to isolate target columns. Returns
+  # a list of any variables that standardize differently (and what they 
+  # standardize to), as well as any items not listed in desired_vars that
+  # were captured in the column selection.
+  #
+  # Built with R version 4.2.2
+  #
+  # Requires: 
+  #     'dplyr' - built with version 1.1.1
+  #     'tibble' - built with version 3.2.1
+  #     standardize_col_names()
+  #
+  # INPUT:
+  #       'source_list' (list) - a list of the source data frames in 
+  #                             'name' = df format
+  #       'desired_vars' (list) - a c() list containing the strings of all
+  #                             desired variable standardization results, for
+  #                             all columns intended to be captured in the
+  #                             tidyselect parameters
+  #       'incl_keys' (list) - list of key terms used in tidyselect of
+  #                             column names, for inclusion in the source map
+  #                           in list('starts_with' = c(keys), 
+  #                                   'contains' = c('keys')) format
+  #       'excl_keys' (list) - list of key terms used in tidyselect of
+  #                             column names, for exclusion
+  #                           in list('starts_with' = c(keys), 
+  #                                   'contains' = c('keys')) format
+  #       
+  # OUTPUT:
+  #       'flagged_vars' (tibble) - organizes the passed information into a tibble
+  #                             with three columns:
+  #                             "source" (string) - the name of the source 
+  #                                                 in source_list
+  #                             "flagged_var" (string) - the name of the
+  #                                                 variable as it appears in
+  #                                                 the source df
+  #                             "std_vars" (string) - the result of passing
+  #                                                 the 'flagged_var' into
+  #                                                 standardize_col_names()
+  #
+  #       Prints a message to the console listing each source and the problem
+  #       variables, if flagged_vars has any rows.
+  
+  
+  # Check if standardize_col_names() has been imported
+  
+  if(!exists('standardize_col_names')){
+    stop(paste(
+      "Requires the standardize_col_names() function.", 
+      "Please import and try again!"
+    ))
+  }
+  
+  # Check for dependencies. If not present but installed, try to install.
+  
+  packages <- unique(c('dplyr', 'tibble'))
+  
+  package_check <- unlist(
+    lapply(
+      packages,
+      FUN = function(x) {
+        require(x, character.only = TRUE)
+      }
+    )
+  )
+  
+  if (sum(package_check) != length(packages)){
+    stop("Missing required package")
+  }
+  rm(packages)
+  rm(package_check)
   
     message <- c()
     flagged_vars <- tibble::tibble(
