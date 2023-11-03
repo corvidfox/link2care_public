@@ -9,7 +9,7 @@ editor:
 
 # ⭐️Overview
 
-This file generates a codebook from the combined Link2Care (L2C) data set and variable map using Codebookr.
+This file generates a codebook from the combined Link2Care (L2C) data set and variable map using Codebookr. It also creates a more stylized and human-legible form of the Variable Map, with any identifiers in labels removed.
 
 # 📦Load packages & Functions
 
@@ -104,8 +104,8 @@ cat(
       as.character(file.info(variable_map_path)$mtime), "\n"
     )
 
-# 2023-10-25: Variable Map imported with 1083 rows and 24 columns.
-# Variable Map data last modified on OneDrive 2023-10-26 11:15:18 
+# 2023-11-01: Variable Map imported with 1084 rows and 24 columns.
+# Variable Map data last modified on OneDrive 2023-11-01 16:00:43 
 ```
 
 We ensured our Variable Map met our required minimum format.
@@ -121,7 +121,34 @@ We purged the import path for memory management.
 rm(variable_map_path)
 ```
 
-# Modifying Interviewer and Care Manager Columns
+# Codebook
+
+## Modifying Interviewer and Care Manager Columns for Codebook Display
+
+We stripped the labels from our Variable Map, to reduce processing errors when using `pull()`
+
+```{r}
+stripped_map <- variable_map
+
+for (var_name in colnames(stripped_map)){
+  attributes(stripped_map[[var_name]])$label <- NULL
+}
+```
+
+We ensured the Value Labels were applied to each of our columns, based on the Variable Map.
+
+```{r}
+for (var_name in colnames(combined_data)){
+  # Value Labels
+   attributes(
+     combined_data[[var_name]]
+     )$labels <- pull(
+       stripped_map %>%
+        filter(final_variable == var_name) %>%
+        select(attr_var_labels)
+       )[[1]] 
+}
+```
 
 We dropped the labels from the interviewer and case manager variables to protect these identifier variables.
 
@@ -177,7 +204,32 @@ combined_data[['care_manager']] <- factor(
 attributes(combined_data[['care_manager']])$labels <- NULL
 ```
 
-# Blocking Summary Statistics on PHI and Other Variables
+# Applying Attributes from Variable Map
+
+We ensured the Label and Source were applied to each of our columns, based on the Variable Map.
+
+```{r}
+for (var_name in colnames(combined_data)){
+  # Label
+  attributes(
+    combined_data[[var_name]]
+    )$label <- pull(
+      stripped_map %>%
+        filter(final_variable == var_name) %>%
+        select(attr_label)
+      )
+  # Source
+   attributes(
+     combined_data[[var_name]]
+     )$source <- pull(
+       stripped_map %>%
+        filter(final_variable == var_name) %>%
+        select(source)
+       ) 
+}
+```
+
+## Blocking Summary Statistics on PHI and Other Variables
 
 We identified our PHI variables, for which we wanted to block summary statistics.
 
@@ -201,16 +253,141 @@ book <- codebook(
   keep_blank_attributes = FALSE)
 ```
 
-# 💾 Exporting Codebook to DOCX Format
+# Variable Map Modification for Human Legibility
+
+We converted all entries in the `attr_var_labels` column into character values, for visibility in the Final Variable Map.
+
+```{r}
+variable_map <- variable_map %>%
+  mutate(attr_var_labels = as.character(attr_var_labels))
+```
+
+We verified that the interviewer and care manager variables did not reveal the names associated with the numeric identifiers.
+
+```{r}
+variable_map %>%
+  filter(final_variable %in% c('interviewer', 'care_manager')) %>%
+  select(final_variable, attr_var_labels)
+```
+
+We verified that the labels for our PHI variables did not reveal any identifying information.
+
+```{r}
+variable_map %>%
+  filter(
+    final_variable %in% variable_map[variable_map$phi,]$final_variable
+  ) %>%
+  select(final_variable, attr_var_labels)
+```
+
+We ensured the rows of our Variable Map were in our desired order.
+
+```{r}
+variable_map <- variable_map %>%
+  arrange(sec_ord, inst_ord, item_ord)
+```
+
+We reordered the columns of our Variable Map to faciliate human-legibility.
+
+```{r}
+variable_map <- variable_map %>%
+  relocate(
+    # Final variable, then flag variables
+    final_variable, calculated, drop_consolidated, phi, 
+    # Order variables
+    section, sec_ord, instrument, inst_ord, item_ord, 
+    # Original standardized variable
+    variable,
+    # Source variables
+    qds_v1, qds_v2, qds_v3, qds_v4, qds_v5, redcap, master_log, tlfb, ddt, 
+    arrest, bridge,
+    # Attribute storage variables
+    attr_label, attr_var_labels, source
+    )
+```
+
+We renamed the columns of our Variable Map for human-legibility once exported to Excel.
+
+```{r}
+variable_map <- variable_map %>%
+  rename_at(
+    colnames(variable_map), 
+    ~c(
+      "Final Variable Name", "Calculated", "Dropped", "PHI", 
+      "Section Name", "Section Order", "Instrument Name", "Instrument Order",
+      "Item Order", "Original Standardized Variable Name",
+      "QDS Visit 1", "QDS Visit 2", "QDS Visit 3", "QDS Visit 4", 
+      "QDS Visit 5", "REDCap", "Master Log", "TLFB", "DDT", "Arrest Data",
+      "Bridge Data", "Label", "Value Labels", "Source List"
+      )
+    )
+```
+
+# 💾 Exporting 
+
+## Codebook
+
+We exported our Codebook to DOCX format
 
 ```{r}
 print(book, here("codebooks", "Link2Care Combined Subject Data.docx"))
 ```
 
+## Variable Map to Excel Format
+
+We exported the Variable Map to an Excel file designed to be human legible.
+
+```{r}
+variable_map_path <- here(
+   "data", "Combined Participant Data", "combined_participant_data_map.xlsx"
+   )
+
+wb <- createWorkbook()
+
+addWorksheet(wb, "L2C Variable Map")
+
+writeDataTable(wb, 1, variable_map,
+                startCol = 1, startRow = 1, 
+                tableStyle = "TableStyleMedium9"
+                )
+
+saveWorkbook(wb, variable_map_path, overwrite = TRUE)
+```
+
+## Combined Data to RDS and SAV
+
+We exported the combined data for analyses into RDS and SAV format.
+
+```{r}
+# RDS
+rds_path <- here(
+              "data", "Combined Participant Data", 
+              "combined_participant_data.rds"
+            )
+
+saveRDS(combined_data, rds_path)
+
+# SAV
+
+sav_path <- here(
+              "data", "Combined Participant Data", 
+              "combined_participant_data.sav"
+            )
+
+haven::write_sav(combined_data, sav_path)
+```
+
+
 
 ```{r}
 rm(book)
 rm(variable_map)
+rm(stripped_map)
+rm(rds_path)
+rm(wb)
+rm(var_name)
+rm(variable_map_path)
+rm(sav_path)
 rm(combined_data)
 rm(blocking_vars)
 rm(var_val_labels)
