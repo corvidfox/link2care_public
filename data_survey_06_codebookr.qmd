@@ -63,8 +63,8 @@ cat(
       as.character(file.info(combined_data_path)$mtime), "\n"
     )
 
-# 2023-10-27: Combined data imported with 1610 rows and 1062 columns.
-# Combined data last modified on OneDrive 2023-10-27 16:06:04 
+# 2023-11-20: Combined data imported with 1610 rows and 1063 columns.
+# Combined data last modified on OneDrive 2023-11-20 15:08:47 
 ```
 
 We purged the import path for memory management.
@@ -104,8 +104,8 @@ cat(
       as.character(file.info(variable_map_path)$mtime), "\n"
     )
 
-# 2023-11-01: Variable Map imported with 1084 rows and 24 columns.
-# Variable Map data last modified on OneDrive 2023-11-01 16:00:43 
+# 2023-11-20: Variable Map imported with 1084 rows and 25 columns.
+# Variable Map data last modified on OneDrive 2023-11-20 15:08:50 
 ```
 
 We ensured our Variable Map met our required minimum format.
