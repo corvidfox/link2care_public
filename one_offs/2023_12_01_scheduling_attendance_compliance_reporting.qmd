@@ -196,53 +196,6 @@ A single convenience function was written to extract values more rapidly.
 
 ```{r}
 extract_values <- function(
-    extracting_set, visit_list, date_rounding, date_windows
-    ){
-  out_tibble <- tibble::tibble(
-    values = c(
-              'num_scheduled', 'num_attended', 'mean_out', 'max_out',
-              stringr::str_remove(date_windows, '_')
-              )
-    )
-
-  for (visit_txt in visit_list){
-    # Constants for visit: Number Scheduled, Number Attended
-    col_head <- c(
-      sum(!is.na(extracting_set[[paste0(visit_txt, '_sch')]])), # Number Scheduled
-      sum(!is.na(extracting_set[[paste0(visit_txt, '_dt')]])) # Number Attended
-      )
-    for (date_type in date_rounding){
-    
-      # Add Mean and Max days out of compliance, for date_type
-      col <- c(col_head,
-        round(unname(summary(
-              abs(na.omit(extracting_set[[paste0(visit_txt, '_days', date_type)]]))
-              )['Mean']), 2), # Mean days out of compliance
-        trunc(round(unname(summary(
-              abs(na.omit(extracting_set[[paste0(visit_txt, '_days', date_type)]]))
-              )['Max.']))) # Maximum days out of compliance
-        )
-      for (window in date_windows){
-        # Add Count that are out of compliance for each Window
-        col <- c(col,
-            trunc(sum(
-                      !extracting_set[[paste0(visit_txt, window, date_type)]], 
-                      na.rm = TRUE
-                      ))
-                 )
-      }
-      col_name = paste0(visit_txt, date_type)
-      out_tibble[[col_name]] <- col
-    }
-  }
-  out_tibble
-}
-```
-
-@@
-
-```{r}
-extract_values <- function(
     extracting_set, visit_list, date_windows, num_types, date_types
     ){
 

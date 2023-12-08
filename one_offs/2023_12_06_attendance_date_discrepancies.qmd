@@ -1,0 +1,554 @@
+---
+title: "Attendance Discrepancy and Revised Scheduling and Attendance Compliance Reports"
+format: pdf
+editor: 
+  markdown: 
+    wrap: sentence
+---
+
+# ⭐️Overview
+
+This file was used to generate reports of subjects where attendance dates had discrepancies between the master log and the data.
+
+## Notes
+
+Discrepancies had been previously identified between the attendance dates for each visit as recorded in the Master Log and within the Data. Items relevant to exploring the discrepancies were extracted into an Excel file for further manual evaluation.
+
+# 📦Load packages & Functions
+
+```{r, message=FALSE, warning=FALSE}
+library(dplyr, warn.conflicts = FALSE)
+library(purrr, warn.conflicts = FALSE)
+library(haven, warn.conflicts = FALSE)
+library(here, warn.conflicts = FALSE)
+library(stringr, warn.conflicts = FALSE)
+library(lubridate, warn.conflicts = FALSE)
+library(readxl, warn.conflicts = FALSE)
+library(openxlsx, warn.conflicts = FALSE)
+library(readr, warn.conflicts = FALSE)
+library(tidyverse, warn.conflicts = FALSE)
+```
+
+```{r}
+source(here("R", "data_mod_check.R"))
+```
+
+# 📥 Import the Data
+
+## Master Log
+
+We imported the Master Log data, manually assigning column names and types.
+
+The Master Log was our most reliable source of the Date of each Visit for each Subject, which was useful for converting Subject-Date records into a Subject-Visit format.
+
+```{r}
+master_log_path <- here("data", "master_log", "master_log.xlsx")
+```
+
+Import the data.
+Check the most recent file modification dates and print for user when this file is being sourced.
+
+```{r}
+master_log <- read_excel(
+  master_log_path, 
+  sheet = "Screened In",
+  col_names = c(
+    "id", "baseline_dt",
+    "v2_sch", "v2_dt", "v2_late", "v2_noshow",
+    "v3_sch", "v3_dt", "v3_late", "v3_noshow",
+    "v4_sch", "v4_dt", "v4_late", "v4_noshow",
+    "v5_sch", "v5_dt", "v5_late", "v5_noshow",
+    "group"
+    ),
+  col_types = c(
+    "numeric", "skip", "date", "skip",  
+    "date", "date", "text", "text", "skip",
+    "date", "date", "text", "text", "skip",
+    "date", "date", "text", "text", "skip",
+    "date", "date", "text", "text",
+    "text", rep("skip", 31)
+    ),
+  skip = 1
+  ) |>
+  # Coerce group to factor
+  mutate(
+    group = factor(group, levels = c('UCM', 'UCM+SP', 'L2C'), ordered = TRUE)
+  ) |>
+  # Remove empty rows
+  filter(!is.na(id))
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "Master log imported with", nrow(master_log), "rows and", ncol(master_log),
+  "columns.\n"
+)
+
+# Check the most recent file modification dates and print for user when this
+# file is being sourced.
+
+cat(
+      "Master log last modified on OneDrive", 
+      as.character(file.info(master_log_path)$mtime), "\n"
+    )
+
+# 2023-12-01: Master log imported with 442 rows and 19 columns.
+# Master log last modified on OneDrive 2023-09-28 11:52:59
+```
+
+### Data Check: Changes
+
+We checked for changes to the source data set since this file was last modified.
+
+```{r}
+# Inputs last modified: 2023-10-23
+
+data_mod_check(
+  'df' = master_log,
+  'df_path_str' = master_log_path,
+  'orig_path_str' = here("data", "master_log", "master_log.xlsx"),
+  'mod_dt' = '2023-09-28 11:52:59 CDT',
+  'num_rows' = 442,
+  'num_cols' = 19,
+  'col_names' = c(
+    "id", "baseline_dt",
+    "v2_sch", "v2_dt", "v2_late", "v2_noshow",
+    "v3_sch", "v3_dt", "v3_late", "v3_noshow",
+    "v4_sch", "v4_dt", "v4_late", "v4_noshow",
+    "v5_sch", "v5_dt", "v5_late", "v5_noshow",
+    "group"
+    )
+  )
+# TRUE
+```
+
+We purged the import path for memory management.
+
+```{r}
+rm(master_log_path)
+```
+
+## Combined Data Set
+
+We imported our Combined Data Set
+
+```{r}
+combined_data_path <- here(
+  "data", "Combined Participant Data", "combined_data_03.rds"
+  )
+```
+
+Import the data.
+Check the most recent file modification dates and print for user when this file is being sourced.
+
+```{r message=FALSE}
+combined_data <- readRDS(combined_data_path)
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "Combined data imported with", nrow(combined_data), "rows and", 
+  ncol(combined_data), "columns.\n"
+)
+
+# Check the most recent file modification dates and print for user when this
+# file is being sourced.
+
+cat(
+      "Combined data last modified on OneDrive", 
+      as.character(file.info(combined_data_path)$mtime), "\n"
+    )
+
+# 2023-12-01: Combined data imported with 1610 rows and 1063 columns.
+# Combined data last modified on OneDrive 2023-11-20 15:08:47 
+```
+
+We purged the import path for memory management.
+
+```{r}
+rm(combined_data_path)
+```
+
+# Initializing Workbooks
+
+```{r}
+discrep_wb <- createWorkbook()
+sch_comp_wb <- createWorkbook()
+```
+
+# Set Modification
+
+We modified our data sets.
+
+## Master Log
+
+Several dates within our Master Log had typographical issues, wherein the year was entered as two digit. As such, 2019 was erroneously read as 1900 by R.
+
+```{r}
+date_fields <- master_log |>
+  select(all_of(ends_with(c('_dt', '_sch')))) |>
+  names()
+
+# Leading date to ensure all fields don't lose formatting
+min_dates <- c(lubridate::date('2000-01-01'))
+
+for (field in date_fields){
+  min_dates <- c(min_dates, min(na.omit(master_log[[field]])))
+  
+}
+
+min_dates = min_dates[-1]
+names(min_dates) = date_fields
+min_dates
+```
+
+In inspecting these values, we recognized that all of these subjects 'No Showed' after V1.
+
+```{r}
+master_log |>
+  filter((year(v3_sch) == 1900)|(year(v4_sch) == 1900)|(year(v5_sch) == 1900)) |>
+  select(v2_dt) |>
+  distinct()
+```
+
+As such, we converted the V3, V4, and V5 scheduled dates for these subjects to a missing value. No further overt issues were identified with minimum date values.
+
+```{r}
+master_log <- master_log |>
+  mutate(
+    v3_sch = if_else(year(v3_sch) == 1900, NA, v3_sch),
+    v4_sch = if_else(year(v4_sch) == 1900, NA, v4_sch),
+    v5_sch = if_else(year(v5_sch) == 1900, NA, v5_sch)
+  )
+
+# Leading date to ensure all fields don't lose formatting
+min_dates <- c(lubridate::date('2000-01-01'))
+
+for (field in date_fields){
+  min_dates <- c(min_dates, min(na.omit(master_log[[field]])))
+  
+}
+
+min_dates = min_dates[-1]
+names(min_dates) = date_fields
+min_dates
+```
+
+There was not a similar issue with maximum dates.
+
+```{r}
+# Leading date to ensure all fields don't lose formatting
+max_dates <- c(lubridate::date('2000-01-01'))
+
+for (field in date_fields){
+  max_dates <- c(max_dates, max(na.omit(master_log[[field]])))
+  
+}
+max_dates = max_dates[-1]
+names(max_dates) = date_fields
+max_dates
+```
+
+## Combined Data
+
+From the combined data, we:
+
+1.  Created our "Drop Flag" indicator, which flagged any subject marked as dropped, that lacked a randomization group, or was marked as "Do Not Include"
+
+2.  Modified our Group variable, so that values would match the Master Log format
+
+3.  Modified our ID variable into a numeric, to match the Master Log format
+
+4.  Ensured previously identified erroneous data entries were eliminated.
+    All of these entries were highly incomplete, reflected visits that did not occur for the indicated subject, and were traced back to data entry errors by the research team operating in the field.
+    Records for issues and other notable events in operation assisted in confirming these entries were erroneous.
+
+    -   A Visit 3 entry for Subject 2319 was erroneous
+
+    -   Visit 4 entries for Subjects 2309, 2317 and 2372 were erroneous
+
+5.  We isolated the Subject ID, Group, Drop Flag, Visit, and Visit Date
+
+6.  We reshaped the data to be in wide format with Subject ID as a key, rather than long with Subject-Visit keys, to match the Master Log
+
+7.  We renamed our columns for use in code
+
+```{r}
+combined_data <- combined_data |>
+  dplyr::mutate(
+    drop_flag = ifelse(
+      ((!is.na(group) &
+         subj_randomized_status != "Do Not Include")),
+      FALSE,
+      TRUE
+    )
+  ) |>
+  dplyr::mutate(
+    id = as.numeric(as.character(id))
+  ) |>
+  dplyr::mutate(
+    group = case_when(
+      stringr::str_detect(group, 'Usual Care plus Smartphone based Case') ~ 'L2C',
+      stringr::str_detect(group, 'Usual Care plus Smartphone') ~ 'UCM+SP',
+      stringr::str_detect(group, 'Usual Case') ~ 'UCM'
+    )
+  ) |>
+  dplyr::mutate(
+    group = factor(group, levels = c('UCM', 'UCM+SP', 'L2C'), ordered = TRUE)
+  ) |>
+  dplyr::filter(
+    !(id == 2319  & visit == 'Visit 3: 1 Month Follow-Up')
+    )|>
+  dplyr::filter(
+    !(id %in% c(2309, 2317, 2372) & visit == 'Visit 4: 3 Month Follow-Up')
+    ) |>
+  dplyr::select(id, group, drop_flag, visit, visit_date) |>
+  tidyr::spread(visit, visit_date) |>
+  dplyr::rename_at(
+    c(
+      'Visit 1: Baseline', 'Visit 2: Randomization', 
+      'Visit 3: 1 Month Follow-Up', 'Visit 4: 3 Month Follow-Up', 
+      'Visit 5: 6 Month Follow-Up'),
+    ~c('v1_data', 'v2_data', 'v3_data', 'v4_data', 'v5_data'))
+```
+
+We ensured Group and ID matched for all subjects between both sets.
+
+```{r}
+sum(!(
+  na.omit(pull(combined_data |> 
+    mutate(key = paste(id, group, sep = '-' )) |> 
+    select(key)
+  )) %in% na.omit(pull(master_log |> 
+                mutate(key = paste(id, group, sep = '-' )) |> 
+                select(key)
+              ))
+)) == 0
+# TRUE
+```
+
+We combined the two data sets.
+The 'group' column was excluded from the combined data, as it was previously shown to be identical to the Master Log's values.
+We then ordered our columns.
+
+```{r}
+date_data <- left_join(
+  master_log, combined_data |> select(-group),
+  by = 'id'
+  ) |>
+  dplyr::relocate(
+    id, group, drop_flag, baseline_dt, 
+    v2_sch, v2_dt, v2_data, v2_late, v2_noshow,
+    v3_sch, v3_dt, v3_data, v3_late, v3_noshow,
+    v4_sch, v4_dt, v4_data, v4_late, v4_noshow,
+    v5_sch, v5_dt, v5_data, v5_late, v5_noshow
+    )
+```
+
+We purged the Master Log and Combined Data for memory management, as they were no longer needed.
+
+```{r}
+rm(master_log)
+rm(combined_data)
+```
+
+# Attendance Date Discrepancy Reports
+
+We flagged all observations wherein the master log date and data-recorded visit date were inconsistent, and filtered to the flagged observations.
+
+```{r}
+ml_date_discrepancies <- date_data |>
+  mutate(
+    v1_flag = ifelse(baseline_dt != v1_data, TRUE, FALSE),
+    v2_flag = ifelse(v2_dt != v2_data, TRUE, FALSE),
+    v3_flag = ifelse(v3_dt != v3_data, TRUE, FALSE),
+    v4_flag = ifelse(v4_dt != v4_data, TRUE, FALSE),
+    v5_flag = ifelse(v5_dt != v5_data, TRUE, FALSE)
+    ) |>
+  mutate(
+    v1_flag = ifelse(is.na(v1_flag), TRUE, v1_flag),
+    v2_flag = ifelse(is.na(v2_flag), TRUE, v2_flag),
+    v3_flag = ifelse(is.na(v3_flag), TRUE, v3_flag),
+    v4_flag = ifelse(is.na(v4_flag), TRUE, v4_flag),
+    v5_flag = ifelse(is.na(v5_flag), TRUE, v5_flag),
+  ) |>
+  filter(v1_flag | v2_flag | v3_flag | v4_flag | v5_flag)
+```
+
+We then calculated detailed subsets for each visit, with renaming for export to an excel document.
+
+```{r}
+ v1_discrepancies <- ml_date_discrepancies |>
+  filter(v1_flag) |>
+  mutate(
+    distance = lubridate::interval(baseline_dt, v1_data) %/% lubridate::ddays(1),
+    notes = NA
+  ) |>
+  select(id, group, drop_flag, baseline_dt, v1_data, distance, notes) |>
+  rename_at(
+    c(
+      'id', 'group', 'drop_flag', 'distance', 'notes',
+      'baseline_dt', 'v1_data'
+      ), 
+    ~c(
+      'Subject ID','Randomization Arm (Group)', 'Marked for Exclusion?',
+      'Distance Between Dates (Days)', 'Notes',
+      'Master Log Date, V1', 'Data Date, V1')
+    )
+
+v2_discrepancies <- ml_date_discrepancies |>
+  filter(v2_flag & !is.na(v2_dt)) |>
+  mutate(
+    distance = lubridate::interval(v2_dt, v2_data) %/% lubridate::ddays(1),
+    notes = NA
+  ) |>
+  select(
+    id, group, drop_flag, baseline_dt, v2_sch, v2_dt, v2_data, 
+         distance, notes
+    ) |>
+  rename_at(
+    c(
+      'id', 'group', 'drop_flag', 'distance', 'notes', 'baseline_dt', 'v2_sch',
+      'v2_dt', 'v2_data'
+      ), 
+    ~c(
+      'Subject ID','Randomization Arm (Group)', 'Marked for Exclusion?',
+      'Distance Between Dates (Days)', 'Notes', 'Baseline Date (Master Log)',
+      'V2 Scheduled Date (Master Log)',
+      'Master Log Date, V2', 'Data Date, V2')
+    )
+
+v3_discrepancies <- ml_date_discrepancies |>
+  filter(v3_flag & !is.na(v3_dt)) |>
+  mutate(
+    distance = lubridate::interval(v3_dt, v3_data) %/% lubridate::ddays(1),
+    notes = NA
+  ) |>
+  select(
+    id, group, drop_flag, baseline_dt, v2_sch, v3_sch, v3_dt, v3_data, 
+    distance, notes
+    ) |>
+  rename_at(
+    c(
+      'id', 'group', 'drop_flag', 'distance', 'notes','baseline_dt', 'v2_sch',
+      'v3_sch', 'v3_dt', 'v3_data'
+      ), 
+    ~c(
+      'Subject ID','Randomization Arm (Group)', 'Marked for Exclusion?',
+      'Distance Between Dates (Days)', 'Notes', 'Baseline Date (Master Log)',
+      'V2 Scheduled Date (Master Log)', 'V3 Scheduled Date (Master Log)',
+      'Master Log Date, V3', 'Data Date, V3')
+    )
+
+v4_discrepancies <- ml_date_discrepancies |>
+  filter(v4_flag & !is.na(v4_dt)) |>
+  mutate(
+    distance = lubridate::interval(v4_dt, v4_data) %/% lubridate::ddays(1),
+    notes = NA
+  ) |>
+  select(
+    id, group, drop_flag, baseline_dt, v2_sch, v4_sch, v4_dt, v4_data, 
+    distance, notes
+    ) |>
+  rename_at(
+    c(
+      'id', 'group', 'drop_flag', 'distance', 'notes', 'baseline_dt', 'v2_sch',
+      'v4_sch', 'v4_dt', 'v4_data'
+      ), 
+    ~c(
+      'Subject ID','Randomization Arm (Group)', 'Marked for Exclusion?',
+      'Distance Between Dates (Days)', 'Notes', 'Baseline Date (Master Log)',
+      'V2 Scheduled Date (Master Log)', 'V4 Scheduled Date (Master Log)',
+      'Master Log Date, V4', 'Data Date, V4')
+    )
+
+v5_discrepancies <- ml_date_discrepancies |>
+  filter(v5_flag & !is.na(v5_dt)) |>
+  mutate(
+    distance = lubridate::interval(v5_dt, v5_data) %/% lubridate::ddays(1),
+    notes = NA
+  ) |>
+  select(
+    id, group, drop_flag, baseline_dt, v2_sch, v5_sch, v5_dt, v5_data, 
+    distance, notes
+    ) |>
+  rename_at(
+    c(
+      'id', 'group', 'drop_flag', 'distance', 'notes', 'baseline_dt', 'v2_sch',
+      'v5_sch', 'v5_dt', 'v5_data'
+      ), 
+    ~c(
+      'Subject ID','Randomization Arm (Group)', 'Marked for Exclusion?',
+      'Distance Between Dates (Days)', 'Notes', 'Baseline Date (Master Log)',
+      'V2 Scheduled Date (Master Log)', 'V5 Scheduled Date (Master Log)',
+      'Master Log Date, V5', 'Data Date, V5')
+    )
+```
+
+We packaged our files for export to an excel file.
+
+```{r}
+addWorksheet(discrep_wb, "V1")
+
+writeDataTable(discrep_wb, 1, v1_discrepancies,
+                startCol = 1, startRow = 1, 
+                tableStyle = "TableStyleLight1"
+                )
+
+addWorksheet(discrep_wb, "V2")
+
+writeDataTable(discrep_wb, 2, v2_discrepancies,
+                startCol = 1, startRow = 1, 
+                tableStyle = "TableStyleLight1"
+                )
+
+addWorksheet(discrep_wb, "V3")
+
+writeDataTable(discrep_wb, 3, v3_discrepancies,
+                startCol = 1, startRow = 1, 
+                tableStyle = "TableStyleLight1"
+                )
+
+addWorksheet(discrep_wb, "V4")
+
+writeDataTable(discrep_wb, 4, v4_discrepancies,
+                startCol = 1, startRow = 1, 
+                tableStyle = "TableStyleLight1"
+                )
+
+addWorksheet(discrep_wb, "V5")
+
+writeDataTable(discrep_wb, 5, v5_discrepancies,
+                startCol = 1, startRow = 1, 
+                tableStyle = "TableStyleLight1"
+                )
+```
+
+## 💾 Saving the Data
+
+We saved our date discrepancy reports to an Excel file.
+
+```{r}
+report_path <- here(
+   "data", "Combined Participant Data", "Isolated for Review",
+   "Attendance Date Discrepancy Reports.xlsx"
+   )
+
+saveWorkbook(discrep_wb, report_path, overwrite = TRUE)
+```
+
+We cleared data for memory management.
+
+```{r}
+rm(ml_date_discrepancies)
+rm(v1_discrepancies)
+rm(v2_discrepancies)
+rm(v3_discrepancies)
+rm(v4_discrepancies)
+rm(v5_discrepancies)
+rm(report_path)
+rm(discrep_wb)
+```
+
+
+# BOTTOM
