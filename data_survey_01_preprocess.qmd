@@ -47,7 +47,7 @@ These data sources required pre-processing as they were not in a Subject-Visit f
 
 ## Notes
 
-The end goal of our combined data set was to have the data in long format, with each of the five data-collection visits for all subjects represented by a single row (unique combination of Subject ID and Visit)
+The end goal of our combined data set was to have the Delay Discounted Task data in long format, with each of the five data-collection visits for all subjects represented by a single row (unique combination of Subject ID and Visit), and the Arrest and Bridge Session data in a wide format, where each Subject ID held all of a subject's unique data for any ranges or visits. These parameters were set in the 2023-11-22 meeting with the PIs.
 
 Several of our source data sets were not suitable for processing or merging in their original forms:
 
@@ -57,8 +57,44 @@ Several of our source data sets were not suitable for processing or merging in t
 
 -   The Arrest Data and Bridge Session Data was in a semi-long format, such that each row contained a data regarding discrete events (represented by the unique combination of Subject ID and Date)
 
-    -   This required us to perform calculations in order to represent the data in relationship to each unique combination of Subject ID and Visit, with respect to these dates
+    -   This required us to perform calculations in order to represent the data in relationship to each unique combination of Subject ID and Visit, with respect to these dates, and then pivot into a 'wide' format.
+    
+Per discussion with the project PIs on 2023-11-22 and 2023-12-07, date windows for each visit are calculated using the protocol windows from Visit 2's actual attendance date in the Master Log. The PIs request that the Arrest and Bridge Session data be added to the data set so that each row for a subject contains the same data in separate columns.
 
+-   The protocol visit windows are scheduled from V2's actual attendance date, which should be taken from the Master Log
+
+    -   Visit 2 should have occurred within 3 days of Visit 1
+
+    -   Visit 3 should be 1 month after Visit 2: 28-31 days (3 day range)
+
+        -   30 ± 2 days
+
+    -   Visit 4 should be 3 months after Visit 3: 89-92 days (3 day range)
+
+        -   90 ± 2 days
+
+    -   Visit 5 should be 6 months after Visit 2: 181-184 days (3 day range)
+    
+        -   182 ± 2 days
+        
+    -   Any records outside of the target windows should be excluded.
+    
+-   The Arrest Data was to begin on V2's attendance date, and run for 1 year after. 
+
+    -   Total number of arrests for the V2-V3, V3-V4, V4-V5, V2-V5, V5-1 year, V2-V5, and V2-1 year windows
+    
+    -   The plan should result in 8 columns of data: 1 for the subject ID, the 7 for the visit window results
+    
+    -   Minor point-fixes are required for several records that have date typos, per PI evaluation
+    
+-   The Bridge Session data was to begin on V2's attendance date, and run for 6 months (V5's protocol)
+
+    -   All items to be calculated for V2-V3, V3-V4, V4-V5, and V2-5 windows; items should be calculated as an aggregrate (any type of visit) and broken down by type ("Regular", "Crisis", "Other")
+    
+        -   Number of sessions, number of minutes, and average minutes per session
+    
+    -   The plan should result in 49 columns: 1 for the subject ID, and 48 for the visit window results (4 windows * 4 types * 3 columns)
+    
 # 📦Load packages & Functions
 
 ```{r, message=FALSE, warning=FALSE}
@@ -94,27 +130,33 @@ Import the data.
 Check the most recent file modification dates and print for user when this file is being sourced.
 
 ```{r}
-master_log <- read_excel(
+master_log <- readxl::read_excel(
   master_log_path, 
   sheet = "Screened In",
   col_names = c(
     "id", "baseline_dt",
-    "v2_dt", 
-    "v3_dt", 
-    "v4_dt", 
-    "v5_dt"
+    "v2_sch", "v2_dt", "v2_late", "v2_noshow",
+    "v3_sch", "v3_dt", "v3_late", "v3_noshow",
+    "v4_sch", "v4_dt", "v4_late", "v4_noshow",
+    "v5_sch", "v5_dt", "v5_late", "v5_noshow",
+    "group"
     ),
   col_types = c(
-    "numeric", "skip", "date", rep("skip",2), 
-    "date", rep("skip", 4), 
-    "date", rep("skip", 4),
-    "date", rep("skip", 4),
-    "date", rep("skip", 34)
+    "numeric", "skip", "date", "skip",  
+    "date", "date", "text", "text", "skip",
+    "date", "date", "text", "text", "skip",
+    "date", "date", "text", "text", "skip",
+    "date", "date", "text", "text",
+    "text", rep("skip", 31)
     ),
   skip = 1
-) %>% 
+  ) |>
+  # Coerce group to factor
+  dplyr::mutate(
+    group = factor(group, levels = c('UCM', 'UCM+SP', 'L2C'), ordered = TRUE)
+  ) |>
   # Remove empty rows
-  filter(!is.na(id))
+  dplyr::filter(!is.na(id))
 
 # Print a message for when this file is being sourced
 cat(
@@ -131,7 +173,7 @@ cat(
       as.character(file.info(master_log_path)$mtime), "\n"
     )
 
-# 2023-10-23: Master log imported with 442 rows and 6 columns.
+# 2023-12-08: Master log imported with 442 rows and 19 columns.
 # Master log last modified on OneDrive 2023-09-28 11:52:59
 ```
 
@@ -140,7 +182,7 @@ cat(
 We checked for changes to the source data set since this file was last modified.
 
 ```{r}
-# Inputs last modified: 2023-10-23
+# Inputs last modified: 2023-12-08
 
 data_mod_check(
   'df' = master_log,
@@ -148,10 +190,15 @@ data_mod_check(
   'orig_path_str' = here("data", "master_log", "master_log.xlsx"),
   'mod_dt' = '2023-09-28 11:52:59 CDT',
   'num_rows' = 442,
-  'num_cols' = 6,
+  'num_cols' = 19,
   'col_names' = c(
-      'id', 'baseline_dt', 'v2_dt', 'v3_dt', 'v4_dt', 'v5_dt'
-      )
+    "id", "baseline_dt",
+    "v2_sch", "v2_dt", "v2_late", "v2_noshow",
+    "v3_sch", "v3_dt", "v3_late", "v3_noshow",
+    "v4_sch", "v4_dt", "v4_late", "v4_noshow",
+    "v5_sch", "v5_dt", "v5_late", "v5_noshow",
+    "group"
+    )
   )
 # TRUE
 ```
@@ -164,140 +211,229 @@ rm(master_log_path)
 
 ## Creating Date Windows and Subject-Visit Filter Keys
 
-We calculated the date windows applicable to each visit.
-To account for missing visits (i.e. a subject attended visit 1, 2, and 5 but missed visits 3 and 4) we utilized a step-wise check calculation for each window.
-We added 1 hour to the end time of the Visit 5 windows (and advanced the beginning of the end windows 1 hour), to allow any visits on the end date to be included within the window.
+We calculated the date windows applicable to each visit. Per discussion with the project PIs on 2023-11-22 and 2023-12-07, windows are calculated using the protocol windows from Visit 2's actual attendance date in the Master Log. For subjects that did not attend V2, we utilized the V2 Scheduled Date in the Master Log. We accounted for weekends, by rolling the protocol dates of Sunday forward to Monday, and Saturday backward to Friday. The end date was calculated as 1 year after the V2 attendance date. We also modified the No-Show column for each visit, to flag if a subject did not have an attendance date for a visit.
+
 
 ```{r}
-# Setting end date to January 1, 2023
-end_date <- lubridate::date('2023-01-01')
-
-visit_windows <- master_log %>%
-    rowwise() %>%
-    mutate(
-      # V2 window is from Baseline to V2
-      # If V2 or Baseline don't exist, must be a null value
-        v2_window = case_when(
-          (!is.na(v2_dt) & !is.na(baseline_dt)) ~ 
-              lubridate::interval(start = baseline_dt, end = v2_dt),
-          (is.na(v2_dt)|is.na(baseline_dt)) ~
-              NA,
-          TRUE ~ NA
-        ),
-      # V3 window is from V2 to V3
-      # If V2 does not exist, use Baseline to V3
-      # If V3 does not exist, must be a null value
-      # If baseline does not exist, must be a null value
-        v3_window = case_when(
-          (!is.na(v3_dt) & !is.na(v2_dt)) ~
-            lubridate::interval(v2_dt, v3_dt),
-          (!is.na(v3_dt) & !is.na(baseline_dt) & is.na(v2_dt)) ~
-            lubridate::interval(baseline_dt, v3_dt),
-          is.na(v3_dt) ~ 
-            NA,
-          (is.na(v3_dt) & is.na(baseline_dt)) ~ 
-            NA,
-          TRUE ~ NA
-        ),
-      # V4 window is from V3 to V4
-      # If V3 does not exist, use V2 to V4
-      # If V3 and V2 do not exist, use Baseline to V4
-      # If V4 does not exist, must be a null value
-      # If baseline does not exist, must be a null value
-        v4_window = case_when(
-          (!is.na(v4_dt) & !is.na(v3_dt)) ~
-            lubridate::interval(v3_dt, v4_dt),
-          (!is.na(v4_dt) & !is.na(v2_dt) & is.na(v3_dt)) ~
-            lubridate::interval(v2_dt, v4_dt),
-          (!is.na(v4_dt) & !is.na(baseline_dt) & is.na(v2_dt) & is.na(v3_dt)) ~
-            lubridate::interval(baseline_dt, v4_dt),
-          is.na(v4_dt) ~ 
-            NA,
-          (is.na(v4_dt) & is.na(baseline_dt)) ~ 
-            NA,
-          TRUE ~ NA
-        ),
-      # V5 window is from V4 to V5
-      # If V4 does not exist, use V3 to V5
-      # If V4 and V3 do not exist, use V2 to V5
-      # If V4, V3, and V2 do not exist, use Baseline to V5
-      # If V5 does not exist, must be a null value
-      # If baseline does not exist, must be a null value
-        v5_window = case_when(
-          (!is.na(v5_dt) & !is.na(v4_dt)) ~
-            lubridate::interval(v4_dt, v5_dt+dhours(1)),
-          (!is.na(v5_dt) & !is.na(v3_dt) & is.na(v4_dt)) ~
-            lubridate::interval(v3_dt, v5_dt+dhours(1)),
-          (!is.na(v5_dt) & !is.na(v2_dt) & is.na(v3_dt) & is.na(v4_dt)) ~
-            lubridate::interval(v2_dt, v5_dt+dhours(1)),
-          (!is.na(v5_dt) & !is.na(baseline_dt)) & 
-            (is.na(v2_dt) & is.na(v3_dt) & is.na(v4_dt)) ~
-            lubridate::interval(baseline_dt, v5_dt+dhours(1)),
-          is.na(v5_dt) ~ 
-            NA,
-          (is.na(v5_dt) & is.na(baseline_dt)) ~ 
-            NA,
-          TRUE ~ NA
-        ),
-      # End window is anything after V5 until end date
-      # If V5 does not exist, it is anything after V4 until end date
-      # If V4 does not exist, it is anything after V3 until end date
-      # If V3 does not exist, it is anything after V2 until end date
-      # If V2 does not exist, it is anything after Baseline until end date
-      # If Baseline does not exist, must be a null value
-        end_window = case_when(
-          !is.na(v5_dt) ~
-            lubridate::interval(v5_dt+dhours(1), end_date),
-          (!is.na(v4_dt) & is.na(v5_dt)) ~
-            lubridate::interval(v4_dt+dhours(1), end_date),
-          (!is.na(v3_dt) & is.na(v4_dt) & is.na(v4_dt)) ~
-            lubridate::interval(v3_dt+dhours(1), end_date),
-          (!is.na(v2_dt) & is.na(v3_dt) & is.na(v4_dt) & is.na(v5_dt)) ~
-            lubridate::interval(v2_dt+dhours(1), end_date),          
-          (!is.na(baseline_dt) & 
-             (is.na(v2_dt) & is.na(v3_dt) & is.na(v4_dt) & is.na(v5_dt))) ~
-            lubridate::interval(baseline_dt+dhours(1), end_date),  
-          is.na(baseline_dt) ~ 
-            NA,
-          TRUE ~ NA
-        )
-      ) %>%
-    ungroup()
+visit_windows <- master_log |>
+  dplyr::mutate(
+    # V3
+    v3_protocol = dplyr::if_else(
+      !is.na(v2_dt), 
+      v2_dt + lubridate::ddays(30), 
+      v2_sch + lubridate::ddays(30)
+      ),
+    v3_protocol_wkd = dplyr::case_when(
+      lubridate::wday(v3_protocol) == 1 ~ v3_protocol + lubridate::ddays(1),
+      lubridate::wday(v3_protocol) == 7 ~ v3_protocol - lubridate::ddays(1),
+      TRUE ~ v3_protocol
+      ),
+    # V4
+    v4_protocol = dplyr::if_else(
+      !is.na(v2_dt), 
+      v2_dt + lubridate::ddays(90), 
+      v2_sch + lubridate::ddays(90)
+      ),
+    v4_protocol_wkd = dplyr::case_when(
+      lubridate::wday(v4_protocol) == 1 ~ v4_protocol + lubridate::ddays(1),
+      lubridate::wday(v4_protocol) == 7 ~ v4_protocol - lubridate::ddays(1),
+      TRUE ~ v4_protocol
+      ),
+    # V5
+    v5_protocol = dplyr::if_else(
+      !is.na(v2_dt), 
+      v2_dt + lubridate::ddays(182), 
+      v2_sch + lubridate::ddays(182)
+      ),
+    v5_protocol_wkd = dplyr::case_when(
+      lubridate::wday(v5_protocol) == 1 ~ v5_protocol + lubridate::ddays(1),
+      lubridate::wday(v5_protocol) == 7 ~ v5_protocol - lubridate::ddays(1),
+      TRUE ~ v5_protocol
+      ),
+    # End
+    end_protocol = dplyr::if_else(
+      !is.na(v2_dt), 
+      v2_dt + lubridate::ddays(365), 
+      v2_sch + lubridate::ddays(365)
+      ),
+    end_protocol_wkd = dplyr::case_when(
+          lubridate::wday(end_protocol) == 1 ~ 
+            end_protocol + lubridate::ddays(1),
+          lubridate::wday(end_protocol) == 7 ~
+            end_protocol - lubridate::ddays(1),
+          TRUE ~ end_protocol
+          )
+    ) |>
+  dplyr::mutate(
+    v2_noshow = ifelse(is.na(v2_dt), TRUE, FALSE),
+    v3_noshow = ifelse(is.na(v3_dt), TRUE, FALSE),
+    v4_noshow = ifelse(is.na(v4_dt), TRUE, FALSE),
+    v5_noshow = ifelse(is.na(v5_dt), TRUE, FALSE)
+  )
 ```
 
-We recognized that pivoting data would potentially result in rows within the processed data sets that referenced combinations of Subject ID and Visit number which did not exist (i.e., subject did not attend that specific visit).
-In order to facilitate trimming our pivoted data sets so that they only included valid combinations of Subject ID and Visit number, we created a table of valid combinations.
+We then calculated our visit windows, and extracted our desired columns (id, protocol dates, and visit windows). For the V5-1 year visit dates, the start date and end date were advanced by 1 hour, to allow any visits on the actual V5 protocol date to be excluded and any on the actual end date to be included. For the V4-V5 and V2-V5 study windows, the V5 end date was similarly advanced by 1 hour to allow visits on the actual V5 protocol date to be included.
 
-We isolated the visit date-time variables from our Visit Window data, and pivoted them so each row represented a single visit number and subject ID, and the date of the visit (if it existed).
-We then filtered out any rows missing a date for the visit, and dropped the variable containing the date.
+We added 1 hour to the end time of the Visit 5 windows (and advanced the beginning of the end windows 1 hour), to allow any visits on 
 
 ```{r}
-subject_visits <- pull(
-  visit_windows %>%
-    # Isolate id and visit date variables
-    select(id, all_of(ends_with("dt"))) %>%
-    select(-baseline_dt) %>%
-    # Pivot so each row represents a single combination of "id" and "visit"
-    pivot_longer(
-     v2_dt:v5_dt,
-      cols_vary = "fastest",
-      names_to = c("visit", ".value"),
-      names_pattern = "v([0-5])_(dt)"
-      ) %>%
-    # Remove rows for visits which did not occur (missing value for date)
-    filter(!is.na(dt)) %>%
-    # Create id-visit key
-    mutate(key = paste(id, visit, sep = "-")) %>%
-    # Isolate key column
-    select(key)
-)
+visit_windows <- visit_windows |>
+    dplyr::rowwise() |>
+    dplyr::mutate(
+      # V2 window is from Baseline Actual to V2 Actual
+      # If V2 was not attended, use V2 Scheduled
+        v2_window = dplyr::case_when(
+          (is.na(v2_dt)) ~ lubridate::interval(
+            start = baseline_dt, end = v2_sch
+            ),
+          (!is.na(v2_dt) & !is.na(baseline_dt)) ~ 
+              lubridate::interval(start = baseline_dt, end = v2_dt),
+          TRUE ~ NA
+        ),
+      # V3 window is from V2 actual to V3 protocol (30 days), accounting for
+      # weekends
+      # If V2 was not attended, use V2 scheduled
+        v3_window = dplyr::case_when(
+          (is.na(v2_dt)) ~ lubridate::interval(v2_sch, v3_protocol_wkd),
+          (!is.na(v3_protocol_wkd) & !is.na(v2_dt)) ~
+            lubridate::interval(v2_dt, v3_protocol_wkd),
+          TRUE ~ NA
+        ),
+      # V4 window is from V3 protocol (30 days) to V4 protocol (60 days), 
+      # accounting for weekends
+        v4_window = dplyr::case_when(
+          (!is.na(v4_protocol_wkd) & !is.na(v3_protocol_wkd)) ~
+            lubridate::interval(v3_protocol_wkd, v4_protocol_wkd),
+          TRUE ~ NA
+        ),
+      # V5 window is from V4 protocol (60 days) to V5 protocol (182 days), 
+      # accounting for weekends. One hour is added to the end of the V5 
+      # protocol date, to allow visits on the actual date to be included.
+        v5_window = dplyr::case_when(
+          (!is.na(v5_protocol_wkd) & !is.na(v4_protocol_wkd)) ~
+            lubridate::interval(
+              v4_protocol_wkd, v5_protocol_wkd + lubridate::dhours(1)
+              ),
+          TRUE ~ NA
+        ),
+      # The end window is from V5 Actual to 1 year protocol end date,
+      # accounting for weekends. One hour is added to the end of the 1 year 
+      # protocol end date and beginning of the V5 protocol date, to allow 
+      # records on the actual V5 date to be excluded and any on the end date
+      # to be included.
+        end_window = dplyr::case_when(
+          (!is.na(v5_protocol_wkd) & !is.na(end_protocol_wkd)) ~
+            lubridate::interval(
+              v5_protocol_wkd + lubridate::dhours(1), 
+              end_protocol_wkd + lubridate::dhours(1)
+              ),
+          TRUE ~ NA
+        ),      
+      # The study period window is from V2 Actual to V5 protocol (182 days),
+      # accounting for weekends. One hour is added to the end of the V5 
+      # protocol date, to allow records on the actual date to be included.
+      # If V2 was not attended, use V2 scheduled
+        study_window = dplyr::case_when(
+          (is.na(v2_dt)) ~ 
+            lubridate::interval(
+              v2_sch, v5_protocol_wkd + lubridate::dhours(1)
+              ),
+          (!is.na(v5_protocol_wkd) & !is.na(v2_dt)) ~
+            lubridate::interval(
+              v2_dt, v5_protocol_wkd + lubridate::dhours(1)
+              ),
+          TRUE ~ NA
+        ),
+      # The full window is from V2 Actual to 1 year protocol end date,
+      # accounting for weekends. One hour is added to the end of the 1 year 
+      # protocol end date, to allow records on the actual date to be included.
+      # If V2 was not attended, use V2 scheduled
+        full_window = dplyr::case_when(
+          (is.na(v2_dt)) ~ 
+            lubridate::interval(
+              v2_sch, end_protocol_wkd + lubridate::dhours(1)
+              ),
+          (!is.na(v2_dt) & !is.na(end_protocol_wkd)) ~
+            lubridate::interval(
+              v2_dt, end_protocol_wkd + lubridate::dhours(1)
+              ),
+          TRUE ~ NA
+        )
+      ) |>
+    dplyr::ungroup() |>
+  dplyr::select(
+    id, v2_noshow, v3_noshow, v4_noshow, v5_noshow,
+    baseline_dt, v2_dt, v3_protocol_wkd, v4_protocol_wkd, v5_protocol_wkd, 
+    end_protocol_wkd, 
+    v2_window, v3_window, v4_window, v5_window, end_window, 
+    study_window, full_window
+    )
 ```
 
 We then purged the originally imported Master Log data set for memory management.
 
 ```{r}
 rm(master_log)
-rm(end_date)
+```
+
+### 💾 Save the Date Window Data
+
+We set our desired output paths
+
+```{r}
+# RDS version
+rds_path <- here("data", "master_log", "ml_protocol_dates.rds")
+
+# MB also wants an SPSS version
+spss_path <- here("data", "master_log", "ml_protocol_dates.sav")
+```
+
+We performed a check for any changes to the data since it was last saved in RDS format.
+
+```{r}
+# Inputs last modified: 2023-12-08
+
+data_mod_check(
+  'df' = visit_windows,
+  'df_path_str' = rds_path,
+  'orig_path_str' = here("data", "master_log", "ml_protocol_dates.rds"),
+  'mod_dt' = NA,
+  'num_rows' = 442,
+  'num_cols' = 18,
+  'col_names' = c(
+      'id', 'baseline_dt', 'v2_dt', 'v3_protocol_wkd', 'v4_protocol_wkd', 
+      'v5_protocol_wkd', 'end_protocol_wkd', 'v2_window', 'v3_window', 
+      'v4_window', 'v5_window', 'end_window', 'study_window', 'full_window',
+      'v2_noshow', 'v3_noshow', 'v4_noshow', 'v5_noshow'
+      )
+  )
+# TRUE
+```
+
+We exported our files.
+
+```{r}
+# RDS version
+readr::write_rds(visit_windows, rds_path)
+
+# MB also wants an SPSS version
+haven::write_sav(visit_windows, spss_path)
+```
+
+Print a message for when this file is saved.
+
+```{r}
+cat(
+  paste0(Sys.Date(), ":"),
+  "Visit Dates and Windows data saved to", rds_path, " and ", spss_path
+)
+```
+
+Purge path variables and exported data to avoid potential errors in later processing.
+
+```{r}
+rm(rds_path)
+rm(spss_path)
 ```
 
 # Processing Data Frames
@@ -318,7 +454,7 @@ Import the data.
 Check the most recent file modification dates and print for user when this file is being sourced.
 
 ```{r, message=FALSE}
-ddt <- read_sav(ddt_spss_path)
+ddt <- haven::read_sav(ddt_spss_path)
 
 # Print a message for when this file is being sourced
 cat(
@@ -334,9 +470,10 @@ cat(
       as.character(file.info(ddt_spss_path)$mtime), "\n"
     )
 
-# 2023-10-23: DDT imported with 442 rows and 9 columns.
+# 2023-12-08: DDT imported with 442 rows and 9 columns.
 # DDT data last modified on OneDrive 2023-08-25 10:44:11 
 ```
+
 #### Data Check: Changes
 
 We checked for changes to the source data set since this file was last modified.
@@ -372,8 +509,8 @@ We inspected our column names and classes, to ensure compatibility in the pivot.
 We identified that several of our columns were of the "character" class, which would result in non-compatibility in the pivot.
 
 ```{r}
-ddt %>% 
-    dplyr::summarise_all(class) %>% 
+ddt |> 
+    dplyr::summarise_all(class) |> 
     tidyr::gather(variable, class)
 ```
 
@@ -381,8 +518,8 @@ Further inspection revealed the cause: the DDT data had a significant number of 
 We performed this modification.
 
 ```{r}
-ddt <- ddt %>%
-  mutate(across(everything(), as.numeric))
+ddt <- ddt |>
+  dplyr::mutate(dplyr::across(everything(), as.numeric))
 
 # Warning: There were 6 warnings in `mutate()`.
 # The first warning was:
@@ -395,8 +532,8 @@ ddt <- ddt %>%
 We pivoted our revised DDT data into our desired format.
 
 ```{r}
-ddt <- ddt %>% 
-  pivot_longer(
+ddt <- ddt |> 
+  tidyr::pivot_longer(
     K_V1:ED50_V5,
     cols_vary = "fastest",
     names_to = c(".value", "visit"),
@@ -420,7 +557,7 @@ We set our desired output paths
 # RDS version
 rds_path <- here("data", "ddt", "l2c_ddt_database_2_long.rds")
 
-# MBC also wants an SPSS version
+# MB also wants an SPSS version
 spss_path <- here("data", "ddt", "l2c_ddt_database_2_long.sav")
 ```
 
@@ -466,10 +603,10 @@ We exported our files.
 
 ```{r}
 # RDS version
-write_rds(ddt, rds_path)
+readr::write_rds(ddt, rds_path)
 
-# MBC also wants an SPSS version
-write_sav(ddt, spss_path)
+# MB also wants an SPSS version
+haven::write_sav(ddt, spss_path)
 ```
 
 Print a message for when this file is saved.
@@ -484,7 +621,6 @@ cat(
 Purge path variables and exported data to avoid potential errors in later processing.
 
 ```{r}
-rm(ddt_spss_path)
 rm(rds_path)
 rm(spss_path)
 rm(ddt)
@@ -492,8 +628,7 @@ rm(ddt)
 
 ## Arrest Data
 
-The Arrest Data required calculation of variables in order to convert the Subject-Date collections into Subject-Visit format.
-In order to ensure the most accurate dates for the data collection events for each subject, the Master Log's record of each visit's date window was utilized.
+The Arrest Data required calculation of variables in order to convert the rows collecting arrest dates for each subject into counts by window. In order to ensure the most accurate dates for the data collection events for each subject, the Master Log's record of each visit's date window was utilized.
 
 ### 📥 Import the Data
 
@@ -507,7 +642,7 @@ Import the data.
 Check the most recent file modification dates and print for user when this file is being sourced.
 
 ```{r}
-arrest_data <- read_excel( 
+arrest_data <- readxl::read_excel( 
   arrest_path,
   sheet = "Sheet1",
   col_names = c(
@@ -520,9 +655,9 @@ arrest_data <- read_excel(
   ),
   na = c("", "None"),
   skip = 1
-) %>%
+) |>
   # Remove empty rows
-filter(!is.na(id))
+dplyr::filter(!is.na(id))
 
 # Print a message for when this file is being sourced
 
@@ -534,8 +669,8 @@ cat(
   "Arrest data imported with", nrow(arrest_data), "rows and", 
   ncol(arrest_data), "columns.\n"
 )
-# arrest.xlsx last modified on UTHealth server: 2023-08-25 10:43:27
-# 2023-10-23 : Arrest data imported with 442 rows and 16 columns.
+# arrest.xlsx last modified on UTHealth server: 2023-12-08 15:50:31
+# 2023-12-08 : Arrest data imported with 442 rows and 16 columns.
 ```
 
 #### Data Check: Changes
@@ -543,13 +678,13 @@ cat(
 We checked for changes to the source data set since this file was last modified.
 
 ```{r}
-# Inputs last modified: 2023-10-23
+# Inputs last modified: 2023-12-08
 
 data_mod_check(
   'df' = arrest_data,
   'df_path_str' = arrest_path,
   'orig_path_str' = here("data", "arrest", "arrest.xlsx"),
-  'mod_dt' = '2023-08-25 10:43:27 CDT',
+  'mod_dt' = '2023-12-08 15:50:31  CDT',
   'num_rows' = 442,
   'num_cols' = 16,
   'col_names' = c(
@@ -575,9 +710,9 @@ We eliminated subjects that were missing a baseline arrest date, as all columns 
 We also converted the variable `arrested_during_followup`, which contained a "Yes" or "No" value to indicate if a subject had any arrest records in the file, to a logical boolean.
 
 ```{r}
-arrest_data <- arrest_data %>%
-  filter(!is.na(baseline_date)) %>%
-  mutate(arrested_during_followup = case_when(
+arrest_data <- arrest_data |>
+  dplyr::filter(!is.na(baseline_date)) |>
+  dplyr::mutate(arrested_during_followup = dplyr::case_when(
       toupper(arrested_during_followup) == "YES" ~ TRUE,
       toupper(arrested_during_followup) == "NO" ~ FALSE,
       TRUE ~ NA
@@ -588,20 +723,26 @@ arrest_data <- arrest_data %>%
 We combined our Arrest Data with the Visit Windows from the Master Log by subject to allow processing by Subject.
 
 ```{r}
-arrest_data <- left_join(arrest_data, visit_windows, by = "id")
+arrest_data <- dplyr::left_join(arrest_data, visit_windows, by = "id")
 ```
 
-We then converted the arrest dates to indicators for each potential visit window, calculated the total number of arrests for each subject both within each of the potential windows and in total.
-We then isolated our Subject ID, arrested logical variable, and the newly created count variables.
+We then converted the arrest dates to indicators for each potential visit window, calculated the total number of arrests for each subject both within each of the potential windows. We also recalculated the boolean/logical indication of if a subject had an arrest reported. We then isolated our Subject ID, and the newly created count variables arrested boolean/logical variables.
 
 ```{r}
-arrest_data <- arrest_data %>%
-    # Drop "baseline_date"
-  select(-baseline_date) %>%
-  mutate(
-    # Calculate the window in which each arrest occured
-    across(all_of(starts_with("arrested_date_")),
-           ~case_when(
+arrest_data <- arrest_data |>
+  # Drop "baseline_date"
+  dplyr::select(-baseline_date) |>
+  # Point-fix
+  dplyr::mutate(
+    arrested_date_1 = if_else(
+      id == 2285, 
+      arrested_date_1 %m-% lubridate::years(1), 
+      arrested_date_1)
+  ) |>
+  dplyr::mutate(
+    # Calculate the window in which each arrest occurred
+    dplyr::across(all_of(starts_with("arrested_date_")),
+           ~dplyr::case_when(
                is.na(cur_column()) ~ 
                  NA,
                # If within a window, assign the value for that
@@ -623,85 +764,85 @@ arrest_data <- arrest_data %>%
                TRUE ~ NA
               )
            )
-    ) %>%
-  rowwise()%>%
+    ) |>
+  dplyr::rowwise()|>
   # Calculate total number of arrests within each window
-  mutate(
+  dplyr::mutate(
     v2_count = sum(
-      c_across(arrested_date_1:arrested_date_12) == "2", 
+      dplyr::c_across(arrested_date_1:arrested_date_12) == "2", 
       na.rm = TRUE
       ),
     v3_count = sum(
-      c_across(arrested_date_1:arrested_date_12) == "3", 
+      dplyr::c_across(arrested_date_1:arrested_date_12) == "3", 
       na.rm = TRUE
       ),
     v4_count = sum(
-      c_across(arrested_date_1:arrested_date_12) == "4", 
+      dplyr::c_across(arrested_date_1:arrested_date_12) == "4", 
       na.rm = TRUE
       ),
     v5_count = sum(
-      c_across(arrested_date_1:arrested_date_12) == "5", 
+      dplyr::c_across(arrested_date_1:arrested_date_12) == "5", 
       na.rm = TRUE
       ),
-    arrest_count_after_visits = sum(
-      c_across(arrested_date_1:arrested_date_12) == "6", 
+    end_count = sum(
+      dplyr::c_across(arrested_date_1:arrested_date_12) == "6", 
       na.rm = TRUE
       )
-    ) %>%
-  # Calculate the total number of arrests for each subject
-  mutate(arrest_count_total = sum(c_across(v2_count:arrest_count_after_visits))
-         ) %>%
-  ungroup() %>%
+    ) |>
+  dplyr::mutate(
+  # Calculate the number of arrests that occurred in the study period (V2-V5)
+    v2_v5_total = sum(dplyr::c_across(v2_count:v5_count)),
+  # Calculate the number of arrests that occurred in the follow-up period 
+  # (V2-end)
+    v2_end_total = sum(dplyr::c_across(v2_count:end_count))
+  ) |>
+  dplyr::ungroup() |>
   # Select only id, "arrested_during_followup", and count variables
-  select(
-    id, arrested_during_followup, all_of(contains("count"))
-    )
-```
-
-We pivoted our revised arrest data into our desired format.
-We wanted the values for `id`, `arrested_during_followup`, `arrested_count_total`, and `arrest_count_after_visits` to remain constant for all rows, while the counts within the v2-v5 windows (counting the number of arrests since the previous visit) would be pivoted into long-form under the columns `visit` and `arrest_count_since_prev_visit`.
-
-```{r}
-arrest_data <- arrest_data %>% 
-  pivot_longer(
-    v2_count:v5_count,
-    cols_vary = "fastest",
-    names_to = c("visit", ".value"),
-    names_pattern = "(?:v)?([0-5]+|end)_(count)"
-    ) %>%
-  rename_at('count', ~'arrest_count_since_prev_visit')
-```
-
-We trimmed our pivoted data set, to ensure it only contained rows for Visits which were recorded for each subject based on the Master Log dates for each Visit.
-
-```{r}
-arrest_data <- arrest_data %>%
-  mutate(key = paste(id, visit, sep ="-")) %>%
-  filter(key %in% subject_visits) %>%
-  select(-key)
+  dplyr::select(
+    id, all_of(contains(c("count", "total"))), arrested_during_followup
+    ) |>
+  dplyr::mutate(
+  # Calculate a Boolean/Logical Flag, if subject arrested from V2-V5
+    arrested_during_study = ifelse(v2_v5_total > 0, TRUE, FALSE),
+  # Calculate a Boolean/Logical Flag, if subject arrested from V2-1year
+    arrested_during_followup = if_else(v2_end_total > 0, TRUE, FALSE)
+  ) |>
+  dplyr::relocate(id, arrested_during_study, arrested_during_followup) 
 ```
 
 We gave labels to each of these new variables.
 
 ```{r}
 attributes(arrest_data$id)$label <- "Subject ID Number (eligible)"
-attributes(arrest_data$visit)$label <- paste0(
-  "Which visit is the participant completing?"
+attributes(arrest_data$arrested_during_study)$label <- paste0(
+  "Was the subject ever arrested during the study period? (V2-V5 protocol)"
   )
-attributes(arrest_data$arrested_during_followup)$label <- paste0(
-  "Was the subject ever arrested during the followup period?"
+attributes(arrest_data$arrested_during_followup)$label <- paste0(c(
+  "Was the subject ever arrested during the followup period? ",
+  "(V2-1 year protocol)"
+  ))
+attributes(arrest_data$v2_count)$label <- paste0(
+  "Number of recorded arrests between Baseline and V2"
   )
-attributes(arrest_data$arrest_count_after_visits)$label <- paste0(
-  "Number of recorded arrests after the subject's final recorded visit"
+attributes(arrest_data$v3_count)$label <- paste0(
+  "Number of recorded arrests between V2 and V3 protocol dates"
   )
-attributes(arrest_data$arrest_count_total)$label <- paste0(
-  "Total number of arrests recorded for the subject recorded during the ",
-  "follow-up period"
+attributes(arrest_data$v4_count)$label <- paste0(
+  "Number of recorded arrests between V3 and V4 protocol dates"
   )
-attributes(arrest_data$arrest_count_since_prev_visit)$label <- paste0(
-  "Number of recorded arrests in the interval since the subject's last ",
-  "recorded visit"
+attributes(arrest_data$v5_count)$label <- paste0(
+  "Number of recorded arrests between V4 and V5 protocol dates"
   )
+attributes(arrest_data$end_count)$label <- paste0(
+  "Number of recorded arrests between V5 and 1-year protocol dates"
+  )
+attributes(arrest_data$v2_v5_total)$label <- paste0(
+  "Number of recorded arrests during the study period (V2-V5 protocol)"
+  )
+attributes(arrest_data$v2_end_total)$label <- paste0(
+  "Number of recorded arrests during the follow-up period (V2-1 year protocol)"
+  )
+
 ```
 
 ### 💾 Save the Processed Arrest Data
@@ -709,27 +850,28 @@ attributes(arrest_data$arrest_count_since_prev_visit)$label <- paste0(
 We set our desired output paths
 ```{r}
 # RDS version
-rds_path <- here("data", "arrest", "arrest_1_long.rds") 
+rds_path <- here("data", "arrest", "arrest_1.rds") 
 
-# MBC also wants an SPSS version
-spss_path <- here("data", "arrest", "arrest_1_long.sav")
+# MB also wants an SPSS version
+spss_path <- here("data", "arrest", "arrest_1.sav")
 ```
 
 We performed a check for any changes to the data since it was last saved in RDS format.
 
 ```{r}
-# Inputs last modified: 2023-10-23
+# Inputs last modified: 2023-12-08
 
 data_mod_check(
   'df' = arrest_data,
   'df_path_str' = rds_path,
-  'orig_path_str' = here("data", "arrest", "arrest_1_long.rds"),
+  'orig_path_str' = here("data", "arrest", "arrest_1.rds"),
   'mod_dt' = NA,
-  'num_rows' = 985,
-  'num_cols' = 6,
+  'num_rows' = 442,
+  'num_cols' = 10,
   'col_names' = c(
-      'id', 'arrested_during_followup', 'arrest_count_after_visits', 
-      'arrest_count_total', 'visit', 'arrest_count_since_prev_visit'
+      'id', 'arrested_during_study', 'arrested_during_followup', 
+      'v2_count', 'v3_count', 'v4_count', 'v5_count', 'end_count', 
+      'v2_v5_total', 'v2_end_total'
       )
   )
 # TRUE
@@ -738,18 +880,19 @@ data_mod_check(
 And we performed a check for any changes to the data since it was last saved in SPSS format.
 
 ```{r}
-# Inputs last modified: 2023-10-23
+# Inputs last modified: 2023-12-08
 
 data_mod_check(
   'df' = arrest_data,
   'df_path_str' = spss_path,
-  'orig_path_str' = here("data", "arrest", "arrest_1_long.sav"),
+  'orig_path_str' = here("data", "arrest", "arrest_1.sav"),
   'mod_dt' = NA,
-  'num_rows' = 985,
-  'num_cols' = 6,
+  'num_rows' = 442,
+  'num_cols' = 10,
   'col_names' = c(
-      'id', 'arrested_during_followup', 'arrest_count_after_visits', 
-      'arrest_count_total', 'visit', 'arrest_count_since_prev_visit'
+      'id', 'arrested_during_study', 'arrested_during_followup', 
+      'v2_count', 'v3_count', 'v4_count', 'v5_count', 'end_count', 
+      'v2_v5_total', 'v2_end_total'
       )
   )
 # TRUE
@@ -759,10 +902,10 @@ We exported our files.
 
 ```{r}
 # RDS version
-write_rds(arrest_data, rds_path)
+readr::write_rds(arrest_data, rds_path)
 
-# MBC also wants an SPSS version
-write_sav(arrest_data, spss_path)
+# MB also wants an SPSS version
+haven::write_sav(arrest_data, spss_path)
 ```
 
 Print a message for when this file is saved.
@@ -784,8 +927,7 @@ rm(arrest_data)
 
 ## Bridge Session Minutes
 
-The Bridge Session data required calculation of variables in order to convert the Subject-Date collections into Subject-Visit format.
-In order to ensure the most accurate dates for the data collection events for each subject, the Master Log's record of each visit's date window was utilized.
+The Bridge Session data required calculation of variables in order to convert the long-wise list collecting session dates, types, and minutes for each session for each subject into counts and summations by window. In order to ensure the most accurate dates for the data collection events for each subject, the Master Log's record of each visit's date window was utilized.
 
 ### 📥 Import the Data
 
@@ -801,7 +943,7 @@ Import the data.
 Check the most recent file modification dates and print for user when this file is being sourced.
 
 ```{r}
-bridge_data <- read_excel(
+bridge_data <- readxl::read_excel(
   bridge_path,
   sheet = "Sheet1",
   col_names = c(
@@ -830,7 +972,48 @@ cat(
 
 # bridge_session_minutes.xlsx last modified on UTHealth server: 
 # 2023-08-25 10:43:48 
-#  2023-10-23 : Bridge Session data imported with 4377 rows and 10 columns.
+#  2023-12-08 : Bridge Session data imported with 4377 rows and 10 columns.
+```
+
+We also had an Excel sheet of point-fixes, established in a meeting of all PIs to review potential typographical errors in the document on 2023-11-22. Nearly all fixes were due to single digit year typos (i.e. "2001" vs "2021", "12/01/2019" vs "12/01/2018") determined by examining trends in the session record data for each subject, which was recorded chronologically.
+
+```{r}
+point_fix_path <- here(
+  "data", "bridge_session_data", "bridge_point_fixes.xlsx"
+  )
+```
+
+Import the data.
+Check the most recent file modification dates and print for user when this file is being sourced.
+
+```{r}
+bridge_fixes <- readxl::read_excel(
+  point_fix_path,
+  sheet = "Sheet1",
+  col_names = c(
+    'subject', 'original_date', 'new_date'
+  ),
+  col_types = c(
+    "numeric", "date", "date"
+  ),
+  na = c("", ".", "None"),
+  skip = 1
+)
+
+# Print a message for when this file is being sourced
+
+cat(
+  stringr::str_extract(point_fix_path, "([^/]+$)"),
+  "last modified on UTHealth server:",
+  as.character(file.info(point_fix_path)$mtime), "\n",
+  paste(Sys.Date(), ":"),
+  "Bridge Session point-fix data imported with", nrow(bridge_fixes), 
+  "rows and", ncol(bridge_fixes), "columns.\n"
+)
+
+# bridge_point_fixes.xlsx last modified on UTHealth server: 2023-12-08 15:17:06 
+#  2023-12-08 : Bridge Session point-fix data imported with 25 rows and 
+#  3 columns.
 ```
 
 #### Data Check: Changes
@@ -859,31 +1042,52 @@ data_mod_check(
 # TRUE
 ```
 
+We checked for changes to the point-fix data set since this file was last modified.
+
+```{r}
+# Inputs last modified: 2023-12-08
+
+data_mod_check(
+  'df' = bridge_fixes,
+  'df_path_str' = point_fix_path,
+  'orig_path_str' = here(
+      "data", "bridge_session_data", "bridge_point_fixes.xlsx"
+      ),
+  'mod_dt' = '2023-12-08 15:17:06 CDT',
+  'num_rows' = 25,
+  'num_cols' = 3,
+  'col_names' = c(
+      'subject', 'original_date', 'new_date'
+      )
+  )
+# TRUE
+```
+
 We purged the file path for memory management.
 
 ```{r}
 rm(bridge_path)
+rm(point_fix_path)
 ```
 
-### Processing
+### Modification of Data to Facilitate R Processing
 
 The Bridge Session data was written in a format which was favorable for human legibility, but poor for import and machine-legibility in processing.
 
-The column `bridge_date_session` contained text values instead of dates for several subjects, which prohibited importing the column as a date-class column.
-We replaced these string values with missing (`NA`) values, converted the column to a numeric in order to force any remaining string values into missing (`NA`) values, and finally converted the variable into a date-class column that accounts for Excel's format of date storage.
+The column `bridge_date_session` contained text values instead of dates for several subjects, which prohibited importing the column as a date-class column. We replaced these string values with missing (`NA`) values, converted the column to a numeric in order to force any remaining string values into missing (`NA`) values, and finally converted the variable into a date-class column that accounts for Excel's format of date storage.
 
 ```{r}
-bridge_data <- bridge_data %>%
-  mutate(
-    bridge_date_session = if_else(
-      str_detect(bridge_date_session, "[A-Z]|[a-z]"), 
+bridge_data <- bridge_data |>
+  dplyr::mutate(
+    bridge_date_session = dplyr::if_else(
+      stringr::str_detect(bridge_date_session, "[A-Z]|[a-z]"), 
       NA_character_, bridge_date_session
     ),
     bridge_date_session = as.numeric(bridge_date_session),
     bridge_date_session = as.Date(bridge_date_session, origin = "1899-12-30")
   )
 
-# Warning: There was 1 warning in `mutate()`.
+# Warning: There was 1 warning in `dplyr::mutate()`.
 # ℹ In argument: `bridge_date_session = as.numeric(bridge_date_session)`.
 # Caused by warning:
 # ! NAs introduced by coercion
@@ -897,57 +1101,53 @@ bridge_data[1, "bridge_notes"] <- NA_character_
 bridge_data[2, "bridge_notes"] <- NA_character_
 ```
 
-There were several blank dummy rows that were used to increase human legibility of the original Excel file, which needed to be removed prior to processing.
-Since `c_across()` was unable to work with columns of different types, dummy variables were created to indicate which rows within each column only contained missing values.
-The total number was summed for each row, allowing the empty rows to be properly identified and dropped.
-The dummy variables were then dropped.
+There were several blank dummy rows that were used to increase human legibility of the original Excel file, which needed to be removed prior to processing. Since `c_across()` was unable to work with columns of different types, dummy variables were created to indicate which rows within each column only contained missing values. The total number was summed for each row, allowing the empty rows to be properly identified and dropped. The dummy variables were then dropped.
 
 ```{r}
-bridge_data <- bridge_data %>%
+bridge_data <- bridge_data |>
   # Create missing data dummy variables
-  mutate(
-    across(
+  dplyr::mutate(
+    dplyr::across(
       everything(),
       is.na,
       .names = "{col}_miss"
     )
-  ) %>% 
+  ) |> 
   # Sum missing data dummy variables
-  rowwise() %>% 
-  mutate(
-    n_missing = sum(c_across(ends_with("_miss")))
-  ) %>% 
-  ungroup() %>% 
+  dplyr::rowwise() |> 
+  dplyr::mutate(
+    n_missing = sum(dplyr::c_across(ends_with("_miss")))
+  ) |> 
+  dplyr::ungroup() |> 
   # Drop missing data dummy variables
-  select(-ends_with("_miss")) %>% 
+  dplyr::select(-ends_with("_miss")) |> 
   # Drop rows that are missing in every column
-  filter(!n_missing == ncol(bridge_data)) %>%
+  dplyr::filter(!n_missing == ncol(bridge_data)) |>
   # Drop the count of missing variables
-  select(-n_missing)
+  dplyr::select(-n_missing)
 ```
 
-In the Excel sheet the Subject ID number, baseline date, randomization date, and final visit schedule date were only listed in the first set of rows for each participant.
-While this increased human-legibility in Excel, these values had to be carried forward in order to process the file with code.
+In the Excel sheet the Subject ID number, baseline date, randomization date, and final visit schedule date were only listed in the first set of rows for each participant. While this increased human-legibility in Excel, these values had to be carried forward in order to process the file with code.
 
 ```{r}
-bridge_data <- bridge_data %>%
+bridge_data <- bridge_data |>
   # Carry forward id
-  fill(subject) %>% 
-  group_by(subject) %>% 
+  fill(subject) |> 
+  group_by(subject) |> 
   # Carry forward other variables grouped by id
   fill(
     bridge_baseline_date, bridge_v2_rand_date, bridge_v5_sched_final_visit_date
-  ) %>% 
-  ungroup()
+  ) |> 
+  dplyr::ungroup()
 ```
 
 We converted the variable indicating the type of session (`bridge_type`) into a factor.
 
 ```{r}
-bridge_data <- bridge_data %>%
-    mutate(
+bridge_data <- bridge_data |>
+    dplyr::mutate(
     # Change NA to None for type
-    bridge_type = if_else(is.na(bridge_type), 4, bridge_type),
+    bridge_type = dplyr::if_else(is.na(bridge_type), 4, bridge_type),
     # Create factor version
     bridge_type_f = factor(
       bridge_type,
@@ -957,15 +1157,42 @@ bridge_data <- bridge_data %>%
   )
 ```
 
+#### Point-Modification of Dates
+
+Certain dates were identified as having year typos or other issues within the original Bridge Data set. These entries received point-fixes, as agreed by PIs on 2023-11-22.
+
+```{r}
+bridge_fixes <- bridge_fixes |>
+  rename_at('original_date', ~'bridge_date_session')
+
+bridge_data <- left_join(bridge_data, bridge_fixes, by = c('subject', 'bridge_date_session')) |>
+  mutate(bridge_date_session = if_else(
+    !is.na(new_date), 
+    new_date, 
+    bridge_date_session
+    )
+  ) |>
+  select(-new_date)
+```
+
+We purged the point-fix Dataframe, for memory management.
+
+```{r}
+rm(bridge_fixes)
+```
+
+
+### Processing
+
 We merged the Visit Windows calculated from the Master Log data, to facilitate processing each row.
 Using the Visit Windows, we were able to calculate the appropriate study visit to associate with each Bridge Session.
 
 ```{r}
 bridge_data <- left_join(
   bridge_data, visit_windows, by = join_by (subject == id)
-  ) %>%
-  mutate(
-    visit = case_when(
+  ) |>
+  dplyr::mutate(
+    visit = dplyr::case_when(
                is.na(bridge_date_session) ~ 
                  NA,
                # If within a window, assign the value for that
@@ -992,8 +1219,8 @@ bridge_data <- left_join(
 We then used the Session Type to initialize variables to count the number of each type of session, and the number of minutes spent in each session type.
 
 ```{r}
-bridge_data <- bridge_data %>%
-  mutate(
+bridge_data <- bridge_data |>
+  dplyr::mutate(
     # Create a dummy count for each session type
     reg_sessions = ifelse(
         bridge_type_f == 'case_management', 
@@ -1007,8 +1234,8 @@ bridge_data <- bridge_data %>%
         bridge_type_f == 'other', 
         1,
         NA)    
-  ) %>%
-  mutate(
+  ) |>
+  dplyr::mutate(
     # Calculate the number of minutes in each type of session
     reg_minutes = ifelse(
         bridge_type_f == 'case_management', 
@@ -1026,12 +1253,11 @@ bridge_data <- bridge_data %>%
 ```
 
 We then grouped our data by our Session-Visit composite key to aggregate the total number of sessions, minutes spent, and average minutes per session for each session type.
-We also calculated an aggregate total number of sessions, minutes spent, and average minutes per session that included all session types.
 
 ```{r}
-bridge_data <- bridge_data %>%
-  group_by(subject, visit) %>%
-  mutate(
+bridge_data <- bridge_data |>
+  group_by(subject, visit) |>
+  dplyr::mutate(
     # Calculate the total number of each session type, and total minutes
     # per session type, for each combination of Subject and Visit
     reg_sessions = sum(reg_sessions, na.rm = TRUE),
@@ -1040,210 +1266,379 @@ bridge_data <- bridge_data %>%
     reg_minutes = sum(reg_minutes, na.rm = TRUE),
     crisis_minutes = sum(crisis_minutes, na.rm = TRUE),
     other_minutes = sum(other_minutes, na.rm = TRUE)
-  ) %>%
-  mutate(
+  ) |>
+  dplyr::mutate(
     # Calculate the average duration of each session type for each
     # combination of Subject and Visit
-    reg_avg_duration = reg_minutes / reg_sessions,
-    crisis_avg_duration = crisis_minutes / crisis_sessions,
-    other_avg_duration = other_minutes / other_sessions
-  ) %>%
-  ungroup() %>%
-  rowwise() %>%
-  mutate(
-    # Calculate the total number of sessions and total minutes in session
-    # across all session types
-    total_sessions = sum(
-        reg_sessions, crisis_sessions, other_sessions, na.rm = TRUE
+    reg_avg_duration = dplyr::if_else(
+      reg_sessions != 0, reg_minutes / reg_sessions, 0
       ),
-    total_minutes = sum(
-        reg_minutes, crisis_minutes, other_minutes, na.rm = TRUE
+    crisis_avg_duration = dplyr::if_else(
+      crisis_sessions != 0, crisis_minutes / crisis_sessions, 0
+      ),
+    other_avg_duration = dplyr::if_else(
+      other_sessions != 0, other_minutes / other_sessions, 0
       )
-  ) %>%
-  mutate(
-    # Calculate the average number of minutes spent in session across all
-    # session types
-    total_avg_duration = total_minutes / total_sessions
-  ) %>%
-  mutate(
-    # Convert 'NaN' values in the 'avg' cols to NA missing values
-    across(all_of(contains('avg')), ~ifelse(is.nan(.), NA, .))
-  ) %>%
-  ungroup()
+  ) |>
+  dplyr::ungroup() |>
+  # Reduce to subject, visit, and the session/minute/avg columns
+  dplyr::select(
+    subject, visit,
+    reg_sessions, reg_minutes, reg_avg_duration, 
+    crisis_sessions, crisis_minutes, crisis_avg_duration, 
+    other_minutes, other_sessions, other_avg_duration
+    ) |>
+  # Extract only unique rows
+  dplyr::distinct() |>
+  # Select only records that were within a visit window
+  dplyr::filter(!is.na(visit)) |>
+    # Calculate the total number of sessions, minutes, and average duration
+  dplyr::group_by(subject, visit) |>
+  dplyr::mutate(
+    total_sessions = sum(reg_sessions + crisis_sessions + other_sessions),
+    total_minutes = sum(reg_minutes + crisis_minutes + other_minutes),
+    total_avg_duration = if_else(
+      total_sessions != 0, total_minutes/total_sessions, 0
+      )
+  ) |>
+  dplyr::ungroup()
 ```
 
-There were several Subjects with Bridge Sessions with dates significantly outside of their monitoring window, who had a collection for Visit 5.
-These Sessions were transferred to a separate data frame to export for potential review.
+We then pivoted our data into our desired format, wherein a single row provided counts for each subject. We also calculated an aggregate total number of sessions, minutes spent, and average minutes per session that included all session types, for the V2-V5 range.
 
 ```{r}
-questionable_sessions <- bridge_data %>%
-  filter(visit == 6 & !is.na(v5_dt)) %>%
-  select(
-    'subject', 'bridge_baseline_date', 'bridge_v2_rand_date', 
-    'bridge_v5_sched_final_visit_date', 'bridge_date_session', 'bridge_type',
-    'bridge_duration', 'bridge_flag_ns_v2', 'bridge_flag_dropped', 
-    'bridge_notes'
-  ) %>%
-  arrange(subject, bridge_date_session)
-```
-
-We dropped variables that were not desired for our analysis set (such as the `bridge_notes` column), variables which were otherwise no longer needed after previous processing (such as `bridge_type` and `bridge_date_session`), and the visit window variables.
-We reduced our data set to contain only unique rows.
-
-```{r}
-bridge_data <- bridge_data %>%
-  select(-c(
-    'bridge_type', 'bridge_type_f', 'bridge_date_session', 'bridge_duration',
-    'bridge_flag_ns_v2', 'bridge_flag_dropped', 'bridge_notes',
-    'bridge_baseline_date', 'bridge_v2_rand_date', 
-    'bridge_v5_sched_final_visit_date'
+bridge_data <- bridge_data |>
+  # Omit any records after the V5 protocol date
+  dplyr::filter(visit != '6') |>
+  dplyr::mutate(visit = dplyr::case_when(
+    visit == '2' ~ 'v1_v2',
+    visit == '3' ~ 'v2_v3',
+    visit == '4' ~ 'v3_v4',
+    visit == '5' ~ 'v4_v5'
+  )) |> 
+  # Pivot into a single row per subject
+  tidyr::pivot_wider(
+    names_from = visit, 
+    values_from = c(
+      reg_sessions, reg_minutes, reg_avg_duration, 
+      crisis_sessions, crisis_minutes, crisis_avg_duration, 
+      other_minutes, other_sessions, other_avg_duration,
+      total_sessions, total_minutes, total_avg_duration
+      )
+  ) |>
+  # Fill any missing fields with 0
+  dplyr::mutate_all(~replace_na(., 0)) |>
+  # Calculate the V2-V5 counts
+  dplyr::rowwise() |>
+  dplyr::mutate(
+    reg_sessions_v2_v5 = sum(
+      reg_sessions_v2_v3, reg_sessions_v3_v4, reg_sessions_v4_v5
+      ),
+    reg_minutes_v2_v5 = sum(
+      reg_minutes_v2_v3, reg_minutes_v3_v4, reg_minutes_v4_v5
+      ),
+    reg_avg_duration_v2_v5 = dplyr::if_else(
+      reg_sessions_v2_v5 != 0, 
+      reg_minutes_v2_v5 / reg_sessions_v2_v5,
+      0
+    ),
+    crisis_sessions_v2_v5 = sum(
+      crisis_sessions_v2_v3, crisis_sessions_v3_v4, crisis_sessions_v4_v5
+      ),
+    crisis_minutes_v2_v5 = sum(
+      crisis_minutes_v2_v3, crisis_minutes_v3_v4, crisis_minutes_v4_v5
+      ),
+    crisis_avg_duration_v2_v5 = dplyr::if_else(
+      crisis_sessions_v2_v5 != 0, 
+      crisis_minutes_v2_v5 / crisis_sessions_v2_v5,
+      0
+    ),
+    other_sessions_v2_v5 = sum(
+      other_sessions_v2_v3, other_sessions_v3_v4, other_sessions_v4_v5
+      ),
+    other_minutes_v2_v5 = sum(
+      other_minutes_v2_v3, other_minutes_v3_v4, other_minutes_v4_v5
+      ),
+    other_avg_duration_v2_v5 = dplyr::if_else(
+      other_sessions_v2_v5 != 0, 
+      other_minutes_v2_v5 / other_sessions_v2_v5,
+      0
+    ),
+    total_sessions_v2_v5 = sum(
+      total_sessions_v2_v3, total_sessions_v3_v4, total_sessions_v4_v5
+      ),
+    total_minutes_v2_v5 = sum(
+      total_minutes_v2_v3, total_minutes_v3_v4, total_minutes_v4_v5
+      ),
+    total_avg_duration_v2_v5 = dplyr::if_else(
+      total_sessions_v2_v5 != 0, 
+      total_minutes_v2_v5 / total_sessions_v2_v5,
+      0
     )
-  ) %>%
-  select(-(all_of(ends_with(c('_dt', '_window'))))) %>%
-  distinct()
-```
-
-We isolated all sessions which were indicated to occur after the subject's last visit (visit == 6), and the calculated variables for those rows.
-We renamed these columns to facilitate appending these values back into our bridge data set as separate columns that would be consistent at the subject level.
-
-```{r}
-post_bridge_cols <- bridge_data %>%
-  filter(visit == 6) %>%
-  select(subject, all_of(contains(c("sessions", "minutes", "duration"))))
-
-colnames(post_bridge_cols)[colnames(post_bridge_cols) != 'subject'] <- c(
-  paste(
-    'post_visits', 
-    colnames(post_bridge_cols)[colnames(post_bridge_cols) != 'subject'], 
-    sep = '_')
-  ) 
-```
-
-We trimmed our data set to remove any row that was missing a value for `visit` (indicating the subject did not have any bridge sessions recorded), or had a `visit` value of 6 (indicating the session occurred after the last recorded visit).
-The isolated post-visit sessions were added to each row for the matching subject.
-
-```{r}
-bridge_data <- left_join(
-  bridge_data %>%
-    filter(!is.na(visit)) %>%
-    filter(visit != 6),
-  post_bridge_cols,
-  by = 'subject'
+  ) |>
+  # Organize columns
+  dplyr::ungroup() |>
+  dplyr::relocate(
+    subject, 
+    reg_sessions_v1_v2, reg_minutes_v1_v2, reg_avg_duration_v1_v2,
+    reg_sessions_v2_v3, reg_minutes_v2_v3, reg_avg_duration_v2_v3,
+    reg_sessions_v3_v4, reg_minutes_v3_v4, reg_avg_duration_v3_v4,
+    reg_sessions_v4_v5, reg_minutes_v4_v5, reg_avg_duration_v4_v5,
+    reg_sessions_v2_v5, reg_minutes_v2_v5, reg_avg_duration_v2_v5,
+    crisis_sessions_v1_v2, crisis_minutes_v1_v2, crisis_avg_duration_v1_v2,
+    crisis_sessions_v2_v3, crisis_minutes_v2_v3, crisis_avg_duration_v2_v3,
+    crisis_sessions_v3_v4, crisis_minutes_v3_v4, crisis_avg_duration_v3_v4,
+    crisis_sessions_v4_v5, crisis_minutes_v4_v5, crisis_avg_duration_v4_v5,
+    crisis_sessions_v2_v5, crisis_minutes_v2_v5, crisis_avg_duration_v2_v5,
+    other_sessions_v1_v2, other_minutes_v1_v2, other_avg_duration_v1_v2,
+    other_sessions_v2_v3, other_minutes_v2_v3, other_avg_duration_v2_v3,
+    other_sessions_v3_v4, other_minutes_v3_v4, other_avg_duration_v3_v4,
+    other_sessions_v4_v5, other_minutes_v4_v5, other_avg_duration_v4_v5,
+    other_sessions_v2_v5, other_minutes_v2_v5, other_avg_duration_v2_v5,
+    total_sessions_v1_v2, total_minutes_v1_v2, total_avg_duration_v1_v2,
+    total_sessions_v2_v3, total_minutes_v2_v3, total_avg_duration_v2_v3,
+    total_sessions_v3_v4, total_minutes_v3_v4, total_avg_duration_v3_v4,
+    total_sessions_v4_v5, total_minutes_v4_v5, total_avg_duration_v4_v5,
+    total_sessions_v2_v5, total_minutes_v2_v5, total_avg_duration_v2_v5
   )
-```
-
-We trimmed our pivoted data set, to ensure it only contained rows for Visits which were recorded for each subject based on the Master Log dates for each Visit.
-
-```{r}
-bridge_data <- bridge_data %>%
-  mutate(key = paste(subject, visit, sep ="-")) %>%
-  filter((key %in% subject_visits)) %>%
-  select(-key)
 ```
 
 We gave labels to each of the variables in this processed data set.
 
 ```{r}
 attributes(bridge_data$subject)$label <- "Subject ID Number (eligible)"
-attributes(bridge_data$visit)$label <- paste0(
-  "Which visit is the participant completing?"
-  )
-attributes(bridge_data$reg_sessions)$label <- paste0(
-  "Number of regular case management sessions since the previous ",
-  "data collection visit"
-  )
-attributes(bridge_data$reg_minutes)$label <- paste0(
-  "Number of minutes spent in regular case management sessions ",
-  "since the  previous data collection visit"
-  )
-attributes(bridge_data$reg_avg_duration)$label <- paste0(
-  "Average number of minutes per session for regular case management ", 
-  "sessions since the  previous data collection visit"
-  )
-attributes(bridge_data$crisis_sessions)$label <- paste0(
-  "Number of crisis case management sessions since theprevious ",
-  "data collection visit"
-  )
-attributes(bridge_data$crisis_minutes)$label <- paste0(
-  "Number of minutes spent in crisis case management sessions ",
-  "since the  previous data collection visit"
-  )
-attributes(bridge_data$crisis_avg_duration)$label <- paste0(
-  "Average number of minutes per session for crisis case management ", 
-  "sessions since the  previous data collection visit"
-  )
-attributes(bridge_data$other_sessions)$label <- paste0(
-  "Number of other case management sessions since the previous ",
-  "data collection visit"
-  )
-attributes(bridge_data$other_minutes)$label <- paste0(
-  "Number of minutes spent in other case management sessions ",
-  "since the  previous data collection visit"
-  )
-attributes(bridge_data$other_avg_duration)$label <- paste0(
-  "Average number of minutes per session for other case management ", 
-  "sessions since the  previous data collection visit"
-  )
-attributes(bridge_data$total_sessions)$label <- paste0(
-  "Total of case management sessions of any type since theprevious ",
-  "data collection visit"
-  )
-attributes(bridge_data$total_minutes)$label <- paste0(
-  "Total number of minutes spent in case management sessions ",
-  "of any type since the  previous data collection visit"
-  )
-attributes(bridge_data$total_avg_duration)$label <- paste0(
-  "Average number of minutes per session for case management ", 
-  "sessions of any type since the  previous data collection visit"
-  )
 
-attributes(bridge_data$post_visits_reg_sessions)$label <- paste0(
-  "Number of regular case management sessions since the last recorded ",
-  "data collection visit"
+# Regular Sessions
+attributes(bridge_data$reg_sessions_v1_v2)$label <- paste0(
+  "Number of regular case management sessions, V1-V2"
   )
-attributes(bridge_data$post_visits_reg_minutes)$label <- paste0(
-  "Number of minutes spent in regular case management sessions ",
-  "since the last recorded data collection visit"
+attributes(bridge_data$reg_sessions_v2_v3)$label <- paste0(
+  "Number of regular case management sessions, V2-V3"
   )
-attributes(bridge_data$post_visits_reg_avg_duration)$label <- paste0(
+attributes(bridge_data$reg_sessions_v3_v4)$label <- paste0(
+  "Number of regular case management sessions, V3-V4"
+  )
+attributes(bridge_data$reg_sessions_v4_v5)$label <- paste0(
+  "Number of regular case management sessions, V4-V5"
+  )
+attributes(bridge_data$reg_sessions_v2_v5)$label <- paste0(
+  "Number of regular case management sessions, V2-V5"
+  )
+# Regular Minutes
+attributes(bridge_data$reg_minutes_v1_v2)$label <- paste0(
+  "Number of minutes spent in regular case management sessions, ",
+  "V1-V2"
+  )
+attributes(bridge_data$reg_minutes_v2_v3)$label <- paste0(
+  "Number of minutes spent in regular case management sessions, ",
+  "V2-V3"
+  )
+attributes(bridge_data$reg_minutes_v3_v4)$label <- paste0(
+  "Number of minutes spent in regular case management sessions, ",
+  "V3-V4"
+  )
+attributes(bridge_data$reg_minutes_v4_v5)$label <- paste0(
+  "Number of minutes spent in regular case management sessions, ",
+  "V4-V5"
+  )
+attributes(bridge_data$reg_minutes_v2_v5)$label <- paste0(
+  "Number of minutes spent in regular case management sessions, ",
+  "V2-V5"
+  )
+# Regular Average Duration
+attributes(bridge_data$reg_avg_duration_v1_v2)$label <- paste0(
   "Average number of minutes per session for regular case management ", 
-  "sessions since the last recorded recorded data collection visit"
+  "sessions, V1-V2"
   )
-attributes(bridge_data$post_visits_crisis_sessions)$label <- paste0(
-  "Number of crisis case management sessions since the last recorded ",
-  "data collection visit"
+attributes(bridge_data$reg_avg_duration_v2_v3)$label <- paste0(
+  "Average number of minutes per session for regular case management ", 
+  "sessions, V2-V3"
   )
-attributes(bridge_data$post_visits_crisis_minutes)$label <- paste0(
-  "Number of minutes spent in crisis case management sessions ",
-  "since the last recorded data collection visit"
+attributes(bridge_data$reg_avg_duration_v3_v4)$label <- paste0(
+  "Average number of minutes per session for regular case management ", 
+  "sessions, V3-V4"
   )
-attributes(bridge_data$post_visits_crisis_avg_duration)$label <- paste0(
-  "Average number of minutes per session for crisis case management ", 
-  "sessions since the last recorded data collection visit"
+attributes(bridge_data$reg_avg_duration_v4_v5)$label <- paste0(
+  "Average number of minutes per session for regular case management ", 
+  "sessions, V4-V5"
   )
-attributes(bridge_data$post_visits_other_sessions)$label <- paste0(
-  "Number of other case management sessions since the last recorded ",
-  "data collection visit"
+attributes(bridge_data$reg_avg_duration_v2_v5)$label <- paste0(
+  "Average number of minutes per session for regular case management ", 
+  "sessions, V2-V5"
   )
-attributes(bridge_data$post_visits_other_minutes)$label <- paste0(
-  "Number of minutes spent in other case management sessions ",
-  "since the last recorded data collection visit"
+# Crisis Sessions
+attributes(bridge_data$crisis_sessions_v1_v2)$label <- paste0(
+  "Number of Crisis case management sessions, V1-V2"
   )
-attributes(bridge_data$post_visits_other_avg_duration)$label <- paste0(
-  "Average number of minutes per session for other case management ", 
-  "sessions since the last recorded data collection visit"
+attributes(bridge_data$crisis_sessions_v2_v3)$label <- paste0(
+  "Number of Crisis case management sessions, V2-V3"
   )
-attributes(bridge_data$post_visits_total_sessions)$label <- paste0(
-  "Total of case management sessions of any type since the last recorded ",
-  "data collection visit"
+attributes(bridge_data$crisis_sessions_v3_v4)$label <- paste0(
+  "Number of Crisis case management sessions, V3-V4"
   )
-attributes(bridge_data$post_visits_total_minutes)$label <- paste0(
-  "Total number of minutes spent in case management sessions ",
-  "of any type since the last recorded data collection visit"
+attributes(bridge_data$crisis_sessions_v4_v5)$label <- paste0(
+  "Number of Crisis case management sessions, V4-V5"
   )
-attributes(bridge_data$post_visits_total_avg_duration)$label <- paste0(
-  "Average number of minutes per session for case management ", 
-  "sessions of any type since the last recorded data collection visit"
+attributes(bridge_data$crisis_sessions_v2_v5)$label <- paste0(
+  "Number of Crisis case management sessions, V2-V5"
+  )
+# Crisis Minutes
+attributes(bridge_data$crisis_minutes_v1_v2)$label <- paste0(
+  "Number of minutes spent in Crisis case management sessions, ",
+  "V1-V2"
+  )
+attributes(bridge_data$crisis_minutes_v2_v3)$label <- paste0(
+  "Number of minutes spent in Crisis case management sessions, ",
+  "V2-V3"
+  )
+attributes(bridge_data$crisis_minutes_v3_v4)$label <- paste0(
+  "Number of minutes spent in Crisis case management sessions, ",
+  "V3-V4"
+  )
+attributes(bridge_data$crisis_minutes_v4_v5)$label <- paste0(
+  "Number of minutes spent in Crisis case management sessions, ",
+  "V4-V5"
+  )
+attributes(bridge_data$crisis_minutes_v2_v5)$label <- paste0(
+  "Number of minutes spent in Crisis case management sessions, ",
+  "V2-V5"
+  )
+# Crisis Average Duration
+attributes(bridge_data$crisis_avg_duration_v1_v2)$label <- paste0(
+  "Average number of minutes per session for Crisis case management ", 
+  "sessions, V1-V2"
+  )
+attributes(bridge_data$crisis_avg_duration_v2_v3)$label <- paste0(
+  "Average number of minutes per session for Crisis case management ", 
+  "sessions, V2-V3"
+  )
+attributes(bridge_data$crisis_avg_duration_v3_v4)$label <- paste0(
+  "Average number of minutes per session for Crisis case management ", 
+  "sessions, V3-V4"
+  )
+attributes(bridge_data$crisis_avg_duration_v4_v5)$label <- paste0(
+  "Average number of minutes per session for Crisis case management ", 
+  "sessions, V4-V5"
+  )
+attributes(bridge_data$crisis_avg_duration_v2_v5)$label <- paste0(
+  "Average number of minutes per session for Crisis case management ", 
+  "sessions, V2-V5"
+  )
+# Other Sessions
+attributes(bridge_data$other_sessions_v1_v2)$label <- paste0(
+  "Number of Other case management sessions, V1-V2"
+  )
+attributes(bridge_data$other_sessions_v2_v3)$label <- paste0(
+  "Number of Other case management sessions, V2-V3"
+  )
+attributes(bridge_data$other_sessions_v3_v4)$label <- paste0(
+  "Number of Other case management sessions, V3-V4"
+  )
+attributes(bridge_data$other_sessions_v4_v5)$label <- paste0(
+  "Number of Other case management sessions, V4-V5"
+  )
+attributes(bridge_data$other_sessions_v2_v5)$label <- paste0(
+  "Number of Other case management sessions, V2-V5"
+  )
+# Other Minutes
+attributes(bridge_data$other_minutes_v1_v2)$label <- paste0(
+  "Number of minutes spent in Other case management sessions, ",
+  "V1-V2"
+  )
+attributes(bridge_data$other_minutes_v2_v3)$label <- paste0(
+  "Number of minutes spent in Other case management sessions, ",
+  "V2-V3"
+  )
+attributes(bridge_data$other_minutes_v3_v4)$label <- paste0(
+  "Number of minutes spent in Other case management sessions, ",
+  "V3-V4"
+  )
+attributes(bridge_data$other_minutes_v4_v5)$label <- paste0(
+  "Number of minutes spent in Other case management sessions, ",
+  "V4-V5"
+  )
+attributes(bridge_data$other_minutes_v2_v5)$label <- paste0(
+  "Number of minutes spent in Other case management sessions, ",
+  "V2-V5"
+  )
+# Other Average Duration
+attributes(bridge_data$other_avg_duration_v1_v2)$label <- paste0(
+  "Average number of minutes per session for Other case management ", 
+  "sessions, V1-V2"
+  )
+attributes(bridge_data$other_avg_duration_v2_v3)$label <- paste0(
+  "Average number of minutes per session for Other case management ", 
+  "sessions, V2-V3"
+  )
+attributes(bridge_data$other_avg_duration_v3_v4)$label <- paste0(
+  "Average number of minutes per session for Other case management ", 
+  "sessions, V3-V4"
+  )
+attributes(bridge_data$other_avg_duration_v4_v5)$label <- paste0(
+  "Average number of minutes per session for Other case management ", 
+  "sessions, V4-V5"
+  )
+attributes(bridge_data$other_avg_duration_v2_v5)$label <- paste0(
+  "Average number of minutes per session for Other case management ", 
+  "sessions, V2-V5"
+  )
+# Total Sessions
+attributes(bridge_data$total_sessions_v1_v2)$label <- paste0(
+  "Number of case management sessions, any type, V1-V2"
+  )
+attributes(bridge_data$total_sessions_v2_v3)$label <- paste0(
+  "Number of case management sessions, any type V2-V3"
+  )
+attributes(bridge_data$total_sessions_v3_v4)$label <- paste0(
+  "Number of case management sessions, any type, V3-V4"
+  )
+attributes(bridge_data$total_sessions_v4_v5)$label <- paste0(
+  "Number of case management sessions, any type, V4-V5"
+  )
+attributes(bridge_data$total_sessions_v2_v5)$label <- paste0(
+  "Number of case management sessions, any type, V2-V5"
+  )
+# Total Minutes
+attributes(bridge_data$total_minutes_v1_v2)$label <- paste0(
+  "Number of minutes spent in case management sessions, any type, ",
+  "V1-V2"
+  )
+attributes(bridge_data$total_minutes_v2_v3)$label <- paste0(
+  "Number of minutes spent in case management sessions, any type, ",
+  "V2-V3"
+  )
+attributes(bridge_data$total_minutes_v3_v4)$label <- paste0(
+  "Number of minutes spent in case management sessions, any type, ",
+  "V3-V4"
+  )
+attributes(bridge_data$total_minutes_v4_v5)$label <- paste0(
+  "Number of minutes spent in case management sessions, any type, ",
+  "V4-V5"
+  )
+attributes(bridge_data$total_minutes_v2_v5)$label <- paste0(
+  "Number of minutes spent in case management sessions, any type, ",
+  "V2-V5"
+  )
+# Total Average Duration
+attributes(bridge_data$total_avg_duration_v1_v2)$label <- paste0(
+  "Average number of minutes per session for case management, any type ", 
+  "sessions, V1-V2"
+  )
+attributes(bridge_data$total_avg_duration_v2_v3)$label <- paste0(
+  "Average number of minutes per session for case management, any type ", 
+  "sessions, V2-V3"
+  )
+attributes(bridge_data$total_avg_duration_v3_v4)$label <- paste0(
+  "Average number of minutes per session for case management, any type ", 
+  "sessions, V3-V4"
+  )
+attributes(bridge_data$total_avg_duration_v4_v5)$label <- paste0(
+  "Average number of minutes per session for case management, any type ", 
+  "sessions, V4-V5"
+  )
+attributes(bridge_data$total_avg_duration_v2_v5)$label <- paste0(
+  "Average number of minutes per session for case management, any type ", 
+  "sessions, V2-V5"
   )
 ```
 
@@ -1254,50 +1649,58 @@ We set our desired output paths for the processed data
 ```{r}
 # RDS version
 rds_path <- here(
-  "data", "bridge_session_data", "bridge_1_long.rds"
+  "data", "bridge_session_data", "bridge_1.rds"
   )
 
-# MBC also wants an SPSS version
+# MB also wants an SPSS version
 spss_path <- here(
-  "data", "bridge_session_data", "bridge_1_long.sav"
-  )
-
-# Questionable data in RDS
-q_rds_path <- here(
-  "data", "bridge_session_data", "bridge_0_questionable_cols.rds"
-  )
-
-# Questionable data in EXCEL format to facilitate manual review
-q_xlsx_path <- here(
-  "data", "bridge_session_data", "bridge_0_questionable_cols.xlsx"
+  "data", "bridge_session_data", "bridge_1.sav"
   )
 ```
 
 We performed a check for any changes to the processed data since it was last saved in RDS format.
 
 ```{r}
-# Inputs last modified: 2023-10-23
+# Inputs last modified: 2023-12-08
 
 data_mod_check(
   'df' = bridge_data,
   'df_path_str' = rds_path,
   'orig_path_str' = here(
-      "data", "bridge_session_data", "bridge_1_long.rds"
+      "data", "bridge_session_data", "bridge_1.rds"
       ),
   'mod_dt' = NA,
-  'num_rows' = 517,
-  'num_cols' = 26,
+  'num_rows' = 334,
+  'num_cols' = 61,
   'col_names' = c(
-      'subject', 'visit', 'reg_sessions', 'crisis_sessions', 'other_sessions', 
-      'reg_minutes', 'crisis_minutes', 'other_minutes', 'reg_avg_duration', 
-      'crisis_avg_duration', 'other_avg_duration', 'total_sessions', 
-      'total_minutes', 'total_avg_duration', 'post_visits_reg_sessions', 
-      'post_visits_crisis_sessions', 'post_visits_other_sessions', 
-      'post_visits_total_sessions', 'post_visits_reg_minutes', 
-      'post_visits_crisis_minutes', 'post_visits_other_minutes', 
-      'post_visits_total_minutes', 'post_visits_reg_avg_duration', 
-      'post_visits_crisis_avg_duration', 'post_visits_other_avg_duration', 
-      'post_visits_total_avg_duration'
+      'subject', 'reg_sessions_v1_v2', 'reg_minutes_v1_v2', 
+      'reg_avg_duration_v1_v2', 'reg_sessions_v2_v3', 'reg_minutes_v2_v3', 
+      'reg_avg_duration_v2_v3', 'reg_sessions_v3_v4', 'reg_minutes_v3_v4', 
+      'reg_avg_duration_v3_v4', 'reg_sessions_v4_v5', 'reg_minutes_v4_v5', 
+      'reg_avg_duration_v4_v5', 'reg_sessions_v2_v5', 'reg_minutes_v2_v5', 
+      'reg_avg_duration_v2_v5', 'crisis_sessions_v1_v2', 
+      'crisis_minutes_v1_v2', 'crisis_avg_duration_v1_v2', 
+      'crisis_sessions_v2_v3', 'crisis_minutes_v2_v3', 
+      'crisis_avg_duration_v2_v3', 'crisis_sessions_v3_v4', 
+      'crisis_minutes_v3_v4', 'crisis_avg_duration_v3_v4', 
+      'crisis_sessions_v4_v5', 'crisis_minutes_v4_v5', 
+      'crisis_avg_duration_v4_v5', 'crisis_sessions_v2_v5', 
+      'crisis_minutes_v2_v5', 'crisis_avg_duration_v2_v5', 
+      'other_sessions_v1_v2', 'other_minutes_v1_v2', 
+      'other_avg_duration_v1_v2', 'other_sessions_v2_v3', 
+      'other_minutes_v2_v3', 'other_avg_duration_v2_v3', 
+      'other_sessions_v3_v4', 'other_minutes_v3_v4', 
+      'other_avg_duration_v3_v4', 'other_sessions_v4_v5', 
+      'other_minutes_v4_v5', 'other_avg_duration_v4_v5', 
+      'other_sessions_v2_v5', 'other_minutes_v2_v5', 
+      'other_avg_duration_v2_v5', 'total_sessions_v1_v2', 
+      'total_minutes_v1_v2', 'total_avg_duration_v1_v2', 
+      'total_sessions_v2_v3', 'total_minutes_v2_v3', 
+      'total_avg_duration_v2_v3', 'total_sessions_v3_v4', 
+      'total_minutes_v3_v4', 'total_avg_duration_v3_v4', 
+      'total_sessions_v4_v5', 'total_minutes_v4_v5', 
+      'total_avg_duration_v4_v5', 'total_sessions_v2_v5', 
+      'total_minutes_v2_v5', 'total_avg_duration_v2_v5'
       )
   )
 # TRUE
@@ -1306,76 +1709,46 @@ data_mod_check(
 And we performed a check for any changes to the processed data since it was last saved in SPSS format.
 
 ```{r}
-# Inputs last modified: 2023-10-23
+# Inputs last modified: 2023-12-08
 
 data_mod_check(
   'df' = bridge_data,
   'df_path_str' = spss_path,
   'orig_path_str' = here(
-      "data", "bridge_session_data", "bridge_1_long.sav"
+      "data", "bridge_session_data", "bridge_1.sav"
       ),
   'mod_dt' = NA,
-  'num_rows' = 517,
-  'num_cols' = 26,
+  'num_rows' = 334,
+  'num_cols' = 61,
   'col_names' = c(
-      'subject', 'visit', 'reg_sessions', 'crisis_sessions', 'other_sessions', 
-      'reg_minutes', 'crisis_minutes', 'other_minutes', 'reg_avg_duration', 
-      'crisis_avg_duration', 'other_avg_duration', 'total_sessions', 
-      'total_minutes', 'total_avg_duration', 'post_visits_reg_sessions', 
-      'post_visits_crisis_sessions', 'post_visits_other_sessions', 
-      'post_visits_total_sessions', 'post_visits_reg_minutes', 
-      'post_visits_crisis_minutes', 'post_visits_other_minutes', 
-      'post_visits_total_minutes', 'post_visits_reg_avg_duration', 
-      'post_visits_crisis_avg_duration', 'post_visits_other_avg_duration', 
-      'post_visits_total_avg_duration'
-      )
-  )
-# TRUE
-```
-
-We performed a check for any changes to the questionable data since it was last saved in RDS format.
-
-```{r}
-# Inputs last modified: 2023-10-23
-
-data_mod_check(
-  'df' = questionable_sessions,
-  'df_path_str' = q_rds_path,
-  'orig_path_str' = here(
-      "data", "bridge_session_data", "bridge_0_questionable_cols.rds"
-      ),
-  'mod_dt' = NA,
-  'num_rows' = 107,
-  'num_cols' = 10,
-  'col_names' = c(
-      'subject', 'bridge_baseline_date', 'bridge_v2_rand_date', 
-      'bridge_v5_sched_final_visit_date', 'bridge_date_session', 
-      'bridge_type', 'bridge_duration', 'bridge_flag_ns_v2', 
-      'bridge_flag_dropped', 'bridge_notes'
-      )
-  )
-# TRUE
-```
-
-And we performed a check for any changes to the questionable data since it was last saved in XLSX format.
-
-```{r}
-# Inputs last modified: 2023-10-23
-
-data_mod_check(
-  'df' = questionable_sessions,
-  'df_path_str' = q_xlsx_path,
-  'orig_path_str' = here(
-      "data", "bridge_session_data", "bridge_0_questionable_cols.xlsx"
-      ),
-  'mod_dt' = NA,
-  'num_rows' = 107,
-  'num_cols' = 10,
-  'col_names' = c(
-      'subject', 'bridge_baseline_date', 'bridge_v2_rand_date', 
-      'bridge_v5_sched_final_visit_date', 'bridge_date_session', 
-      'bridge_type', 'bridge_duration', 'bridge_flag_ns_v2', 
-      'bridge_flag_dropped', 'bridge_notes'
+      'subject', 'reg_sessions_v1_v2', 'reg_minutes_v1_v2', 
+      'reg_avg_duration_v1_v2', 'reg_sessions_v2_v3', 'reg_minutes_v2_v3', 
+      'reg_avg_duration_v2_v3', 'reg_sessions_v3_v4', 'reg_minutes_v3_v4', 
+      'reg_avg_duration_v3_v4', 'reg_sessions_v4_v5', 'reg_minutes_v4_v5', 
+      'reg_avg_duration_v4_v5', 'reg_sessions_v2_v5', 'reg_minutes_v2_v5', 
+      'reg_avg_duration_v2_v5', 'crisis_sessions_v1_v2', 
+      'crisis_minutes_v1_v2', 'crisis_avg_duration_v1_v2', 
+      'crisis_sessions_v2_v3', 'crisis_minutes_v2_v3', 
+      'crisis_avg_duration_v2_v3', 'crisis_sessions_v3_v4', 
+      'crisis_minutes_v3_v4', 'crisis_avg_duration_v3_v4', 
+      'crisis_sessions_v4_v5', 'crisis_minutes_v4_v5', 
+      'crisis_avg_duration_v4_v5', 'crisis_sessions_v2_v5', 
+      'crisis_minutes_v2_v5', 'crisis_avg_duration_v2_v5', 
+      'other_sessions_v1_v2', 'other_minutes_v1_v2', 
+      'other_avg_duration_v1_v2', 'other_sessions_v2_v3', 
+      'other_minutes_v2_v3', 'other_avg_duration_v2_v3', 
+      'other_sessions_v3_v4', 'other_minutes_v3_v4', 
+      'other_avg_duration_v3_v4', 'other_sessions_v4_v5', 
+      'other_minutes_v4_v5', 'other_avg_duration_v4_v5', 
+      'other_sessions_v2_v5', 'other_minutes_v2_v5', 
+      'other_avg_duration_v2_v5', 'total_sessions_v1_v2', 
+      'total_minutes_v1_v2', 'total_avg_duration_v1_v2', 
+      'total_sessions_v2_v3', 'total_minutes_v2_v3', 
+      'total_avg_duration_v2_v3', 'total_sessions_v3_v4', 
+      'total_minutes_v3_v4', 'total_avg_duration_v3_v4', 
+      'total_sessions_v4_v5', 'total_minutes_v4_v5', 
+      'total_avg_duration_v4_v5', 'total_sessions_v2_v5', 
+      'total_minutes_v2_v5', 'total_avg_duration_v2_v5'
       )
   )
 # TRUE
@@ -1385,16 +1758,11 @@ We exported our files.
 
 ```{r}
 # Processed Bridge data RDS
-write_rds(bridge_data, rds_path)
+readr::write_rds(bridge_data, rds_path)
 
 # Processed Bridge data SPSS
-write_rds(bridge_data, spss_path)
+haven::write_sav(bridge_data, spss_path)
 
-# Questionable Bridge Session data RDS
-write_rds(questionable_sessions, q_rds_path)
-
-# Questionable Bridge Session data EXCEL
-write.xlsx(questionable_sessions, q_xlsx_path)
 ```
 
 Print a message for when this file is saved.
@@ -1402,9 +1770,7 @@ Print a message for when this file is saved.
 ```{r}
 cat(
   paste0(Sys.Date(), ":"),
-  "Processed Bridge Session saved to", rds_path, "and", spss_path,
-  "Questionable Bridge Sesssion Columns saved to", q_rds_path,
-  "and", q_xlsx_path
+  "Processed Bridge Session saved to", rds_path, "and", spss_path
 )
 ```
 
@@ -1413,11 +1779,7 @@ Purge path variables and exported data to avoid potential errors in later proces
 ```{r}
 rm(rds_path)
 rm(spss_path)
-rm(q_rds_path)
-rm(q_xlsx_path)
 rm(bridge_data)
-rm(post_bridge_cols)
-rm(questionable_sessions)
 ```
 
 # Clean Up
@@ -1426,5 +1788,4 @@ The remaining global variables were purged for memory management.
 
 ```{r}
 rm(visit_windows)
-rm(subject_visits)
 ```
