@@ -1043,6 +1043,27 @@ data_mod_check(
 # TRUE
 ```
 
+We checked for changes to the point-fix data set since this file was last modified.
+
+```{r}
+# Inputs last modified: 2023-12-08
+
+data_mod_check(
+  'df' = bridge_fixes,
+  'df_path_str' = point_fix_path,
+  'orig_path_str' = here(
+      "data", "bridge_session_data", "bridge_point_fixes.xlsx"
+      ),
+  'mod_dt' = '2023-12-08 15:17:06 CDT',
+  'num_rows' = 25,
+  'num_cols' = 3,
+  'col_names' = c(
+      'subject', 'original_date', 'new_date'
+      )
+  )
+# TRUE
+```
+
 We purged the file path for memory management.
 
 ```{r}
