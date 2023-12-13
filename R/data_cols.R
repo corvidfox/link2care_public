@@ -975,7 +975,7 @@ retrieve_data_stats <- function(target_set){
       sav_path = here::here(
         "data", "Combined Participant Data", "combined_data_01.sav"
       ),
-      mod_dt = '2023-12-13 10:41:59 CDT',
+      mod_dt = '2023-12-13 13:39:20 CDT',
       num_rows = 1606,
       num_cols = 1020,
       cols = c(
@@ -1151,4 +1151,28 @@ retrieve_data_stats <- function(target_set){
     )
     return(combined_data_01_stats)
   }
+  
+  if (target_set == 'variable_map_01_stats'){
+    # Variable Map
+    # ==========================================================================
+    # Step 2 Output: Initial Variable Map 2023-12-13
+    # --------------------------------------------------------------------------
+    
+    variable_map_01_stats <- list(
+      rds_path = here::here(
+        "data", "Combined Participant Data", "variable_map_01.rds"
+      ),
+      mod_dt = '2023-12-13 13:26:57 CDT',
+      num_rows = 1020,
+      num_cols = 19,
+      cols = c(
+        'variable', 'section', 'sec_ord', 'instrument', 'inst_ord', 
+        'item_ord', 'qds_v1', 'qds_v2', 'qds_v3', 'qds_v4', 'qds_v5', 
+        'redcap', 'master_log', 'tlfb', 'ddt', 'arrest', 'bridge', 
+        'attr_label', 'attr_var_labels'
+        )
+      )
+    return(variable_map_01_stats)
+  }
+  
 }

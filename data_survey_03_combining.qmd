@@ -90,9 +90,6 @@ source(here::here("R", "vm_delete_variable.R"))
 source(here::here("R", "vm_process_source_df.R"))
 source(here::here("R", "vm_process_many_source.R"))
 source(here::here("R", "data_mod_check.R"))
-
-rm(visit_window_cols)
-rm(avail_col_list)
 ```
 
 # 📥 Import data
