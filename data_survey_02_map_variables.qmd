@@ -111,9 +111,6 @@ source(here::here("R", "vm_delete_variable.R"))
 source(here::here("R", "vm_process_source_df.R"))
 source(here::here("R", "vm_process_many_source.R"))
 source(here::here("R", "data_mod_check.R"))
-
-rm(visit_window_cols)
-rm(avail_col_list)
 ```
 
 # 📥 Import data
@@ -186,11 +183,11 @@ purrr::walk(
 )
 
 # Data check:
-# 2023-12-11: v1 imported with 442 rows and 810 columns.
-# 2023-12-11: v2 imported with 406 rows and 213 columns.
-# 2023-12-11: v3 imported with 273 rows and 542 columns.
-# 2023-12-11: v4 imported with 207 rows and 598 columns.
-# 2023-12-11: v5 imported with 178 rows and 649 columns.
+# 2023-12-13: v1 imported with 442 rows and 810 columns.
+# 2023-12-13: v2 imported with 406 rows and 213 columns.
+# 2023-12-13: v3 imported with 273 rows and 542 columns.
+# 2023-12-13: v4 imported with 207 rows and 598 columns.
+# 2023-12-13: v5 imported with 178 rows and 649 columns.
 ```
 
 ### Data Check: Changes
@@ -200,7 +197,9 @@ We checked for changes to the source data set since this file was last modified.
 We performed our check:
 
 ```{r}
-# Inputs last modified: 2023-12-11
+# Inputs last modified: 2023-12-13
+
+data_stats_list <- retrieve_data_stats('qds_stats')
 
 purrr::walk(
   .x = c(1:5),
@@ -208,18 +207,17 @@ purrr::walk(
     path <- here::here(qds_spss_paths[x])
     df_nm <- paste0("v", x)
     df <- get(df_nm, envir = .GlobalEnv)
+    data_stats <- data_stats_list[[x]]
     print(paste0(df_nm, ":"))
     print(
       data_mod_check(
         df = df,
         df_path_str = path,
-        orig_path_str = paste0(
-          here::here("data", "qds"), "/Visit_", 1:5, "_Data.SAV"
-          )[x],
-        mod_dt = rep('2023-08-25 10:55:05 CDT',5)[x],
-        num_cols = c(810, 213, 542, 598, 649)[x],
-        num_rows = c(442, 406, 273, 207, 178)[x],
-        col_names = qds_col_list[[x]]
+        orig_path_str = data_stats$sav_path,
+        mod_dt = data_stats$mod_dt,
+        num_cols = data_stats$num_cols,
+        num_rows = data_stats$num_rows,
+        col_names = data_stats$cols
         )
       )
   }
@@ -235,8 +233,8 @@ purrr::walk(
 We purged our paths for memory management.
 
 ```{r}
+rm(data_stats_list)
 rm(qds_spss_paths)
-rm(qds_col_list)
 ```
 
 ## REDCap
@@ -269,7 +267,7 @@ cat(
       as.character(file.info(redcap_spss_path)$mtime), "\n"
     )
 
-# 2023-12-11: REDCap imported with 119 rows and 845 columns.
+# 2023-12-13: REDCap imported with 119 rows and 845 columns.
 # REDCap data last modified on OneDrive 2023-08-25 10:56:25 
 ```
 
@@ -278,16 +276,18 @@ cat(
 We checked for changes to the source data set since this file was last modified.
 
 ```{r}
-# Inputs last modified: 2023-12-11
+# Inputs last modified: 2023-12-13
+
+data_stats <- retrieve_data_stats('redcap_stats')
 
 data_mod_check(
-  'df' = redcap,
-  'df_path_str' = redcap_spss_path,
-  'orig_path_str' = here::here("data", "redcap", "All_Visits_Redcap.sav"),
-  'mod_dt' = '2023-08-25 10:56:25 CDT',
-  'num_rows' = 119,
-  'num_cols' = 845,
-  'col_names' = redcap_cols
+  df = redcap,
+  df_path_str = redcap_spss_path,
+  orig_path_str = data_stats$sav_path,
+  mod_dt = data_stats$mod_dt,
+  num_cols = data_stats$num_cols,
+  num_rows = data_stats$num_rows,
+  col_names = data_stats$cols
   )
 # TRUE
 ```
@@ -296,7 +296,6 @@ We purged the import path for memory management.
 
 ```{r}
 rm(redcap_spss_path)
-rm(redcap_cols)
 ```
 
 ## Excel Master Log
@@ -366,7 +365,7 @@ cat(
       as.character(file.info(master_log_path)$mtime), "\n"
     )
 
-# 2023-12-11: Master log imported with 442 rows and 13 columns.
+# 2023-12-13: Master log imported with 442 rows and 13 columns.
 # Master log last modified on OneDrive 2023-09-28 11:52:59
 ```
 
@@ -375,7 +374,7 @@ cat(
 We checked for changes to the source data set since this file was last modified.
 
 ```{r}
-# Inputs last modified: 2023-12-11
+# Inputs last modified: 2023-12-13
 
 data_mod_check(
   'df' = master_log,
@@ -427,7 +426,7 @@ cat(
       as.character(file.info(tlfb_spss_path)$mtime), "\n"
     )
 
-# 2023-12-11: TLFB imported with 1768 rows and 21 columns.
+# 2023-12-13: TLFB imported with 1768 rows and 21 columns.
 # TLFB data last modified on OneDrive 2023-08-25 10:56:58 
 ```
 
@@ -436,16 +435,18 @@ cat(
 We checked for changes to the source data set since this file was last modified.
 
 ```{r}
-# Inputs last modified: 2023-12-11
+# Inputs last modified: 2023-12-13
+
+data_stats <- retrieve_data_stats('tlfb_stats')
 
 data_mod_check(
-  'df' = tlfb,
-  'df_path_str' = tlfb_spss_path,
-  'orig_path_str' = here::here("data", "tlfb", "TLFB_Database.sav"),
-  'mod_dt' = '2023-08-25 10:56:58 CDT',
-  'num_rows' = 1768,
-  'num_cols' = 21,
-  'col_names' = tlfb_cols
+  df = tlfb,
+  df_path_str = tlfb_spss_path,
+  orig_path_str = data_stats$sav_path,
+  mod_dt = data_stats$mod_dt,
+  num_cols = data_stats$num_cols,
+  num_rows = data_stats$num_rows,
+  col_names = data_stats$cols
   )
 # TRUE
 ```
@@ -454,7 +455,6 @@ We purged the import path for memory management.
 
 ```{r}
 rm(tlfb_spss_path)
-rm(tlfb_cols)
 ```
 
 ## Delay Discount Task (DDT)
@@ -488,8 +488,8 @@ cat(
       as.character(file.info(ddt_rds_path)$mtime), "\n"
     )
 
-# 2023-12-11: Pre-processed DDT imported with 1768 rows and 4 columns.
-# Pre-processed DDT data last modified on OneDrive 2023-12-11 12:21:45 
+# 2023-12-13: Pre-processed DDT imported with 1768 rows and 4 columns.
+# Pre-processed DDT data last modified on OneDrive 2023-12-13 13:01:03
 ```
 
 #### Data Check: Changes
@@ -497,16 +497,18 @@ cat(
 We checked for changes to the source data set since this file was last modified.
 
 ```{r}
-# Inputs last modified: 2023-12-11
+# Inputs last modified: 2023-12-13
+
+data_stats <- retrieve_data_stats('ddt_pivot_stats')
 
 data_mod_check(
-  'df' = ddt,
-  'df_path_str' = ddt_rds_path,
-  'orig_path_str' = here::here("data", "ddt", "l2c_ddt_database_2_long.rds"),
-  'mod_dt' = '2023-12-11 12:21:45 CST',
-  'num_rows' = 1768,
-  'num_cols' = 4,
-  'col_names' = ddt_pivot_cols
+  df = ddt,
+  df_path_str = ddt_rds_path,
+  orig_path_str = data_stats$rds_path,
+  mod_dt = data_stats$mod_dt,
+  num_cols = data_stats$num_cols,
+  num_rows = data_stats$num_rows,
+  col_names = data_stats$cols
   )
 # TRUE
 ```
@@ -515,8 +517,6 @@ We purged the import path for memory management.
 
 ```{r}
 rm(ddt_rds_path)
-rm(ddt_pivot_cols)
-rm(ddt_orig_cols)
 ```
 
 ## Arrest Data
@@ -551,8 +551,8 @@ cat(
       as.character(file.info(arrest_rds_path)$mtime), "\n"
     )
 
-# 2023-12-11: Pre-processed Arrest data imported with 442 rows and 10 columns.
-# Pre-processed Arrest data last modified on OneDrive 2023-12-11 12:21:49
+# 2023-12-13: Pre-processed Arrest data imported with 442 rows and 10 columns.
+# Pre-processed Arrest data last modified on OneDrive 2023-12-13 13:01:09
 ```
 
 #### Data Check: Changes
@@ -560,16 +560,18 @@ cat(
 We checked for changes to the source data set since this file was last modified.
 
 ```{r}
-# Inputs last modified: 2023-12-11
+# Inputs last modified: 2023-12-13
+
+data_stats <- retrieve_data_stats('arrest_proc_stats')
 
 data_mod_check(
-  'df' = arrest_data,
-  'df_path_str' = arrest_rds_path,
-  'orig_path_str' = here::here("data", "arrest", "arrest_1.rds"),
-  'mod_dt' = '2023-12-11 12:21:49 CST',
-  'num_rows' = 442,
-  'num_cols' = 10,
-  'col_names' = arrest_proc_cols
+  df = arrest_data,
+  df_path_str = arrest_rds_path,
+  orig_path_str = data_stats$rds_path,
+  mod_dt = data_stats$mod_dt,
+  num_cols = data_stats$num_cols,
+  num_rows = data_stats$num_rows,
+  col_names = data_stats$cols
   )
 # TRUE
 ```
@@ -578,8 +580,6 @@ We purged the import path for memory management.
 
 ```{r}
 rm(arrest_rds_path)
-rm(arrest_proc_cols)
-rm(arrest_orig_cols)
 ```
 
 ## Bridge Session Data
@@ -614,8 +614,8 @@ cat(
       as.character(file.info(bridge_rds_path)$mtime), "\n"
     )
 
-# 2023-12-11: Pre-processed Bridge data imported with 334 rows and 61 columns.
-# Pre-processed Bridge data last modified on OneDrive 2023-12-11 12:22:01
+# 2023-12-13: Pre-processed Bridge data imported with 334 rows and 61 columns.
+# Pre-processed Bridge data last modified on OneDrive 2023-12-13 13:01:26
 ```
 
 #### Data Check: Changes
@@ -623,16 +623,18 @@ cat(
 We checked for changes to the source data set since this file was last modified.
 
 ```{r}
-# Inputs last modified: 2023-12-11
+# Inputs last modified: 2023-12-13
+
+data_stats <- retrieve_data_stats('bridge_proc_stats')
 
 data_mod_check(
-  'df' = bridge_data,
-  'df_path_str' = bridge_rds_path,
-  'orig_path_str' = here::here("data", "bridge_session_data", "bridge_1.rds"),
-  'mod_dt' = '2023-12-11 12:22:01 CDT',
-  'num_rows' = 334,
-  'num_cols' = 61,
-  'col_names' = bridge_proc_cols
+  df = bridge_data,
+  df_path_str = bridge_rds_path,
+  orig_path_str = data_stats$rds_path,
+  mod_dt = data_stats$mod_dt,
+  num_cols = data_stats$num_cols,
+  num_rows = data_stats$num_rows,
+  col_names = data_stats$cols
   )
 # TRUE
 ```
@@ -641,8 +643,6 @@ We purged the import path for memory management.
 
 ```{r}
 rm(bridge_rds_path)
-rm(bridge_orig_cols)
-rm(bridge_proc_cols)
 ```
 
 # Create Initial Variable Map
@@ -10853,9 +10853,9 @@ We identified the variables present in our pre-processed Arrest data set.
 colnames(arrest_data)
 
  # [1] "id"                       "arrested_during_study"   
- # [3] "arrested_during_followup" "v2_count"                
- # [5] "v3_count"                 "v4_count"                
- # [7] "v5_count"                 "end_count"               
+ # [3] "arrested_during_followup" "v1_v2_count"                
+ # [5] "v2_v3_count"              "v3_v4_count"                
+ # [7] "v4_v5_count"              "v5_end_count"               
  # [9] "v2_v5_total"              "v2_end_total" 
 ```
 
@@ -10887,8 +10887,8 @@ We modified our desired variables slightly, so that the 'arrest_' prefix would b
 arrest_vars <- arrest_data |>
   dplyr::select(all_of(c(
     'arrested_during_study', 'arrested_during_followup',
-    'v2_count', 'v3_count', 'v4_count', 'v5_count', 'end_count',
-    'v2_v5_total', 'v2_end_total'
+    'v1_v2_count', 'v2_v3_count', 'v3_v4_count', 'v4_v5_count', 
+    'v5_end_count', 'v2_v5_total', 'v2_end_total'
     ))
   ) |>
   names()
@@ -10903,9 +10903,9 @@ desired_vars <- paste0("arrest_", desired_vars)
 desired_vars
 
 # [1] "arrest_during_study"    "arrest_during_followup"
-# [3] "arrest_v2_count"        "arrest_v3_count"       
-# [5] "arrest_v4_count"        "arrest_v5_count"       
-# [7] "arrest_end_count"       "arrest_v2_v5_total"    
+# [3] "arrest_v1_v2_count"     "arrest_v2_v3_count"       
+# [5] "arrest_v3_v4_count"     "arrest_v4_v5_count"       
+# [7] "arrest_v5_end_count"    "arrest_v2_v5_total"    
 # [9] "arrest_v2_end_total" 
 ```
 
@@ -11860,7 +11860,6 @@ rm(v5)
 
 ```{r}
 # RDS
-
 variable_map_path <- here::here(
   "data", "Combined Participant Data", "variable_map_01.rds"
   )

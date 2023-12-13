@@ -111,12 +111,8 @@ library(tidyverse, warn.conflicts = FALSE)
 ```
 
 ```{r}
-source(here("R", "data_mod_check.R"))
-source(here("R", "data_cols.R"))
-# Remove Unnecessary Columns, for memory management
-rm(redcap_cols)
-rm(qds_col_list)
-rm(tlfb_cols)
+source(here::here("R", "data_mod_check.R"))
+source(here::here("R", "data_cols.R"))
 ```
 
 # Master Log
@@ -128,7 +124,7 @@ We imported the Master Log data, manually assigning column names and types.
 The Master Log was our most reliable source of the Date of each Visit for each Subject, which was useful for converting Subject-Date records into a Subject-Visit format.
 
 ```{r}
-master_log_path <- here("data", "master_log", "master_log.xlsx")
+master_log_path <- here::here("data", "master_log", "master_log.xlsx")
 ```
 
 Import the data.
@@ -178,7 +174,7 @@ cat(
       as.character(file.info(master_log_path)$mtime), "\n"
     )
 
-# 2023-12-11: Master log imported with 442 rows and 19 columns.
+# 2023-12-13: Master log imported with 442 rows and 19 columns.
 # Master log last modified on OneDrive 2023-09-28 11:52:59
 ```
 
@@ -192,7 +188,7 @@ We checked for changes to the source data set since this file was last modified.
 data_mod_check(
   'df' = master_log,
   'df_path_str' = master_log_path,
-  'orig_path_str' = here("data", "master_log", "master_log.xlsx"),
+  'orig_path_str' = here::here("data", "master_log", "master_log.xlsx"),
   'mod_dt' = '2023-09-28 11:52:59 CDT',
   'num_rows' = 442,
   'num_cols' = 19,
@@ -387,25 +383,27 @@ We set our desired output paths
 
 ```{r}
 # RDS version
-rds_path <- here("data", "master_log", "ml_protocol_dates.rds")
+rds_path <- here::here("data", "master_log", "ml_protocol_dates.rds")
 
 # MB also wants an SPSS version
-spss_path <- here("data", "master_log", "ml_protocol_dates.sav")
+spss_path <- here::here("data", "master_log", "ml_protocol_dates.sav")
 ```
 
 We performed a check for any changes to the data since it was last saved in RDS format.
 
 ```{r}
-# Inputs last modified: 2023-12-11
+# Inputs last modified: 2023-12-13
+
+data_stats <- retrieve_data_stats('visit_window_stats')
 
 data_mod_check(
   'df' = visit_windows,
   'df_path_str' = rds_path,
-  'orig_path_str' = here("data", "master_log", "ml_protocol_dates.rds"),
+  'orig_path_str' = data_stats$rds_path,
   'mod_dt' = NA,
-  'num_rows' = 442,
-  'num_cols' = 18,
-  'col_names' = visit_window_cols
+  'num_rows' = data_stats$num_rows,
+  'num_cols' = data_stats$num_cols,
+  'col_names' = data_stats$cols
   )
 # TRUE
 ```
@@ -434,7 +432,6 @@ Purge path variables and exported data to avoid potential errors in later proces
 ```{r}
 rm(rds_path)
 rm(spss_path)
-rm(visit_window_cols)
 ```
 
 # Processing Data Frames
@@ -448,7 +445,7 @@ The Delayed Discount Task (DDT) data primarily required pivoting from a wide for
 All Delayed Discount Task (DDT) section data was initially processed with SPSS.
 
 ```{r}
-ddt_spss_path <- here("data", "ddt", "L2C_DDT_Database_1.sav")
+ddt_spss_path <- here::here("data", "ddt", "L2C_DDT_Database_1.sav")
 ```
 
 Import the data.
@@ -471,7 +468,7 @@ cat(
       as.character(file.info(ddt_spss_path)$mtime), "\n"
     )
 
-# 2023-12-11: DDT imported with 442 rows and 9 columns.
+# 2023-12-13: DDT imported with 442 rows and 9 columns.
 # DDT data last modified on OneDrive 2023-08-25 10:44:11 
 ```
 
@@ -480,16 +477,18 @@ cat(
 We checked for changes to the source data set since this file was last modified.
 
 ```{r}
-# Inputs last modified: 2023-12-11
+# Inputs last modified: 2023-12-13
+
+data_stats <- retrieve_data_stats('ddt_orig_stats')
 
 data_mod_check(
   'df' = ddt,
   'df_path_str' = ddt_spss_path,
-  'orig_path_str' = here("data", "ddt", "L2C_DDT_Database_1.sav"),
-  'mod_dt' = '2023-08-25 10:44:11 CDT',
-  'num_rows' = 442,
-  'num_cols' = 9,
-  'col_names' = ddt_orig_cols
+  'orig_path_str' = data_stats$sav_path,
+  'mod_dt' = data_stats$mod_dt,
+  'num_rows' = data_stats$num_rows,
+  'num_cols' = data_stats$num_cols,
+  'col_names' = data_stats$cols
   )
 # TRUE
 ```
@@ -498,7 +497,6 @@ We purged the import path for memory management.
 
 ```{r}
 rm(ddt_spss_path)
-rm(ddt_orig_cols)
 ```
 
 
@@ -520,9 +518,9 @@ We performed this modification.
 ddt <- ddt |>
   dplyr::mutate(dplyr::across(everything(), as.numeric))
 
-# Warning: There were 6 warnings in `mutate()`.
+# Warning: There were 6 warnings in `dplyr::mutate()`.
 # The first warning was:
-# ℹ In argument: `across(everything(), as.numeric)`.
+# ℹ In argument: `dplyr::across(everything(), as.numeric)`.
 # Caused by warning:
 # ! NAs introduced by coercion
 # ℹ Run dplyr::last_dplyr_warnings() to see the 5 remaining warnings.
@@ -554,25 +552,27 @@ attributes(ddt$ED50)$label <- "DDT ED50"
 We set our desired output paths
 ```{r}
 # RDS version
-rds_path <- here("data", "ddt", "l2c_ddt_database_2_long.rds")
+rds_path <- here::here("data", "ddt", "l2c_ddt_database_2_long.rds")
 
 # MB also wants an SPSS version
-spss_path <- here("data", "ddt", "l2c_ddt_database_2_long.sav")
+spss_path <- here::here("data", "ddt", "l2c_ddt_database_2_long.sav")
 ```
 
 We performed a check for any changes to the data since it was last saved in RDS format.
 
 ```{r}
-# Inputs last modified: 2023-12-11
+# Inputs last modified: 2023-12-13
+
+data_stats <- retrieve_data_stats('ddt_pivot_stats')
 
 data_mod_check(
   'df' = ddt,
   'df_path_str' = rds_path,
-  'orig_path_str' = here("data", "ddt", "l2c_ddt_database_2_long.rds"),
+  'orig_path_str' = data_stats$rds_path,
   'mod_dt' = NA,
-  'num_rows' = 1768,
-  'num_cols' = 4,
-  'col_names' = ddt_pivot_cols
+  'num_rows' = data_stats$num_rows,
+  'num_cols' = data_stats$num_cols,
+  'col_names' = data_stats$cols
   )
 # TRUE
 ```
@@ -580,16 +580,16 @@ data_mod_check(
 And we performed a check for any changes to the data since it was last saved in SPSS format.
 
 ```{r}
-# Inputs last modified: 2023-12-11
+# Inputs last modified: 2023-12-13
 
 data_mod_check(
   'df' = ddt,
   'df_path_str' = spss_path,
-  'orig_path_str' = here("data", "ddt", "l2c_ddt_database_2_long.sav"),
+  'orig_path_str' = data_stats$sav_path,
   'mod_dt' = NA,
-  'num_rows' = 1768,
-  'num_cols' = 4,
-  'col_names' = ddt_pivot_cols
+  'num_rows' = data_stats$num_rows,
+  'num_cols' = data_stats$num_cols,
+  'col_names' = data_stats$cols
   )
 # TRUE
 ```
@@ -619,7 +619,6 @@ Purge path variables and exported data to avoid potential errors in later proces
 rm(rds_path)
 rm(spss_path)
 rm(ddt)
-rm(ddt_pivot_cols)
 ```
 
 ## Arrest Data
@@ -631,7 +630,7 @@ The Arrest Data required calculation of variables in order to convert the rows c
 The arrest data was securely transmitted by Dr. Gonzalez as an Excel file, which was originally stored on OneDrive in Participant Data \> Arrest Data Requests.
 
 ```{r}
-arrest_path <- here("data", "arrest", "arrest.xlsx")
+arrest_path <- here::here("data", "arrest", "arrest.xlsx")
 ```
 
 Import the data.
@@ -666,7 +665,7 @@ cat(
   ncol(arrest_data), "columns.\n"
 )
 # arrest.xlsx last modified on UTHealth server: 2023-12-08 15:50:31
-# 2023-12-08 : Arrest data imported with 442 rows and 16 columns.
+# 2023-12-13 : Arrest data imported with 442 rows and 16 columns.
 ```
 
 #### Data Check: Changes
@@ -674,16 +673,18 @@ cat(
 We checked for changes to the source data set since this file was last modified.
 
 ```{r}
-# Inputs last modified: 2023-12-08
+# Inputs last modified: 2023-12-13
+
+data_stats <- retrieve_data_stats('arrest_orig_stats')
 
 data_mod_check(
   'df' = arrest_data,
   'df_path_str' = arrest_path,
-  'orig_path_str' = here("data", "arrest", "arrest.xlsx"),
-  'mod_dt' = '2023-12-08 15:50:31  CDT',
-  'num_rows' = 442,
-  'num_cols' = 16,
-  'col_names' = arrest_orig_cols
+  'orig_path_str' = data_stats$xlsx_path,
+  'mod_dt' = data_stats$mod_dt,
+  'num_rows' = data_stats$num_rows,
+  'num_cols' = data_stats$num_cols,
+  'col_names' = data_stats$cols
   )
 # TRUE
 ```
@@ -692,12 +693,11 @@ We purged the file path for memory management.
 
 ```{r}
 rm(arrest_path)
-rm(arrest_orig_cols)
 ```
 
 ### Processing
 
-We eliminated subjects that were missing a baseline date to eliminate any extra rows of empty values.
+We eliminated subjects that were missing a baseline date to eliminate any extra rows of empty values. Subjects that had arrest dates recorded before the baseline date, after the 1 year follow up period end date, and out of chronological order were verified with JB on 2023-12-11.
 
 We also converted the variable `arrested_during_followup`, which contained a "Yes" or "No" value to indicate if a subject had any arrest records in the file, to a logical boolean.
 
@@ -724,13 +724,6 @@ We then converted the arrest dates to indicators for each potential visit window
 arrest_data <- arrest_data |>
   # Drop "baseline_date"
   dplyr::select(-baseline_date) |>
-  # Point-fix
-  dplyr::mutate(
-    arrested_date_1 = if_else(
-      id == 2285, 
-      arrested_date_1 %m-% lubridate::years(1), 
-      arrested_date_1)
-  ) |>
   dplyr::mutate(
     # Calculate the window in which each arrest occurred
     dplyr::across(all_of(starts_with("arrested_date_")),
@@ -760,33 +753,33 @@ arrest_data <- arrest_data |>
   dplyr::rowwise()|>
   # Calculate total number of arrests within each window
   dplyr::mutate(
-    v2_count = sum(
+    v1_v2_count = sum(
       dplyr::c_across(arrested_date_1:arrested_date_12) == "2", 
       na.rm = TRUE
       ),
-    v3_count = sum(
+    v2_v3_count = sum(
       dplyr::c_across(arrested_date_1:arrested_date_12) == "3", 
       na.rm = TRUE
       ),
-    v4_count = sum(
+    v3_v4_count = sum(
       dplyr::c_across(arrested_date_1:arrested_date_12) == "4", 
       na.rm = TRUE
       ),
-    v5_count = sum(
+    v4_v5_count = sum(
       dplyr::c_across(arrested_date_1:arrested_date_12) == "5", 
       na.rm = TRUE
       ),
-    end_count = sum(
+    v5_end_count = sum(
       dplyr::c_across(arrested_date_1:arrested_date_12) == "6", 
       na.rm = TRUE
       )
     ) |>
   dplyr::mutate(
   # Calculate the number of arrests that occurred in the study period (V2-V5)
-    v2_v5_total = sum(dplyr::c_across(v2_count:v5_count)),
+    v2_v5_total = sum(dplyr::c_across(v1_v2_count:v4_v5_count)),
   # Calculate the number of arrests that occurred in the follow-up period 
   # (V2-end)
-    v2_end_total = sum(dplyr::c_across(v2_count:end_count))
+    v2_end_total = sum(dplyr::c_across(v1_v2_count:v5_end_count))
   ) |>
   dplyr::ungroup() |>
   # Select only id, "arrested_during_followup", and count variables
@@ -813,19 +806,19 @@ attributes(arrest_data$arrested_during_followup)$label <- paste0(c(
   "Was the subject ever arrested during the followup period? ",
   "(V2-1 year protocol)"
   ))
-attributes(arrest_data$v2_count)$label <- paste0(
+attributes(arrest_data$v1_v2_count)$label <- paste0(
   "Number of recorded arrests between Baseline and V2"
   )
-attributes(arrest_data$v3_count)$label <- paste0(
+attributes(arrest_data$v2_v3_count)$label <- paste0(
   "Number of recorded arrests between V2 and V3 protocol dates"
   )
-attributes(arrest_data$v4_count)$label <- paste0(
+attributes(arrest_data$v3_v4_count)$label <- paste0(
   "Number of recorded arrests between V3 and V4 protocol dates"
   )
-attributes(arrest_data$v5_count)$label <- paste0(
+attributes(arrest_data$v4_v5_count)$label <- paste0(
   "Number of recorded arrests between V4 and V5 protocol dates"
   )
-attributes(arrest_data$end_count)$label <- paste0(
+attributes(arrest_data$v5_end_count)$label <- paste0(
   "Number of recorded arrests between V5 and 1-year protocol dates"
   )
 attributes(arrest_data$v2_v5_total)$label <- paste0(
@@ -842,25 +835,27 @@ attributes(arrest_data$v2_end_total)$label <- paste0(
 We set our desired output paths
 ```{r}
 # RDS version
-rds_path <- here("data", "arrest", "arrest_1.rds") 
+rds_path <- here::here("data", "arrest", "arrest_1.rds") 
 
 # MB also wants an SPSS version
-spss_path <- here("data", "arrest", "arrest_1.sav")
+spss_path <- here::here("data", "arrest", "arrest_1.sav")
 ```
 
 We performed a check for any changes to the data since it was last saved in RDS format.
 
 ```{r}
-# Inputs last modified: 2023-12-11
+# Inputs last modified: 2023-12-13
+
+data_stats <- retrieve_data_stats('arrest_proc_stats')
 
 data_mod_check(
   'df' = arrest_data,
   'df_path_str' = rds_path,
-  'orig_path_str' = here("data", "arrest", "arrest_1.rds"),
+  'orig_path_str' = data_stats$rds_path,
   'mod_dt' = NA,
-  'num_rows' = 442,
-  'num_cols' = 10,
-  'col_names' = arrest_proc_cols
+  'num_rows' = data_stats$num_rows,
+  'num_cols' = data_stats$num_cols,
+  'col_names' = data_stats$cols
   )
 # TRUE
 ```
@@ -868,16 +863,16 @@ data_mod_check(
 And we performed a check for any changes to the data since it was last saved in SPSS format.
 
 ```{r}
-# Inputs last modified: 2023-12-11
+# Inputs last modified: 2023-12-13
 
 data_mod_check(
   'df' = arrest_data,
   'df_path_str' = spss_path,
-  'orig_path_str' = here("data", "arrest", "arrest_1.sav"),
+  'orig_path_str' = data_stats$sav_path,
   'mod_dt' = NA,
-  'num_rows' = 442,
-  'num_cols' = 10,
-  'col_names' = arrest_proc_cols
+  'num_rows' = data_stats$num_rows,
+  'num_cols' = data_stats$num_cols,
+  'col_names' = data_stats$cols
   )
 # TRUE
 ```
@@ -907,7 +902,6 @@ Purge path variables and exported data to avoid potential errors in later proces
 rm(rds_path)
 rm(spss_path)
 rm(arrest_data)
-rm(arrest_proc_cols)
 ```
 
 ## Bridge Session Minutes
@@ -919,7 +913,7 @@ The Bridge Session data required calculation of variables in order to convert th
 The Bridge Session data was provided in an Excel file and securely stored on UTHealth servers.
 
 ```{r}
-bridge_path <- here(
+bridge_path <- here::here(
   "data", "bridge_session_data", "bridge_session_minutes.xlsx"
   )
 ```
@@ -957,13 +951,13 @@ cat(
 
 # bridge_session_minutes.xlsx last modified on UTHealth server: 
 # 2023-08-25 10:43:48 
-#  2023-12-11 : Bridge Session data imported with 4377 rows and 10 columns.
+#  2023-12-13 : Bridge Session data imported with 4377 rows and 10 columns.
 ```
 
 We also had an Excel sheet of point-fixes, established in a meeting of all PIs to review potential typographical errors in the document on 2023-11-22. Nearly all fixes were due to single digit year typos (i.e. "2001" vs "2021", "12/01/2019" vs "12/01/2018") determined by examining trends in the session record data for each subject, which was recorded chronologically.
 
 ```{r}
-point_fix_path <- here(
+point_fix_path <- here::here(
   "data", "bridge_session_data", "bridge_point_fixes.xlsx"
   )
 ```
@@ -997,7 +991,7 @@ cat(
 )
 
 # bridge_point_fixes.xlsx last modified on UTHealth server: 2023-12-08 15:17:06 
-#  2023-12-11 : Bridge Session point-fix data imported with 25 rows and 
+#  2023-12-13 : Bridge Session point-fix data imported with 25 rows and 
 #  3 columns.
 ```
 
@@ -1006,18 +1000,18 @@ cat(
 We checked for changes to the source data set since this file was last modified.
 
 ```{r}
-# Inputs last modified: 2023-12-11
+# Inputs last modified: 2023-12-13
+
+data_stats <- retrieve_data_stats('bridge_orig_stats')
 
 data_mod_check(
   'df' = bridge_data,
   'df_path_str' = bridge_path,
-  'orig_path_str' = here(
-      "data", "bridge_session_data", "bridge_session_minutes.xlsx"
-      ),
-  'mod_dt' = '2023-08-25 10:43:48 CDT',
-  'num_rows' = 4377,
-  'num_cols' = 10,
-  'col_names' = bridge_orig_cols
+  'orig_path_str' = data_stats$xlsx_path,
+  'mod_dt' = data_stats$mod_dt,
+  'num_rows' = data_stats$num_rows,
+  'num_cols' = data_stats$num_cols,
+  'col_names' = data_stats$cols
   )
 # TRUE
 ```
@@ -1025,42 +1019,19 @@ data_mod_check(
 We checked for changes to the point-fix data set since this file was last modified.
 
 ```{r}
-# Inputs last modified: 2023-12-11
+# Inputs last modified: 2023-12-13
+
+data_stats <- retrieve_data_stats('bridge_pointfix_stats')
 
 data_mod_check(
   'df' = bridge_fixes,
   'df_path_str' = point_fix_path,
-  'orig_path_str' = here(
-      "data", "bridge_session_data", "bridge_point_fixes.xlsx"
-      ),
-  'mod_dt' = '2023-12-08 15:17:06 CDT',
-  'num_rows' = 25,
-  'num_cols' = 3,
-  'col_names' = c(
-      'subject', 'original_date', 'new_date'
-      )
-  )
-# TRUE
-```
-
-We checked for changes to the point-fix data set since this file was last modified.
-
-```{r}
-# Inputs last modified: 2023-12-08
-
-data_mod_check(
-  'df' = bridge_fixes,
-  'df_path_str' = point_fix_path,
-  'orig_path_str' = here(
-      "data", "bridge_session_data", "bridge_point_fixes.xlsx"
-      ),
-  'mod_dt' = '2023-12-08 15:17:06 CDT',
-  'num_rows' = 25,
-  'num_cols' = 3,
-  'col_names' = c(
-      'subject', 'original_date', 'new_date'
-      )
-  )
+  'orig_path_str' = data_stats$xlsx_path,
+  'mod_dt' = data_stats$mod_dt,
+  'num_rows' = data_stats$num_rows,
+  'num_cols' = data_stats$num_cols,
+  'col_names' = data_stats$cols
+)
 # TRUE
 ```
 
@@ -1069,7 +1040,6 @@ We purged the file path for memory management.
 ```{r}
 rm(bridge_path)
 rm(point_fix_path)
-rm(bridge_orig_cols)
 ```
 
 ### Modification of Data to Facilitate R Processing
@@ -1134,10 +1104,10 @@ In the Excel sheet the Subject ID number, baseline date, randomization date, and
 ```{r}
 bridge_data <- bridge_data |>
   # Carry forward id
-  fill(subject) |> 
-  group_by(subject) |> 
+  tidyr::fill(subject) |> 
+  dplyr::group_by(subject) |> 
   # Carry forward other variables grouped by id
-  fill(
+  tidyr::fill(
     bridge_baseline_date, bridge_v2_rand_date, bridge_v5_sched_final_visit_date
   ) |> 
   dplyr::ungroup()
@@ -1165,7 +1135,7 @@ Certain dates were identified as having year typos or other issues within the or
 
 ```{r}
 bridge_fixes <- bridge_fixes |>
-  rename_at('original_date', ~'bridge_date_session')
+  dplyr::rename_at('original_date', ~'bridge_date_session')
 
 bridge_data <- left_join(bridge_data, bridge_fixes, by = c('subject', 'bridge_date_session')) |>
   mutate(bridge_date_session = if_else(
@@ -1174,7 +1144,7 @@ bridge_data <- left_join(bridge_data, bridge_fixes, by = c('subject', 'bridge_da
     bridge_date_session
     )
   ) |>
-  select(-new_date)
+  dplyr::select(-new_date)
 ```
 
 We purged the point-fix Data-frame, for memory management.
@@ -1258,7 +1228,7 @@ We then grouped our data by our Session-Visit composite key to aggregate the tot
 
 ```{r}
 bridge_data <- bridge_data |>
-  group_by(subject, visit) |>
+  dplyr::group_by(subject, visit) |>
   dplyr::mutate(
     # Calculate the total number of each session type, and total minutes
     # per session type, for each combination of Subject and Visit
@@ -1650,12 +1620,12 @@ We set our desired output paths for the processed data
 
 ```{r}
 # RDS version
-rds_path <- here(
+rds_path <- here::here(
   "data", "bridge_session_data", "bridge_1.rds"
   )
 
 # MB also wants an SPSS version
-spss_path <- here(
+spss_path <- here::here(
   "data", "bridge_session_data", "bridge_1.sav"
   )
 ```
@@ -1663,37 +1633,35 @@ spss_path <- here(
 We performed a check for any changes to the processed data since it was last saved in RDS format.
 
 ```{r}
-# Inputs last modified: 2023-12-11
+# Inputs last modified: 2023-12-13
+data_stats <- retrieve_data_stats('bridge_proc_stats')
 
 data_mod_check(
   'df' = bridge_data,
   'df_path_str' = rds_path,
-  'orig_path_str' = here(
-      "data", "bridge_session_data", "bridge_1.rds"
-      ),
+  'orig_path_str' = data_stats$rds_path,
   'mod_dt' = NA,
-  'num_rows' = 334,
-  'num_cols' = 61,
-  'col_names' = bridge_proc_cols
+  'num_rows' = data_stats$num_rows,
+  'num_cols' = data_stats$num_cols,
+  'col_names' = data_stats$cols
   )
+
 # TRUE
 ```
 
 And we performed a check for any changes to the processed data since it was last saved in SPSS format.
 
 ```{r}
-# Inputs last modified: 2023-12-11
+# Inputs last modified: 2023-12-13
 
 data_mod_check(
   'df' = bridge_data,
   'df_path_str' = spss_path,
-  'orig_path_str' = here(
-      "data", "bridge_session_data", "bridge_1.sav"
-      ),
+  'orig_path_str' = data_stats$sav_path,
   'mod_dt' = NA,
-  'num_rows' = 334,
-  'num_cols' = 61,
-  'col_names' = bridge_proc_cols
+  'num_rows' = data_stats$num_rows,
+  'num_cols' = data_stats$num_cols,
+  'col_names' = data_stats$cols
   )
 # TRUE
 ```
@@ -1724,7 +1692,6 @@ Purge path variables and exported data to avoid potential errors in later proces
 rm(rds_path)
 rm(spss_path)
 rm(bridge_data)
-rm(bridge_proc_cols)
 ```
 
 # Clean Up
@@ -1732,6 +1699,6 @@ rm(bridge_proc_cols)
 The remaining global variables were purged for memory management.
 
 ```{r}
-rm(avail_col_list)
+rm(data_stats)
 rm(visit_windows)
 ```
