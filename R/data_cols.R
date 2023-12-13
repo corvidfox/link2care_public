@@ -64,17 +64,16 @@ retrieve_data_stats <- function(target_set){
   
   
   if (target_set == 'ddt_pivot_stats'){
-    # Pivoted 2023-12-13
-    # ---------------------------------------------------------------------------
-    ddt_pivot_stats <- list(
-      rds_path = here::here("data", "ddt", "l2c_ddt_database_2_long.rds"),
-      sav_path = here::here("data", "ddt", "l2c_ddt_database_2_long.sav"),
-      mod_dt = '2023-12-13 13:01:03 CST',
-      num_rows = 1768,
-      num_cols = 4,
-      cols = c(
-        'Subject', 'visit', 'K', 'ED50'
-      )
+# Pivoted 2023-12-13
+# ---------------------------------------------------------------------------
+  ddt_pivot_stats <- list(
+    rds_path = here::here("data", "ddt", "l2c_ddt_database_2_long.rds"),
+    sav_path = here::here("data", "ddt", "l2c_ddt_database_2_long.sav"),
+    mod_dt = '2023-12-13 11:38:58 CST',
+    num_rows = 1768,
+    num_cols = 4,
+    cols = c(
+      'Subject', 'visit', 'K', 'ED50'
     )
     return(ddt_pivot_stats)
   }
@@ -104,7 +103,7 @@ retrieve_data_stats <- function(target_set){
     arrest_proc_stats <- list(
       rds_path = here::here("data", "arrest", "arrest_1.rds"),
       sav_path = here::here("data", "arrest", "arrest_1.sav"),
-      mod_dt = '2023-12-13 13:01:09 CDT',
+      mod_dt = '2023-12-13 11:39:03 CDT',
       num_rows = 442,
       num_cols = 10,
       cols = c(
@@ -157,43 +156,43 @@ retrieve_data_stats <- function(target_set){
   }      
   
   if (target_set == 'bridge_proc_stats'){
-    # Processed 2023-12-13
-    # --------------------------------------------------------------------------
-    bridge_proc_stats <- list(
-      rds_path = here::here("data", "bridge_session_data", "bridge_1.rds"),
-      sav_path = here::here("data", "bridge_session_data", "bridge_1.sav"),
-      mod_dt = '2023-12-13 13:01:26 CDT',
-      num_rows = 334,
-      num_cols = 61,
-      cols = c(
-        'subject', 'reg_sessions_v1_v2', 'reg_minutes_v1_v2', 
-        'reg_avg_duration_v1_v2', 'reg_sessions_v2_v3', 'reg_minutes_v2_v3', 
-        'reg_avg_duration_v2_v3', 'reg_sessions_v3_v4', 'reg_minutes_v3_v4', 
-        'reg_avg_duration_v3_v4', 'reg_sessions_v4_v5', 'reg_minutes_v4_v5', 
-        'reg_avg_duration_v4_v5', 'reg_sessions_v2_v5', 'reg_minutes_v2_v5', 
-        'reg_avg_duration_v2_v5', 'crisis_sessions_v1_v2', 
-        'crisis_minutes_v1_v2', 'crisis_avg_duration_v1_v2', 
-        'crisis_sessions_v2_v3', 'crisis_minutes_v2_v3', 
-        'crisis_avg_duration_v2_v3', 'crisis_sessions_v3_v4', 
-        'crisis_minutes_v3_v4', 'crisis_avg_duration_v3_v4', 
-        'crisis_sessions_v4_v5', 'crisis_minutes_v4_v5', 
-        'crisis_avg_duration_v4_v5', 'crisis_sessions_v2_v5', 
-        'crisis_minutes_v2_v5', 'crisis_avg_duration_v2_v5', 
-        'other_sessions_v1_v2', 'other_minutes_v1_v2', 
-        'other_avg_duration_v1_v2', 'other_sessions_v2_v3', 
-        'other_minutes_v2_v3', 'other_avg_duration_v2_v3', 
-        'other_sessions_v3_v4', 'other_minutes_v3_v4', 
-        'other_avg_duration_v3_v4', 'other_sessions_v4_v5', 
-        'other_minutes_v4_v5', 'other_avg_duration_v4_v5', 
-        'other_sessions_v2_v5', 'other_minutes_v2_v5', 
-        'other_avg_duration_v2_v5', 'total_sessions_v1_v2', 
-        'total_minutes_v1_v2', 'total_avg_duration_v1_v2', 
-        'total_sessions_v2_v3', 'total_minutes_v2_v3', 
-        'total_avg_duration_v2_v3', 'total_sessions_v3_v4', 
-        'total_minutes_v3_v4', 'total_avg_duration_v3_v4', 
-        'total_sessions_v4_v5', 'total_minutes_v4_v5', 
-        'total_avg_duration_v4_v5', 'total_sessions_v2_v5', 
-        'total_minutes_v2_v5', 'total_avg_duration_v2_v5'
+  # Processed 2023-12-13
+  # --------------------------------------------------------------------------
+  bridge_proc_stats <- list(
+    rds_path = here::here("data", "bridge_session_data", "bridge_1.rds"),
+    sav_path = here::here("data", "bridge_session_data", "bridge_1.sav"),
+    mod_dt = '2023-12-13 11:39:15 CDT',
+    num_rows = 334,
+    num_cols = 61,
+    cols = c(
+      'subject', 'reg_sessions_v1_v2', 'reg_minutes_v1_v2', 
+      'reg_avg_duration_v1_v2', 'reg_sessions_v2_v3', 'reg_minutes_v2_v3', 
+      'reg_avg_duration_v2_v3', 'reg_sessions_v3_v4', 'reg_minutes_v3_v4', 
+      'reg_avg_duration_v3_v4', 'reg_sessions_v4_v5', 'reg_minutes_v4_v5', 
+      'reg_avg_duration_v4_v5', 'reg_sessions_v2_v5', 'reg_minutes_v2_v5', 
+      'reg_avg_duration_v2_v5', 'crisis_sessions_v1_v2', 
+      'crisis_minutes_v1_v2', 'crisis_avg_duration_v1_v2', 
+      'crisis_sessions_v2_v3', 'crisis_minutes_v2_v3', 
+      'crisis_avg_duration_v2_v3', 'crisis_sessions_v3_v4', 
+      'crisis_minutes_v3_v4', 'crisis_avg_duration_v3_v4', 
+      'crisis_sessions_v4_v5', 'crisis_minutes_v4_v5', 
+      'crisis_avg_duration_v4_v5', 'crisis_sessions_v2_v5', 
+      'crisis_minutes_v2_v5', 'crisis_avg_duration_v2_v5', 
+      'other_sessions_v1_v2', 'other_minutes_v1_v2', 
+      'other_avg_duration_v1_v2', 'other_sessions_v2_v3', 
+      'other_minutes_v2_v3', 'other_avg_duration_v2_v3', 
+      'other_sessions_v3_v4', 'other_minutes_v3_v4', 
+      'other_avg_duration_v3_v4', 'other_sessions_v4_v5', 
+      'other_minutes_v4_v5', 'other_avg_duration_v4_v5', 
+      'other_sessions_v2_v5', 'other_minutes_v2_v5', 
+      'other_avg_duration_v2_v5', 'total_sessions_v1_v2', 
+      'total_minutes_v1_v2', 'total_avg_duration_v1_v2', 
+      'total_sessions_v2_v3', 'total_minutes_v2_v3', 
+      'total_avg_duration_v2_v3', 'total_sessions_v3_v4', 
+      'total_minutes_v3_v4', 'total_avg_duration_v3_v4', 
+      'total_sessions_v4_v5', 'total_minutes_v4_v5', 
+      'total_avg_duration_v4_v5', 'total_sessions_v2_v5', 
+      'total_minutes_v2_v5', 'total_avg_duration_v2_v5'
       )
     )  
     return(bridge_proc_stats)
