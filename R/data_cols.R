@@ -69,7 +69,7 @@ retrieve_data_stats <- function(target_set){
   ddt_pivot_stats <- list(
     rds_path = here::here("data", "ddt", "l2c_ddt_database_2_long.rds"),
     sav_path = here::here("data", "ddt", "l2c_ddt_database_2_long.sav"),
-    mod_dt = '2023-12-13 13:01:03 CST',
+    mod_dt = '2023-12-13 11:38:58 CST',
     num_rows = 1768,
     num_cols = 4,
     cols = c(
@@ -104,7 +104,7 @@ retrieve_data_stats <- function(target_set){
   arrest_proc_stats <- list(
       rds_path = here::here("data", "arrest", "arrest_1.rds"),
       sav_path = here::here("data", "arrest", "arrest_1.sav"),
-      mod_dt = '2023-12-13 13:01:09 CDT',
+      mod_dt = '2023-12-13 11:39:03 CDT',
       num_rows = 442,
       num_cols = 10,
       cols = c(
@@ -162,7 +162,7 @@ retrieve_data_stats <- function(target_set){
   bridge_proc_stats <- list(
     rds_path = here::here("data", "bridge_session_data", "bridge_1.rds"),
     sav_path = here::here("data", "bridge_session_data", "bridge_1.sav"),
-    mod_dt = '2023-12-13 13:01:26 CDT',
+    mod_dt = '2023-12-13 11:39:15 CDT',
     num_rows = 334,
     num_cols = 61,
     cols = c(
