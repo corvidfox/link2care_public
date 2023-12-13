@@ -1,0 +1,1577 @@
+---
+title: "Scheduling and Attendance Compliance Report"
+format: pdf
+editor: 
+  markdown: 
+    wrap: sentence
+---
+
+# ⭐️Overview
+
+This file was used to generate scheduling and attendance compliance reports, based on the Master Log records, the Combined Data, and the study protocol.
+
+## Notes
+
+Study protocol indicated that scheduling should be from V2, the randomization visit.
+Visit 2 was planned to occur within 3 days of Visit 1
+
+-   Visit 2 should have occurred within 3 days of Visit 1
+
+-   Visit 3 should be 1 month after Visit 2: 28-31 days (3 day range)
+
+    -   30 ± 2 days
+
+-   Visit 4 should be 3 months after Visit 3: 89-92 days (3 day range)
+
+    -   90 ± 2 days
+
+-   Visit 5 should be 6 months after Visit 2: 181-184 days (3 day range)
+
+    -   182 ± 2 days
+
+# 📦Load packages & Functions
+
+```{r, message=FALSE, warning=FALSE}
+library(dplyr, warn.conflicts = FALSE)
+library(purrr, warn.conflicts = FALSE)
+library(haven, warn.conflicts = FALSE)
+library(here, warn.conflicts = FALSE)
+library(stringr, warn.conflicts = FALSE)
+library(lubridate, warn.conflicts = FALSE)
+library(readxl, warn.conflicts = FALSE)
+library(openxlsx, warn.conflicts = FALSE)
+library(readr, warn.conflicts = FALSE)
+library(tidyverse, warn.conflicts = FALSE)
+```
+
+```{r}
+source(here("R", "data_mod_check.R"))
+```
+
+# 📥 Import the Data
+
+## Master Log
+
+We imported the Master Log data, manually assigning column names and types.
+
+The Master Log was our most reliable source of the Date of each Visit for each Subject, which was useful for converting Subject-Date records into a Subject-Visit format.
+
+```{r}
+master_log_path <- here("data", "master_log", "master_log.xlsx")
+```
+
+Import the data.
+Check the most recent file modification dates and print for user when this file is being sourced.
+
+```{r}
+master_log <- read_excel(
+  master_log_path, 
+  sheet = "Screened In",
+  col_names = c(
+    "id", "baseline_dt",
+    "v2_sch", "v2_dt", "v2_late", "v2_noshow",
+    "v3_sch", "v3_dt", "v3_late", "v3_noshow",
+    "v4_sch", "v4_dt", "v4_late", "v4_noshow",
+    "v5_sch", "v5_dt", "v5_late", "v5_noshow",
+    "group"
+    ),
+  col_types = c(
+    "numeric", "skip", "date", "skip",  
+    "date", "date", "text", "text", "skip",
+    "date", "date", "text", "text", "skip",
+    "date", "date", "text", "text", "skip",
+    "date", "date", "text", "text",
+    "text", rep("skip", 31)
+    ),
+  skip = 1
+  ) |>
+  # Coerce group to factor
+  mutate(
+    group = factor(group, levels = c('UCM', 'UCM+SP', 'L2C'), ordered = TRUE)
+  ) |>
+  # Remove empty rows
+  filter(!is.na(id))
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "Master log imported with", nrow(master_log), "rows and", ncol(master_log),
+  "columns.\n"
+)
+
+# Check the most recent file modification dates and print for user when this
+# file is being sourced.
+
+cat(
+      "Master log last modified on OneDrive", 
+      as.character(file.info(master_log_path)$mtime), "\n"
+    )
+
+# 2023-12-01: Master log imported with 442 rows and 19 columns.
+# Master log last modified on OneDrive 2023-09-28 11:52:59
+```
+
+### Data Check: Changes
+
+We checked for changes to the source data set since this file was last modified.
+
+```{r}
+# Inputs last modified: 2023-12-01
+
+data_mod_check(
+  'df' = master_log,
+  'df_path_str' = master_log_path,
+  'orig_path_str' = here("data", "master_log", "master_log.xlsx"),
+  'mod_dt' = '2023-09-28 11:52:59 CDT',
+  'num_rows' = 442,
+  'num_cols' = 19,
+  'col_names' = c(
+    "id", "baseline_dt",
+    "v2_sch", "v2_dt", "v2_late", "v2_noshow",
+    "v3_sch", "v3_dt", "v3_late", "v3_noshow",
+    "v4_sch", "v4_dt", "v4_late", "v4_noshow",
+    "v5_sch", "v5_dt", "v5_late", "v5_noshow",
+    "group"
+    )
+  )
+# TRUE
+```
+
+We purged the import path for memory management.
+
+```{r}
+rm(master_log_path)
+```
+
+## Combined Data Set
+
+We imported our Combined Data Set
+
+```{r}
+combined_data_path <- here(
+  "data", "Combined Participant Data", "combined_data_03.rds"
+  )
+```
+
+Import the data.
+Check the most recent file modification dates and print for user when this file is being sourced.
+
+```{r message=FALSE}
+combined_data <- readRDS(combined_data_path)
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "Combined data imported with", nrow(combined_data), "rows and", 
+  ncol(combined_data), "columns.\n"
+)
+
+# Check the most recent file modification dates and print for user when this
+# file is being sourced.
+
+cat(
+      "Combined data last modified on OneDrive", 
+      as.character(file.info(combined_data_path)$mtime), "\n"
+    )
+
+# 2023-12-01: Combined data imported with 1610 rows and 1063 columns.
+# Combined data last modified on OneDrive 2023-11-20 15:08:47 
+```
+
+We purged the import path for memory management.
+
+```{r}
+rm(combined_data_path)
+```
+
+# Initializing Workbooks
+
+```{r}
+wb <- createWorkbook()
+```
+
+# Convenience Function
+
+A single convenience function was written to extract values more rapidly.
+
+```{r}
+extract_values <- function(
+    extracting_set, visit_list, date_windows, num_types, date_types
+    ){
+
+  out_tibble <- tibble::tibble(
+    values = c(
+              'num_scheduled', 'num_attended', 'mean_out', 'max_out',
+              stringr::str_remove(date_windows, '_')
+              )
+    )
+  for (visit_txt in visit_list){
+    # Number Scheduled, Number Attended; constant across instances of a visit
+    col_head <- c(
+        sum(!is.na(extracting_set[[paste0(visit_txt, '_sch')]])), # Number Scheduled
+        sum(!is.na(extracting_set[[paste0(visit_txt, '_dt')]])) # Number Attended
+        )
+    for (num_type in num_types){
+      # Side-by-side columns for Scheduling, Attended (or any other type passed)
+    
+      for (date_type in date_types){
+          # Get Mean, Maximum days out of range for date_type
+          col_vals <- c(col_head,
+            round(unname(summary(abs(na.omit(
+              extracting_set[[paste0(visit_txt, '_days', num_type, date_type)]]
+              )))['Mean']), 2), # Mean days out of compliance
+            trunc(round(unname(summary(abs(na.omit(
+              extracting_set[[paste0(visit_txt, '_days', num_type, date_type)]]
+              )))['Max.']))) # Maximum days out of compliance
+            )
+          for (window in date_windows){
+          # Add Count that are out of compliance for each Window
+            col_vals <- c(col_vals,
+              trunc(sum(
+                !extracting_set[[paste0(visit_txt, window, num_type, date_type)]], 
+                 na.rm = TRUE
+                ))
+               )
+          } # Close date_windows loop - 4th from outer, innermost
+      col_name = paste0(visit_txt, num_type, date_type)
+      out_tibble[[col_name]] <- col_vals
+      } # Close date_type loop - 3rd from outer, 2nd from inner
+    } # Close num_types loop - 2nd from outer, 3rd from inner
+  } # Close visit_list loop - Outer loop, 4th from inner
+  out_tibble
+}
+```
+
+
+# Set Modification
+
+We modified our data sets.
+
+## Master Log
+
+Several dates within our Master Log had typographical issues, wherein the year was entered as two digit. As such, 2019 was erroneously read as 1900 by R.
+
+```{r}
+date_fields <- master_log |>
+  select(all_of(ends_with(c('_dt', '_sch')))) |>
+  names()
+
+# Leading date to ensure all fields don't lose formatting
+min_dates <- c(lubridate::date('2000-01-01'))
+
+for (field in date_fields){
+  min_dates <- c(min_dates, min(na.omit(master_log[[field]])))
+  
+}
+
+min_dates = min_dates[-1]
+names(min_dates) = date_fields
+min_dates
+```
+
+In inspecting these values, we recognized that all of these subjects 'No Showed' after V1.
+
+```{r}
+master_log |>
+  filter((year(v3_sch) == 1900)|(year(v4_sch) == 1900)|(year(v5_sch) == 1900)) |>
+  select(v2_dt) |>
+  distinct()
+```
+
+As such, we converted the V3, V4, and V5 scheduled dates for these subjects to a missing value. No further overt issues were identified with minimum date values.
+
+```{r}
+master_log <- master_log |>
+  mutate(
+    v3_sch = if_else(year(v3_sch) == 1900, NA, v3_sch),
+    v4_sch = if_else(year(v4_sch) == 1900, NA, v4_sch),
+    v5_sch = if_else(year(v5_sch) == 1900, NA, v5_sch)
+  )
+
+# Leading date to ensure all fields don't lose formatting
+min_dates <- c(lubridate::date('2000-01-01'))
+
+for (field in date_fields){
+  min_dates <- c(min_dates, min(na.omit(master_log[[field]])))
+  
+}
+
+min_dates = min_dates[-1]
+names(min_dates) = date_fields
+min_dates
+```
+
+There was not a similar issue with maximum dates.
+
+```{r}
+# Leading date to ensure all fields don't lose formatting
+max_dates <- c(lubridate::date('2000-01-01'))
+
+for (field in date_fields){
+  max_dates <- c(max_dates, max(na.omit(master_log[[field]])))
+  
+}
+max_dates = max_dates[-1]
+names(max_dates) = date_fields
+max_dates
+```
+
+## Combined Data
+
+From the combined data, we:
+
+1.  Created our "Drop Flag" indicator, which flagged any subject marked as dropped, that lacked a randomization group, or was marked as "Do Not Include"
+
+2.  Modified our Group variable, so that values would match the Master Log format
+
+3.  Modified our ID variable into a numeric, to match the Master Log format
+
+4.  Ensured previously identified erroneous data entries were eliminated.
+    All of these entries were highly incomplete, reflected visits that did not occur for the indicated subject, and were traced back to data entry errors by the research team operating in the field.
+    Records for issues and other notable events in operation assisted in confirming these entries were erroneous.
+
+    -   A Visit 3 entry for Subject 2319 was erroneous
+
+    -   Visit 4 entries for Subjects 2309, 2317 and 2372 were erroneous
+
+5.  We isolated the Subject ID, Group, Drop Flag, Visit, and Visit Date
+
+6.  We reshaped the data to be in wide format with Subject ID as a key, rather than long with Subject-Visit keys, to match the Master Log
+
+7.  We renamed our columns for use in code
+
+```{r}
+combined_data <- combined_data |>
+  dplyr::mutate(
+    drop_flag = ifelse(
+      ((!is.na(group) &
+         subj_randomized_status != "Do Not Include")),
+      FALSE,
+      TRUE
+    )
+  ) |>
+  dplyr::mutate(
+    id = as.numeric(as.character(id))
+  ) |>
+  dplyr::mutate(
+    group = case_when(
+      stringr::str_detect(group, 'Usual Care plus Smartphone based Case') ~ 'L2C',
+      stringr::str_detect(group, 'Usual Care plus Smartphone') ~ 'UCM+SP',
+      stringr::str_detect(group, 'Usual Case') ~ 'UCM'
+    )
+  ) |>
+  dplyr::mutate(
+    group = factor(group, levels = c('UCM', 'UCM+SP', 'L2C'), ordered = TRUE)
+  ) |>
+  dplyr::filter(
+    !(id == 2319  & visit == 'Visit 3: 1 Month Follow-Up')
+    )|>
+  dplyr::filter(
+    !(id %in% c(2309, 2317, 2372) & visit == 'Visit 4: 3 Month Follow-Up')
+    ) |>
+  dplyr::select(id, group, drop_flag, visit, visit_date) |>
+  tidyr::spread(visit, visit_date) |>
+  dplyr::rename_at(
+    c(
+      'Visit 1: Baseline', 'Visit 2: Randomization', 
+      'Visit 3: 1 Month Follow-Up', 'Visit 4: 3 Month Follow-Up', 
+      'Visit 5: 6 Month Follow-Up'),
+    ~c('v1_data', 'v2_data', 'v3_data', 'v4_data', 'v5_data'))
+```
+
+We ensured Group and ID matched for all subjects between both sets.
+
+```{r}
+sum(!(
+  na.omit(pull(combined_data |> 
+    mutate(key = paste(id, group, sep = '-' )) |> 
+    select(key)
+  )) %in% na.omit(pull(master_log |> 
+                mutate(key = paste(id, group, sep = '-' )) |> 
+                select(key)
+              ))
+)) == 0
+# TRUE
+```
+
+We combined the two data sets.
+The 'group' column was excluded from the combined data, as it was previously shown to be identical to the Master Log's values.
+We then ordered our columns.
+
+```{r}
+date_data <- left_join(
+  master_log, combined_data |> select(-group),
+  by = 'id'
+  ) |>
+  dplyr::relocate(
+    id, group, drop_flag, baseline_dt, 
+    v2_sch, v2_dt, v2_data, v2_late, v2_noshow,
+    v3_sch, v3_dt, v3_data, v3_late, v3_noshow,
+    v4_sch, v4_dt, v4_data, v4_late, v4_noshow,
+    v5_sch, v5_dt, v5_data, v5_late, v5_noshow
+    )
+```
+
+We purged the Master Log and Combined Data for memory management, as they were no longer needed.
+
+```{r}
+rm(master_log)
+rm(combined_data)
+```
+
+# Report Generation
+
+## As Scheduled
+
+We calculated attendance compliance at all visits. We compared the attendance dates in both the Master Log and Combined Data, and took the one with the smallest distance from the scheduled date.
+
+```{r}
+checking_data <- date_data |>
+  rowwise() |>
+  mutate(
+    v2_days_attn = min(
+      abs(lubridate::interval(v2_sch, v2_dt) %/% lubridate::days(1)),
+      abs(lubridate::interval(v2_sch, v2_data) %/% lubridate::days(1))
+      ),
+    v3_days_attn = min(
+      abs(lubridate::interval(v3_sch, v3_dt) %/% lubridate::days(1)),
+      abs(lubridate::interval(v3_sch, v3_data) %/% lubridate::days(1))
+      ),
+    v4_days_attn = min(
+      abs(lubridate::interval(v4_sch, v4_dt) %/% lubridate::days(1)),
+      abs(lubridate::interval(v4_sch, v4_data) %/% lubridate::days(1))
+      ),
+    v5_days_attn = min(
+      abs(lubridate::interval(v5_sch, v5_dt) %/% lubridate::days(1)),
+      abs(lubridate::interval(v5_sch, v5_data) %/% lubridate::days(1))
+      )
+    ) |>
+  ungroup()
+```
+
+We then calculated compliance with our strict, 2, 4, 7, 14, and 30 day windows for each visit.
+
+```{r}
+checking_data <- checking_data |>
+  mutate(
+    # Strict windows
+    v2_strict_attn = v2_days_attn == 0,
+    v3_strict_attn = v3_days_attn == 0,
+    v4_strict_attn = v4_days_attn == 0,
+    v5_strict_attn = v5_days_attn == 0,
+    # 2 day window
+    v2_2days_attn = abs(v2_days_attn) <= 2,
+    v3_2days_attn = abs(v3_days_attn) <= 2,
+    v4_2days_attn = abs(v4_days_attn) <= 2,
+    v5_2days_attn = abs(v5_days_attn) <= 2,
+    # 4 day window
+    v2_4days_attn = abs(v2_days_attn) <= 4,
+    v3_4days_attn = abs(v3_days_attn) <= 4,
+    v4_4days_attn = abs(v4_days_attn) <= 4,
+    v5_4days_attn = abs(v5_days_attn) <= 4,
+    # 7 day window
+    v2_7days_attn = abs(v2_days_attn) <= 7,
+    v3_7days_attn = abs(v3_days_attn) <= 7,
+    v4_7days_attn = abs(v4_days_attn) <= 7,
+    v5_7days_attn = abs(v5_days_attn) <= 7,
+    # 14 day window
+    v2_14days_attn = abs(v2_days_attn) <= 14,
+    v3_14days_attn = abs(v3_days_attn) <= 14,
+    v4_14days_attn = abs(v4_days_attn) <= 14,
+    v5_14days_attn = abs(v5_days_attn) <= 14,
+    # 30 day window
+    v2_30days_attn = abs(v2_days_attn) <= 30,
+    v3_30days_attn = abs(v3_days_attn) <= 30,
+    v4_30days_attn = abs(v4_days_attn) <= 30,
+    v5_30days_attn = abs(v5_days_attn) <= 30
+  )
+```
+
+We utilized our convenience function to extract compliance data.
+
+```{r}
+visit_list <- c('v2', 'v3', 'v4', 'v5')
+date_types <- c('', '_wkd')
+num_types <- c('_sch', '_attn')
+date_windows <- c('_strict', '_2days', '_4days', '_7days', '_14days', '_30days')
+
+# All Subjects
+attendance_all <- extract_values(
+  checking_data,
+  visit_list,
+  date_types = date_types[1],
+  num_types = num_types[2],
+  date_windows
+  ) |>
+  mutate(
+    values = c(
+      'Number Scheduled', 'Number of Attendees', 'Mean Days from Scheduled Date',
+      'Maximum Days from Scheduled Date', 'Number NOT on Scheduled Date',
+      'Number NOT within 2 Days of Scheduled Date', 
+      'Number NOT within 4 Days of Scheduled Date',
+      'Number NOT within 7 Days of Scheduled Date',
+      'Number NOT within 14 Days of Scheduled Date',
+      'Number NOT within 30 Days of Scheduled Date'
+      )
+    ) |>
+  rename_at(
+    c('values', 'v2_attn', 'v3_attn', 'v4_attn', 'v5_attn'), 
+    ~c(
+      'Value', 'Visit 2: Strict Date, Attendance',
+      'Visit 3: Strict Date, Attendance', 
+      'Visit 4: Strict Date, Attendance', 
+      'Visit 5: Strict Date, Attendance')
+    )
+
+# All Subjects
+attendance_incl <- extract_values(
+  checking_data |>
+    filter(!drop_flag),
+  visit_list,
+  date_types = date_types[1],
+  num_types = num_types[2],
+  date_windows
+  ) |>
+  mutate(
+    values = c(
+      'Number Scheduled', 'Number of Attendees', 'Mean Days from Scheduled Date',
+      'Maximum Days from Scheduled Date', 'Number NOT on Scheduled Date',
+      'Number NOT within 2 Days of Scheduled Date', 
+      'Number NOT within 4 Days of Scheduled Date',
+      'Number NOT within 7 Days of Scheduled Date',
+      'Number NOT within 14 Days of Scheduled Date',
+      'Number NOT within 30 Days of Scheduled Date'
+      )
+    ) |>
+  rename_at(
+    c('values', 'v2_attn', 'v3_attn', 'v4_attn', 'v5_attn'), 
+    ~c(
+      'Value', 'Visit 2: Strict Date, Attendance',
+      'Visit 3: Strict Date, Attendance', 
+      'Visit 4: Strict Date, Attendance', 
+      'Visit 5: Strict Date, Attendance')
+    )
+```
+
+We added our data to the Excel Workbook, and cleared the data frames
+
+```{r}
+addWorksheet(wb, "Attn as Sched, All")
+
+writeDataTable(wb, 1, attendance_all,
+                startCol = 1, startRow = 1, 
+                tableStyle = "TableStyleLight1"
+                )
+
+addWorksheet(wb, "Attn as Sched, Incl Only")
+
+writeDataTable(wb, 2, attendance_incl,
+                startCol = 1, startRow = 1, 
+                tableStyle = "TableStyleLight1"
+                )
+
+rm(attendance_all)
+rm(attendance_incl)
+```
+
+## From V2 Scheduled
+
+We calculated the scheduled dates that should have occurred per protocol, per V2's scheduled date. The dates were calculated for the exact day, as well as rolling for weekends (Sunday forward to Monday, Saturday backward to Friday). The difference, in days, between the scheduled visit and the protocol dates were calculated. The difference, in days, between the protocol date and attendance was calculated.
+
+```{r}
+checking_data <- date_data |>
+  mutate(
+    v2_protocol = baseline_dt + ddays(3),
+    v2_protocol_wkd = case_when(
+      lubridate::wday(v2_protocol) == 1 ~ v2_protocol + ddays(1), #Sunday forward to Monday
+      lubridate::wday(v2_protocol) == 7 ~ v2_protocol - ddays(1), #Saturday back to Friday
+      TRUE ~ v2_protocol
+      ),
+    v3_protocol = v2_sch + ddays(30),
+    v3_protocol_wkd = case_when(
+      lubridate::wday(v3_protocol) == 1 ~ v3_protocol + ddays(1), #Sunday forward to Monday
+      lubridate::wday(v3_protocol) == 7 ~ v3_protocol - ddays(1), #Saturday back to Friday
+      TRUE ~ v3_protocol
+      ),
+  v4_protocol = v2_sch + ddays(90),
+      v4_protocol_wkd = case_when(
+        lubridate::wday(v4_protocol) == 1 ~ v4_protocol + ddays(1), #Sunday forward to Monday
+        lubridate::wday(v4_protocol) == 7 ~ v4_protocol - ddays(1), #Saturday back to Friday
+        TRUE ~ v4_protocol
+        ),
+  v5_protocol = v2_sch + ddays(182),
+      v5_protocol_wkd = case_when(
+        lubridate::wday(v5_protocol) == 1 ~ v5_protocol + ddays(1), #Sunday forward to Monday
+        lubridate::wday(v5_protocol) == 7 ~ v5_protocol - ddays(1), #Saturday back to Friday
+        TRUE ~ v5_protocol
+        )
+    ) |>
+  mutate(
+    v2_days_sch = 
+      abs(lubridate::interval(v2_protocol, v2_sch) %/% lubridate::days(1)),
+    v2_days_sch_wkd = 
+      abs(lubridate::interval(v2_protocol_wkd, v2_sch) %/% lubridate::days(1)),
+    v3_days_sch = 
+      abs(lubridate::interval(v3_protocol, v3_sch) %/% lubridate::days(1)),
+    v3_days_sch_wkd = 
+      abs(lubridate::interval(v3_protocol_wkd, v3_sch) %/% lubridate::days(1)),
+    v4_days_sch = 
+      abs(lubridate::interval(v4_protocol, v4_sch) %/% lubridate::days(1)),
+    v4_days_sch_wkd = 
+      abs(lubridate::interval(v4_protocol_wkd, v4_sch) %/% lubridate::days(1)),
+    v5_days_sch = 
+      abs(lubridate::interval(v5_protocol, v5_sch) %/% lubridate::days(1)),
+    v5_days_sch_wkd = 
+      abs(lubridate::interval(v5_protocol_wkd, v5_sch) %/% lubridate::days(1)),
+    ) |>
+  rowwise() |>
+  mutate(
+    v2_days_attn = min(
+      abs(lubridate::interval(v2_protocol, v2_dt) %/% lubridate::days(1)),
+      abs(lubridate::interval(v2_protocol, v2_data) %/% lubridate::days(1))
+      ),
+    v2_days_attn_wkd =  min(
+      abs(lubridate::interval(v2_protocol_wkd, v2_dt) %/% lubridate::days(1)),
+      abs(lubridate::interval(v2_protocol_wkd, v2_data) %/% lubridate::days(1))
+      ),
+    v3_days_attn = min(
+      abs(lubridate::interval(v3_protocol, v3_dt) %/% lubridate::days(1)),
+      abs(lubridate::interval(v3_protocol, v3_data) %/% lubridate::days(1))
+      ),
+    v3_days_attn_wkd =  min(
+      abs(lubridate::interval(v3_protocol_wkd, v3_dt) %/% lubridate::days(1)),
+      abs(lubridate::interval(v3_protocol_wkd, v3_data) %/% lubridate::days(1))
+      ),
+    v4_days_attn = min(
+      abs(lubridate::interval(v4_protocol, v4_dt) %/% lubridate::days(1)),
+      abs(lubridate::interval(v4_protocol, v4_data) %/% lubridate::days(1))
+      ),
+    v4_days_attn_wkd =  min(
+      abs(lubridate::interval(v4_protocol_wkd, v4_dt) %/% lubridate::days(1)),
+      abs(lubridate::interval(v4_protocol_wkd, v4_data) %/% lubridate::days(1))
+      ),
+    v5_days_attn = min(
+      abs(lubridate::interval(v5_protocol, v5_dt) %/% lubridate::days(1)),
+      abs(lubridate::interval(v5_protocol, v5_data) %/% lubridate::days(1))
+      ),
+    v5_days_attn_wkd =  min(
+      abs(lubridate::interval(v5_protocol_wkd, v5_dt) %/% lubridate::days(1)),
+      abs(lubridate::interval(v5_protocol_wkd, v5_data) %/% lubridate::days(1))
+      )
+    ) |>
+  ungroup()
+```
+
+
+
+We then calculated compliance with both scheduling and attendance with our strict, 2, 4, 7, 14, and 30 day windows for each visit.
+
+```{r}
+checking_data <- checking_data |>
+  mutate(
+    # Strict windows
+    v2_strict_sch = v2_days_sch == 0,
+    v2_strict_sch_wkd = v2_days_sch_wkd == 0,
+    v3_strict_sch = v3_days_sch == 0,
+    v3_strict_sch_wkd = v3_days_sch_wkd == 0,
+    v4_strict_sch = v4_days_sch == 0,
+    v4_strict_sch_wkd = v4_days_sch_wkd == 0,
+    v5_strict_sch = v5_days_sch == 0,
+    v5_strict_sch_wkd = v5_days_sch_wkd == 0,
+    # 2 day window
+    v2_2days_sch = abs(v2_days_sch) <= 2,
+    v2_2days_sch_wkd = abs(v2_days_sch_wkd) <= 2,
+    v3_2days_sch = abs(v3_days_sch) <= 2,
+    v3_2days_sch_wkd = abs(v3_days_sch_wkd) <= 2,
+    v4_2days_sch = abs(v4_days_sch) <= 2,
+    v4_2days_sch_wkd = abs(v4_days_sch_wkd) <= 2,
+    v5_2days_sch = abs(v5_days_sch) <= 2,
+    v5_2days_sch_wkd = abs(v5_days_sch_wkd) <= 2,
+    # 4 day window
+    v2_4days_sch = abs(v2_days_sch) <= 4,
+    v2_4days_sch_wkd = abs(v2_days_sch_wkd) <= 4,
+    v3_4days_sch = abs(v3_days_sch) <= 4,
+    v3_4days_sch_wkd = abs(v3_days_sch_wkd) <= 4,
+    v4_4days_sch = abs(v4_days_sch) <= 4,
+    v4_4days_sch_wkd = abs(v4_days_sch_wkd) <= 4,
+    v5_4days_sch = abs(v5_days_sch) <= 4,
+    v5_4days_sch_wkd = abs(v5_days_sch_wkd) <= 4,
+    # 7 day window
+    v2_7days_sch = abs(v2_days_sch) <= 7,
+    v2_7days_sch_wkd = abs(v2_days_sch_wkd) <= 7,
+    v3_7days_sch = abs(v3_days_sch) <= 7,
+    v3_7days_sch_wkd = abs(v3_days_sch_wkd) <= 7,
+    v4_7days_sch = abs(v4_days_sch) <= 7,
+    v4_7days_sch_wkd = abs(v4_days_sch_wkd) <= 7,
+    v5_7days_sch = abs(v5_days_sch) <= 7,
+    v5_7days_sch_wkd = abs(v5_days_sch_wkd) <= 7,
+    # 14 day window
+    v2_14days_sch = abs(v2_days_sch) <= 14,
+    v2_14days_sch_wkd = abs(v2_days_sch_wkd) <= 14,
+    v3_14days_sch = abs(v3_days_sch) <= 14,
+    v3_14days_sch_wkd = abs(v3_days_sch_wkd) <= 14,
+    v4_14days_sch = abs(v4_days_sch) <= 14,
+    v4_14days_sch_wkd = abs(v4_days_sch_wkd) <= 14,
+    v5_14days_sch = abs(v5_days_sch) <= 14,
+    v5_14days_sch_wkd = abs(v5_days_sch_wkd) <= 14,
+    # 30 day window
+    v2_30days_sch = abs(v2_days_sch) <= 30,
+    v2_30days_sch_wkd = abs(v2_days_sch_wkd) <= 30,
+    v3_30days_sch = abs(v3_days_sch) <= 30,
+    v3_30days_sch_wkd = abs(v3_days_sch_wkd) <= 30,
+    v4_30days_sch = abs(v4_days_sch) <= 30,
+    v4_30days_sch_wkd = abs(v4_days_sch_wkd) <= 30,
+    v5_30days_sch = abs(v5_days_sch) <= 30,
+    v5_30days_sch_wkd = abs(v5_days_sch_wkd) <= 30
+  ) |>
+  mutate(
+    # Strict windows
+    v2_strict_attn = v2_days_attn == 0,
+    v2_strict_attn_wkd = v2_days_attn_wkd == 0,
+    v3_strict_attn = v3_days_attn == 0,
+    v3_strict_attn_wkd = v3_days_attn_wkd == 0,
+    v4_strict_attn = v4_days_attn == 0,
+    v4_strict_attn_wkd = v4_days_attn_wkd == 0,
+    v5_strict_attn = v5_days_attn == 0,
+    v5_strict_attn_wkd = v5_days_attn_wkd == 0,
+    # 2 day window
+    v2_2days_attn = abs(v2_days_attn) <= 2,
+    v2_2days_attn_wkd = abs(v2_days_attn_wkd) <= 2,
+    v3_2days_attn = abs(v3_days_attn) <= 2,
+    v3_2days_attn_wkd = abs(v3_days_attn_wkd) <= 2,
+    v4_2days_attn = abs(v4_days_attn) <= 2,
+    v4_2days_attn_wkd = abs(v4_days_attn_wkd) <= 2,
+    v5_2days_attn = abs(v5_days_attn) <= 2,
+    v5_2days_attn_wkd = abs(v5_days_attn_wkd) <= 2,
+    # 4 day window
+    v2_4days_attn = abs(v2_days_attn) <= 4,
+    v2_4days_attn_wkd = abs(v2_days_attn_wkd) <= 4,
+    v3_4days_attn = abs(v3_days_attn) <= 4,
+    v3_4days_attn_wkd = abs(v3_days_attn_wkd) <= 4,
+    v4_4days_attn = abs(v4_days_attn) <= 4,
+    v4_4days_attn_wkd = abs(v4_days_attn_wkd) <= 4,
+    v5_4days_attn = abs(v5_days_attn) <= 4,
+    v5_4days_attn_wkd = abs(v5_days_attn_wkd) <= 4,
+    # 7 day window
+    v2_7days_attn = abs(v2_days_attn) <= 7,
+    v2_7days_attn_wkd = abs(v2_days_attn_wkd) <= 7,
+    v3_7days_attn = abs(v3_days_attn) <= 7,
+    v3_7days_attn_wkd = abs(v3_days_attn_wkd) <= 7,
+    v4_7days_attn = abs(v4_days_attn) <= 7,
+    v4_7days_attn_wkd = abs(v4_days_attn_wkd) <= 7,
+    v5_7days_attn = abs(v5_days_attn) <= 7,
+    v5_7days_attn_wkd = abs(v5_days_attn_wkd) <= 7,
+    # 14 day window
+    v2_14days_attn = abs(v2_days_attn) <= 14,
+    v2_14days_attn_wkd = abs(v2_days_attn_wkd) <= 14,
+    v3_14days_attn = abs(v3_days_attn) <= 14,
+    v3_14days_attn_wkd = abs(v3_days_attn_wkd) <= 14,
+    v4_14days_attn = abs(v4_days_attn) <= 14,
+    v4_14days_attn_wkd = abs(v4_days_attn_wkd) <= 14,
+    v5_14days_attn = abs(v5_days_attn) <= 14,
+    v5_14days_attn_wkd = abs(v5_days_attn_wkd) <= 14,
+    # 30 day window
+    v2_30days_attn = abs(v2_days_attn) <= 30,
+    v2_30days_attn_wkd = abs(v2_days_attn_wkd) <= 30,
+    v3_30days_attn = abs(v3_days_attn) <= 30,
+    v3_30days_attn_wkd = abs(v3_days_attn_wkd) <= 30,
+    v4_30days_attn = abs(v4_days_attn) <= 30,
+    v4_30days_attn_wkd = abs(v4_days_attn_wkd) <= 30,
+    v5_30days_attn = abs(v5_days_attn) <= 30,
+    v5_30days_attn_wkd = abs(v5_days_attn_wkd) <= 30,
+  )
+```
+
+We utilized our convenience function to extract compliance data.
+
+```{r}
+visit_list <- c('v2', 'v3', 'v4', 'v5')
+date_types <- c('', '_wkd')
+num_types <- c('_sch', '_attn')
+date_windows <- c('_strict', '_2days', '_4days', '_7days', '_14days', '_30days')
+
+# All Subjects
+scheduling_all <- extract_values(
+  checking_data,
+  visit_list,
+  date_windows,
+  num_types,
+  date_types
+  ) |>
+  mutate(
+    values = c(
+      'Number Scheduled', 'Number of Attendees', 'Mean Days from Protocol Date',
+      'Maximum Days from Protocol Date', 'Number NOT on Protocol Date',
+      'Number NOT within 2 Days of Protocol Date', 
+      'Number NOT within 4 Days of Protocol Date',
+      'Number NOT within 7 Days of Protocol Date',
+      'Number NOT within 14 Days of Protocol Date',
+      'Number NOT within 30 Days of Protocol Date'
+      )
+  ) |>
+  relocate(
+     values,
+     v2_sch, v2_attn, v2_sch_wkd, v2_attn_wkd, 
+     v3_sch, v3_attn, v3_sch_wkd, v3_attn_wkd, 
+     v4_sch, v4_attn, v4_sch_wkd, v4_attn_wkd, 
+     v5_sch, v5_attn, v5_sch_wkd, v5_attn_wkd
+  ) |>
+  rename_at(
+    c(
+      'values', 
+      'v2_sch', 'v2_sch_wkd', 'v2_attn', 'v2_attn_wkd', 
+      'v3_sch', 'v3_sch_wkd', 'v3_attn', 'v3_attn_wkd', 
+      'v4_sch', 'v4_sch_wkd', 'v4_attn', 'v4_attn_wkd', 
+      'v5_sch', 'v5_sch_wkd', 'v5_attn', 'v5_attn_wkd'
+      ), 
+    ~c(
+        'Value', 
+        'Visit 2: Schedule, Strict Date', 
+        'Visit 2: Schedule, Rounded for Weekends',
+        'Visit 2: Attendance, Strict Date', 
+        'Visit 2: Attendance, Rounded for Weekends',
+        'Visit 3: Schedule, Strict Date', 
+        'Visit 3: Schedule, Rounded for Weekends',
+        'Visit 3: Attendance, Strict Date', 
+        'Visit 3: Attendance, Rounded for Weekends',
+        'Visit 4: Schedule, Strict Date', 
+        'Visit 4: Schedule, Rounded for Weekends',
+        'Visit 4: Attendance, Strict Date', 
+        'Visit 4: Attendance, Rounded for Weekends',
+        'Visit 5: Schedule, Strict Date', 
+        'Visit 5: Schedule, Rounded for Weekends',
+        'Visit 5: Attendance, Strict Date', 
+        'Visit 5: Attendance, Rounded for Weekends'
+        )
+    )
+
+# Included Subjects Only
+scheduling_incl <- extract_values(
+  checking_data |>
+    filter(!drop_flag),
+  visit_list,
+  date_windows,
+  num_types,
+  date_types
+  ) |>
+  mutate(
+    values = c(
+      'Number Scheduled', 'Number of Attendees', 'Mean Days from Protocol Date',
+      'Maximum Days from Protocol Date', 'Number NOT on Protocol Date',
+      'Number NOT within 2 Days of Protocol Date', 
+      'Number NOT within 4 Days of Protocol Date',
+      'Number NOT within 7 Days of Protocol Date',
+      'Number NOT within 14 Days of Protocol Date',
+      'Number NOT within 30 Days of Protocol Date'
+      )
+  ) |>
+  relocate(
+     values,
+     v2_sch, v2_attn, v2_sch_wkd, v2_attn_wkd, 
+     v3_sch, v3_attn, v3_sch_wkd, v3_attn_wkd, 
+     v4_sch, v4_attn, v4_sch_wkd, v4_attn_wkd, 
+     v5_sch, v5_attn, v5_sch_wkd, v5_attn_wkd
+  ) |>
+  rename_at(
+    c(
+      'values', 
+      'v2_sch', 'v2_sch_wkd', 'v2_attn', 'v2_attn_wkd', 
+      'v3_sch', 'v3_sch_wkd', 'v3_attn', 'v3_attn_wkd', 
+      'v4_sch', 'v4_sch_wkd', 'v4_attn', 'v4_attn_wkd', 
+      'v5_sch', 'v5_sch_wkd', 'v5_attn', 'v5_attn_wkd'
+      ), 
+    ~c(
+        'Value', 
+        'Visit 2: Schedule, Strict Date', 
+        'Visit 2: Schedule, Rounded for Weekends',
+        'Visit 2: Attendance, Strict Date', 
+        'Visit 2: Attendance, Rounded for Weekends',
+        'Visit 3: Schedule, Strict Date', 
+        'Visit 3: Schedule, Rounded for Weekends',
+        'Visit 3: Attendance, Strict Date', 
+        'Visit 3: Attendance, Rounded for Weekends',
+        'Visit 4: Schedule, Strict Date', 
+        'Visit 4: Schedule, Rounded for Weekends',
+        'Visit 4: Attendance, Strict Date', 
+        'Visit 4: Attendance, Rounded for Weekends',
+        'Visit 5: Schedule, Strict Date', 
+        'Visit 5: Schedule, Rounded for Weekends',
+        'Visit 5: Attendance, Strict Date', 
+        'Visit 5: Attendance, Rounded for Weekends'
+        )
+    )
+```
+
+We added our data to the Excel Workbook, and cleared the data frames
+
+```{r}
+addWorksheet(wb, "Sched from Sched V2, All")
+
+writeDataTable(wb, 3, scheduling_all,
+                startCol = 1, startRow = 1, 
+                tableStyle = "TableStyleLight1"
+                )
+
+addWorksheet(wb, "Sched from Sched V2, Incl Only")
+
+writeDataTable(wb, 4, scheduling_incl,
+                startCol = 1, startRow = 1, 
+                tableStyle = "TableStyleLight1"
+                )
+
+rm(scheduling_all)
+rm(scheduling_incl)
+```
+
+## From V2 Actual
+
+We calculated the scheduled dates that should have occurred per protocol, using V2's Actual attendance date. The dates were calculated for the exact day, as well as rolling for weekends (Sunday forward to Monday, Saturday backward to Friday). The difference, in days, between the scheduled visit and the protocol dates were calculated.
+
+```{r}
+checking_data <- date_data |>
+  filter(!is.na(v2_dt)) |>
+  mutate(
+    v3_protocol = v2_dt + ddays(30),
+    v3_protocol_wkd = case_when(
+      lubridate::wday(v3_protocol) == 1 ~ v3_protocol + ddays(1), #Sunday forward to Monday
+      lubridate::wday(v3_protocol) == 7 ~ v3_protocol - ddays(1), #Saturday back to Friday
+      TRUE ~ v3_protocol
+      ),
+  v4_protocol = v2_sch + ddays(90),
+      v4_protocol_wkd = case_when(
+        lubridate::wday(v4_protocol) == 1 ~ v4_protocol + ddays(1), #Sunday forward to Monday
+        lubridate::wday(v4_protocol) == 7 ~ v4_protocol - ddays(1), #Saturday back to Friday
+        TRUE ~ v4_protocol
+        ),
+  v5_protocol = v2_sch + ddays(182),
+      v5_protocol_wkd = case_when(
+        lubridate::wday(v5_protocol) == 1 ~ v5_protocol + ddays(1), #Sunday forward to Monday
+        lubridate::wday(v5_protocol) == 7 ~ v5_protocol - ddays(1), #Saturday back to Friday
+        TRUE ~ v5_protocol
+        )
+    ) |>
+  mutate(
+    v3_days_sch = 
+      abs(lubridate::interval(v3_protocol, v3_sch) %/% lubridate::days(1)),
+    v3_days_sch_wkd = 
+      abs(lubridate::interval(v3_protocol_wkd, v3_sch) %/% lubridate::days(1)),
+    v4_days_sch = 
+      abs(lubridate::interval(v4_protocol, v4_sch) %/% lubridate::days(1)),
+    v4_days_sch_wkd = 
+      abs(lubridate::interval(v4_protocol_wkd, v4_sch) %/% lubridate::days(1)),
+    v5_days_sch = 
+      abs(lubridate::interval(v5_protocol, v5_sch) %/% lubridate::days(1)),
+    v5_days_sch_wkd = 
+      abs(lubridate::interval(v5_protocol_wkd, v5_sch) %/% lubridate::days(1)),
+    ) |>
+  rowwise() |>
+  mutate(
+    v3_days_attn = min(
+      abs(lubridate::interval(v3_protocol, v3_dt) %/% lubridate::days(1)),
+      abs(lubridate::interval(v3_protocol, v3_data) %/% lubridate::days(1))
+      ),
+    v3_days_attn_wkd =  min(
+      abs(lubridate::interval(v3_protocol_wkd, v3_dt) %/% lubridate::days(1)),
+      abs(lubridate::interval(v3_protocol_wkd, v3_data) %/% lubridate::days(1))
+      ),
+    v4_days_attn = min(
+      abs(lubridate::interval(v4_protocol, v4_dt) %/% lubridate::days(1)),
+      abs(lubridate::interval(v4_protocol, v4_data) %/% lubridate::days(1))
+      ),
+    v4_days_attn_wkd =  min(
+      abs(lubridate::interval(v4_protocol_wkd, v4_dt) %/% lubridate::days(1)),
+      abs(lubridate::interval(v4_protocol_wkd, v4_data) %/% lubridate::days(1))
+      ),
+    v5_days_attn = min(
+      abs(lubridate::interval(v5_protocol, v5_dt) %/% lubridate::days(1)),
+      abs(lubridate::interval(v5_protocol, v5_data) %/% lubridate::days(1))
+      ),
+    v5_days_attn_wkd =  min(
+      abs(lubridate::interval(v5_protocol_wkd, v5_dt) %/% lubridate::days(1)),
+      abs(lubridate::interval(v5_protocol_wkd, v5_data) %/% lubridate::days(1))
+      )
+    ) |>
+  ungroup()
+```
+
+We then calculated compliance with both scheduling and attendance with our strict, 2, 4, 7, 14, and 30 day windows for each visit.
+
+```{r}
+checking_data <- checking_data |>
+  mutate(
+    # Strict windows
+    v3_strict_sch = v3_days_sch == 0,
+    v3_strict_sch_wkd = v3_days_sch_wkd == 0,
+    v4_strict_sch = v4_days_sch == 0,
+    v4_strict_sch_wkd = v4_days_sch_wkd == 0,
+    v5_strict_sch = v5_days_sch == 0,
+    v5_strict_sch_wkd = v5_days_sch_wkd == 0,
+    # 2 day window
+    v3_2days_sch = abs(v3_days_sch) <= 2,
+    v3_2days_sch_wkd = abs(v3_days_sch_wkd) <= 2,
+    v4_2days_sch = abs(v4_days_sch) <= 2,
+    v4_2days_sch_wkd = abs(v4_days_sch_wkd) <= 2,
+    v5_2days_sch = abs(v5_days_sch) <= 2,
+    v5_2days_sch_wkd = abs(v5_days_sch_wkd) <= 2,
+    # 4 day window
+    v3_4days_sch = abs(v3_days_sch) <= 4,
+    v3_4days_sch_wkd = abs(v3_days_sch_wkd) <= 4,
+    v4_4days_sch = abs(v4_days_sch) <= 4,
+    v4_4days_sch_wkd = abs(v4_days_sch_wkd) <= 4,
+    v5_4days_sch = abs(v5_days_sch) <= 4,
+    v5_4days_sch_wkd = abs(v5_days_sch_wkd) <= 4,
+    # 7 day window
+    v3_7days_sch = abs(v3_days_sch) <= 7,
+    v3_7days_sch_wkd = abs(v3_days_sch_wkd) <= 7,
+    v4_7days_sch = abs(v4_days_sch) <= 7,
+    v4_7days_sch_wkd = abs(v4_days_sch_wkd) <= 7,
+    v5_7days_sch = abs(v5_days_sch) <= 7,
+    v5_7days_sch_wkd = abs(v5_days_sch_wkd) <= 7,
+    # 14 day window
+    v3_14days_sch = abs(v3_days_sch) <= 14,
+    v3_14days_sch_wkd = abs(v3_days_sch_wkd) <= 14,
+    v4_14days_sch = abs(v4_days_sch) <= 14,
+    v4_14days_sch_wkd = abs(v4_days_sch_wkd) <= 14,
+    v5_14days_sch = abs(v5_days_sch) <= 14,
+    v5_14days_sch_wkd = abs(v5_days_sch_wkd) <= 14,
+    # 30 day window
+    v3_30days_sch = abs(v3_days_sch) <= 30,
+    v3_30days_sch_wkd = abs(v3_days_sch_wkd) <= 30,
+    v4_30days_sch = abs(v4_days_sch) <= 30,
+    v4_30days_sch_wkd = abs(v4_days_sch_wkd) <= 30,
+    v5_30days_sch = abs(v5_days_sch) <= 30,
+    v5_30days_sch_wkd = abs(v5_days_sch_wkd) <= 30
+  ) |>
+  mutate(
+    # Strict windows
+    v3_strict_attn = v3_days_attn == 0,
+    v3_strict_attn_wkd = v3_days_attn_wkd == 0,
+    v4_strict_attn = v4_days_attn == 0,
+    v4_strict_attn_wkd = v4_days_attn_wkd == 0,
+    v5_strict_attn = v5_days_attn == 0,
+    v5_strict_attn_wkd = v5_days_attn_wkd == 0,
+    # 2 day window
+    v3_2days_attn = abs(v3_days_attn) <= 2,
+    v3_2days_attn_wkd = abs(v3_days_attn_wkd) <= 2,
+    v4_2days_attn = abs(v4_days_attn) <= 2,
+    v4_2days_attn_wkd = abs(v4_days_attn_wkd) <= 2,
+    v5_2days_attn = abs(v5_days_attn) <= 2,
+    v5_2days_attn_wkd = abs(v5_days_attn_wkd) <= 2,
+    # 4 day window
+    v3_4days_attn = abs(v3_days_attn) <= 4,
+    v3_4days_attn_wkd = abs(v3_days_attn_wkd) <= 4,
+    v4_4days_attn = abs(v4_days_attn) <= 4,
+    v4_4days_attn_wkd = abs(v4_days_attn_wkd) <= 4,
+    v5_4days_attn = abs(v5_days_attn) <= 4,
+    v5_4days_attn_wkd = abs(v5_days_attn_wkd) <= 4,
+    # 7 day window
+    v3_7days_attn = abs(v3_days_attn) <= 7,
+    v3_7days_attn_wkd = abs(v3_days_attn_wkd) <= 7,
+    v4_7days_attn = abs(v4_days_attn) <= 7,
+    v4_7days_attn_wkd = abs(v4_days_attn_wkd) <= 7,
+    v5_7days_attn = abs(v5_days_attn) <= 7,
+    v5_7days_attn_wkd = abs(v5_days_attn_wkd) <= 7,
+    # 14 day window
+    v3_14days_attn = abs(v3_days_attn) <= 14,
+    v3_14days_attn_wkd = abs(v3_days_attn_wkd) <= 14,
+    v4_14days_attn = abs(v4_days_attn) <= 14,
+    v4_14days_attn_wkd = abs(v4_days_attn_wkd) <= 14,
+    v5_14days_attn = abs(v5_days_attn) <= 14,
+    v5_14days_attn_wkd = abs(v5_days_attn_wkd) <= 14,
+    # 30 day window
+    v3_30days_attn = abs(v3_days_attn) <= 30,
+    v3_30days_attn_wkd = abs(v3_days_attn_wkd) <= 30,
+    v4_30days_attn = abs(v4_days_attn) <= 30,
+    v4_30days_attn_wkd = abs(v4_days_attn_wkd) <= 30,
+    v5_30days_attn = abs(v5_days_attn) <= 30,
+    v5_30days_attn_wkd = abs(v5_days_attn_wkd) <= 30,
+  )
+```
+
+We utilized our convenience function to extract compliance data.
+
+```{r}
+visit_list <- c('v3', 'v4', 'v5')
+date_types <- c('', '_wkd')
+num_types <- c('_sch', '_attn')
+date_windows <- c('_strict', '_2days', '_4days', '_7days', '_14days', '_30days')
+
+# All Subjects
+scheduling_all_actual <- extract_values(
+  checking_data,
+  visit_list,
+  date_windows,
+  num_types,
+  date_types
+  ) |>
+  mutate(
+    values = c(
+      'Number Scheduled', 'Number of Attendees', 'Mean Days from Protocol Date',
+      'Maximum Days from Protocol Date', 'Number NOT on Protocol Date',
+      'Number NOT within 2 Days of Protocol Date', 
+      'Number NOT within 4 Days of Protocol Date',
+      'Number NOT within 7 Days of Protocol Date',
+      'Number NOT within 14 Days of Protocol Date',
+      'Number NOT within 30 Days of Protocol Date'
+      )
+  ) |>
+  relocate(
+     values,
+     v3_sch, v3_attn, v3_sch_wkd, v3_attn_wkd, 
+     v4_sch, v4_attn, v4_sch_wkd, v4_attn_wkd, 
+     v5_sch, v5_attn, v5_sch_wkd, v5_attn_wkd
+  ) |>
+  rename_at(
+    c(
+      'values', 
+      'v3_sch', 'v3_sch_wkd', 'v3_attn', 'v3_attn_wkd', 
+      'v4_sch', 'v4_sch_wkd', 'v4_attn', 'v4_attn_wkd', 
+      'v5_sch', 'v5_sch_wkd', 'v5_attn', 'v5_attn_wkd'
+      ), 
+    ~c(
+        'Value', 
+        'Visit 3: Schedule, Strict Date', 
+        'Visit 3: Schedule, Rounded for Weekends',
+        'Visit 3: Attendance, Strict Date', 
+        'Visit 3: Attendance, Rounded for Weekends',
+        'Visit 4: Schedule, Strict Date', 
+        'Visit 4: Schedule, Rounded for Weekends',
+        'Visit 4: Attendance, Strict Date', 
+        'Visit 4: Attendance, Rounded for Weekends',
+        'Visit 5: Schedule, Strict Date', 
+        'Visit 5: Schedule, Rounded for Weekends',
+        'Visit 5: Attendance, Strict Date', 
+        'Visit 5: Attendance, Rounded for Weekends'
+        )
+    )
+
+# Included Subjects Only
+scheduling_incl_actual <- extract_values(
+  checking_data |>
+    filter(!drop_flag),
+  visit_list,
+  date_windows,
+  num_types,
+  date_types
+  ) |>
+  mutate(
+    values = c(
+      'Number Scheduled', 'Number of Attendees', 'Mean Days from Protocol Date',
+      'Maximum Days from Protocol Date', 'Number NOT on Protocol Date',
+      'Number NOT within 2 Days of Protocol Date', 
+      'Number NOT within 4 Days of Protocol Date',
+      'Number NOT within 7 Days of Protocol Date',
+      'Number NOT within 14 Days of Protocol Date',
+      'Number NOT within 30 Days of Protocol Date'
+      )
+  ) |>
+  relocate(
+     values,
+     v3_sch, v3_attn, v3_sch_wkd, v3_attn_wkd, 
+     v4_sch, v4_attn, v4_sch_wkd, v4_attn_wkd, 
+     v5_sch, v5_attn, v5_sch_wkd, v5_attn_wkd
+  ) |>
+  rename_at(
+    c(
+      'values', 
+      'v3_sch', 'v3_sch_wkd', 'v3_attn', 'v3_attn_wkd', 
+      'v4_sch', 'v4_sch_wkd', 'v4_attn', 'v4_attn_wkd', 
+      'v5_sch', 'v5_sch_wkd', 'v5_attn', 'v5_attn_wkd'
+      ), 
+    ~c(
+        'Value', 
+        'Visit 3: Schedule, Strict Date', 
+        'Visit 3: Schedule, Rounded for Weekends',
+        'Visit 3: Attendance, Strict Date', 
+        'Visit 3: Attendance, Rounded for Weekends',
+        'Visit 4: Schedule, Strict Date', 
+        'Visit 4: Schedule, Rounded for Weekends',
+        'Visit 4: Attendance, Strict Date', 
+        'Visit 4: Attendance, Rounded for Weekends',
+        'Visit 5: Schedule, Strict Date', 
+        'Visit 5: Schedule, Rounded for Weekends',
+        'Visit 5: Attendance, Strict Date', 
+        'Visit 5: Attendance, Rounded for Weekends'
+        )
+    )
+```
+
+We added our data to the Excel Workbook, and cleared the data frames
+
+```{r}
+addWorksheet(wb, "Sched from V2 Act, All")
+
+writeDataTable(wb, 5, scheduling_all_actual,
+                startCol = 1, startRow = 1, 
+                tableStyle = "TableStyleLight1"
+                )
+
+addWorksheet(wb, "Sched from V2 Act, Incl Only")
+
+writeDataTable(wb, 6, scheduling_incl_actual,
+                startCol = 1, startRow = 1, 
+                tableStyle = "TableStyleLight1"
+                )
+
+rm(scheduling_all_actual)
+rm(scheduling_incl_actual)
+```
+
+## From Previous Actual Dates
+
+We calculated the scheduled dates that should have occurred per protocol, using the previous actual attendance date (V2 3 days after V1, V3 30 days after V2, V4 60 days after V3, V5 92 days after V4). The dates were calculated for the exact day, as well as rolling for weekends (Sunday forward to Monday, Saturday backward to Friday). The difference, in days, between the scheduled visit and the protocol dates were calculated.
+
+```{r}
+checking_data <- date_data |>
+  mutate(
+    v2_protocol = baseline_dt + ddays(3),
+    v2_protocol_wkd = case_when(
+      lubridate::wday(v2_protocol) == 1 ~ v2_protocol + ddays(1), #Sunday forward to Monday
+      lubridate::wday(v2_protocol) == 7 ~ v2_protocol - ddays(1), #Saturday back to Friday
+      TRUE ~ v2_protocol
+      ),
+    v3_protocol = v2_dt + ddays(30),
+    v3_protocol_wkd = case_when(
+      lubridate::wday(v3_protocol) == 1 ~ v3_protocol + ddays(1), #Sunday forward to Monday
+      lubridate::wday(v3_protocol) == 7 ~ v3_protocol - ddays(1), #Saturday back to Friday
+      TRUE ~ v3_protocol
+      ),
+  v4_protocol = v3_dt + ddays(60),
+      v4_protocol_wkd = case_when(
+        lubridate::wday(v4_protocol) == 1 ~ v4_protocol + ddays(1), #Sunday forward to Monday
+        lubridate::wday(v4_protocol) == 7 ~ v4_protocol - ddays(1), #Saturday back to Friday
+        TRUE ~ v4_protocol
+        ),
+  v5_protocol = v4_dt + ddays(92),
+      v5_protocol_wkd = case_when(
+        lubridate::wday(v5_protocol) == 1 ~ v5_protocol + ddays(1), #Sunday forward to Monday
+        lubridate::wday(v5_protocol) == 7 ~ v5_protocol - ddays(1), #Saturday back to Friday
+        TRUE ~ v5_protocol
+        )
+    ) |>
+  mutate(
+    v2_days_sch = 
+      abs(lubridate::interval(v2_protocol, v2_sch) %/% lubridate::days(1)),
+    v2_days_sch_wkd = 
+      abs(lubridate::interval(v2_protocol_wkd, v2_sch) %/% lubridate::days(1)),
+    v3_days_sch = 
+      abs(lubridate::interval(v3_protocol, v3_sch) %/% lubridate::days(1)),
+    v3_days_sch_wkd = 
+      abs(lubridate::interval(v3_protocol_wkd, v3_sch) %/% lubridate::days(1)),
+    v4_days_sch = 
+      abs(lubridate::interval(v4_protocol, v4_sch) %/% lubridate::days(1)),
+    v4_days_sch_wkd = 
+      abs(lubridate::interval(v4_protocol_wkd, v4_sch) %/% lubridate::days(1)),
+    v5_days_sch = 
+      abs(lubridate::interval(v5_protocol, v5_sch) %/% lubridate::days(1)),
+    v5_days_sch_wkd = 
+      abs(lubridate::interval(v5_protocol_wkd, v5_sch) %/% lubridate::days(1)),
+    ) |>
+  rowwise() |>
+  mutate(
+    v2_days_attn = min(
+      abs(lubridate::interval(v2_protocol, v2_dt) %/% lubridate::days(1)),
+      abs(lubridate::interval(v2_protocol, v2_data) %/% lubridate::days(1))
+      ),
+    v2_days_attn_wkd =  min(
+      abs(lubridate::interval(v2_protocol_wkd, v2_dt) %/% lubridate::days(1)),
+      abs(lubridate::interval(v2_protocol_wkd, v2_data) %/% lubridate::days(1))
+      ),
+    v3_days_attn = min(
+      abs(lubridate::interval(v3_protocol, v3_dt) %/% lubridate::days(1)),
+      abs(lubridate::interval(v3_protocol, v3_data) %/% lubridate::days(1))
+      ),
+    v3_days_attn_wkd =  min(
+      abs(lubridate::interval(v3_protocol_wkd, v3_dt) %/% lubridate::days(1)),
+      abs(lubridate::interval(v3_protocol_wkd, v3_data) %/% lubridate::days(1))
+      ),
+    v4_days_attn = min(
+      abs(lubridate::interval(v4_protocol, v4_dt) %/% lubridate::days(1)),
+      abs(lubridate::interval(v4_protocol, v4_data) %/% lubridate::days(1))
+      ),
+    v4_days_attn_wkd =  min(
+      abs(lubridate::interval(v4_protocol_wkd, v4_dt) %/% lubridate::days(1)),
+      abs(lubridate::interval(v4_protocol_wkd, v4_data) %/% lubridate::days(1))
+      ),
+    v5_days_attn = min(
+      abs(lubridate::interval(v5_protocol, v5_dt) %/% lubridate::days(1)),
+      abs(lubridate::interval(v5_protocol, v5_data) %/% lubridate::days(1))
+      ),
+    v5_days_attn_wkd =  min(
+      abs(lubridate::interval(v5_protocol_wkd, v5_dt) %/% lubridate::days(1)),
+      abs(lubridate::interval(v5_protocol_wkd, v5_data) %/% lubridate::days(1))
+      )
+    ) |>
+  ungroup()
+```
+
+We then calculated compliance with both scheduling and attendance with our strict, 2, 4, 7, 14, and 30 day windows for each visit.
+
+```{r}
+checking_data <- checking_data |>
+  mutate(
+    # Strict windows
+    v2_strict_sch = v2_days_sch == 0,
+    v2_strict_sch_wkd = v2_days_sch_wkd == 0,
+    v3_strict_sch = v3_days_sch == 0,
+    v3_strict_sch_wkd = v3_days_sch_wkd == 0,
+    v4_strict_sch = v4_days_sch == 0,
+    v4_strict_sch_wkd = v4_days_sch_wkd == 0,
+    v5_strict_sch = v5_days_sch == 0,
+    v5_strict_sch_wkd = v5_days_sch_wkd == 0,
+    # 2 day window
+    v2_2days_sch = abs(v2_days_sch) <= 2,
+    v2_2days_sch_wkd = abs(v2_days_sch_wkd) <= 2,
+    v3_2days_sch = abs(v3_days_sch) <= 2,
+    v3_2days_sch_wkd = abs(v3_days_sch_wkd) <= 2,
+    v4_2days_sch = abs(v4_days_sch) <= 2,
+    v4_2days_sch_wkd = abs(v4_days_sch_wkd) <= 2,
+    v5_2days_sch = abs(v5_days_sch) <= 2,
+    v5_2days_sch_wkd = abs(v5_days_sch_wkd) <= 2,
+    # 4 day window
+    v2_4days_sch = abs(v2_days_sch) <= 4,
+    v2_4days_sch_wkd = abs(v2_days_sch_wkd) <= 4,
+    v3_4days_sch = abs(v3_days_sch) <= 4,
+    v3_4days_sch_wkd = abs(v3_days_sch_wkd) <= 4,
+    v4_4days_sch = abs(v4_days_sch) <= 4,
+    v4_4days_sch_wkd = abs(v4_days_sch_wkd) <= 4,
+    v5_4days_sch = abs(v5_days_sch) <= 4,
+    v5_4days_sch_wkd = abs(v5_days_sch_wkd) <= 4,
+    # 7 day window
+    v2_7days_sch = abs(v2_days_sch) <= 7,
+    v2_7days_sch_wkd = abs(v2_days_sch_wkd) <= 7,
+    v3_7days_sch = abs(v3_days_sch) <= 7,
+    v3_7days_sch_wkd = abs(v3_days_sch_wkd) <= 7,
+    v4_7days_sch = abs(v4_days_sch) <= 7,
+    v4_7days_sch_wkd = abs(v4_days_sch_wkd) <= 7,
+    v5_7days_sch = abs(v5_days_sch) <= 7,
+    v5_7days_sch_wkd = abs(v5_days_sch_wkd) <= 7,
+    # 14 day window
+    v2_14days_sch = abs(v2_days_sch) <= 14,
+    v2_14days_sch_wkd = abs(v2_days_sch_wkd) <= 14,
+    v3_14days_sch = abs(v3_days_sch) <= 14,
+    v3_14days_sch_wkd = abs(v3_days_sch_wkd) <= 14,
+    v4_14days_sch = abs(v4_days_sch) <= 14,
+    v4_14days_sch_wkd = abs(v4_days_sch_wkd) <= 14,
+    v5_14days_sch = abs(v5_days_sch) <= 14,
+    v5_14days_sch_wkd = abs(v5_days_sch_wkd) <= 14,
+    # 30 day window
+    v2_30days_sch = abs(v2_days_sch) <= 30,
+    v2_30days_sch_wkd = abs(v2_days_sch_wkd) <= 30,
+    v3_30days_sch = abs(v3_days_sch) <= 30,
+    v3_30days_sch_wkd = abs(v3_days_sch_wkd) <= 30,
+    v4_30days_sch = abs(v4_days_sch) <= 30,
+    v4_30days_sch_wkd = abs(v4_days_sch_wkd) <= 30,
+    v5_30days_sch = abs(v5_days_sch) <= 30,
+    v5_30days_sch_wkd = abs(v5_days_sch_wkd) <= 30
+  ) |>
+  mutate(
+    # Strict windows
+    v2_strict_attn = v2_days_attn == 0,
+    v2_strict_attn_wkd = v2_days_attn_wkd == 0,
+    v3_strict_attn = v3_days_attn == 0,
+    v3_strict_attn_wkd = v3_days_attn_wkd == 0,
+    v4_strict_attn = v4_days_attn == 0,
+    v4_strict_attn_wkd = v4_days_attn_wkd == 0,
+    v5_strict_attn = v5_days_attn == 0,
+    v5_strict_attn_wkd = v5_days_attn_wkd == 0,
+    # 2 day window
+    v2_2days_attn = abs(v2_days_attn) <= 2,
+    v2_2days_attn_wkd = abs(v2_days_attn_wkd) <= 2,
+    v3_2days_attn = abs(v3_days_attn) <= 2,
+    v3_2days_attn_wkd = abs(v3_days_attn_wkd) <= 2,
+    v4_2days_attn = abs(v4_days_attn) <= 2,
+    v4_2days_attn_wkd = abs(v4_days_attn_wkd) <= 2,
+    v5_2days_attn = abs(v5_days_attn) <= 2,
+    v5_2days_attn_wkd = abs(v5_days_attn_wkd) <= 2,
+    # 4 day window
+    v2_4days_attn = abs(v2_days_attn) <= 4,
+    v2_4days_attn_wkd = abs(v2_days_attn_wkd) <= 4,
+    v3_4days_attn = abs(v3_days_attn) <= 4,
+    v3_4days_attn_wkd = abs(v3_days_attn_wkd) <= 4,
+    v4_4days_attn = abs(v4_days_attn) <= 4,
+    v4_4days_attn_wkd = abs(v4_days_attn_wkd) <= 4,
+    v5_4days_attn = abs(v5_days_attn) <= 4,
+    v5_4days_attn_wkd = abs(v5_days_attn_wkd) <= 4,
+    # 7 day window
+    v2_7days_attn = abs(v2_days_attn) <= 7,
+    v2_7days_attn_wkd = abs(v2_days_attn_wkd) <= 7,
+    v3_7days_attn = abs(v3_days_attn) <= 7,
+    v3_7days_attn_wkd = abs(v3_days_attn_wkd) <= 7,
+    v4_7days_attn = abs(v4_days_attn) <= 7,
+    v4_7days_attn_wkd = abs(v4_days_attn_wkd) <= 7,
+    v5_7days_attn = abs(v5_days_attn) <= 7,
+    v5_7days_attn_wkd = abs(v5_days_attn_wkd) <= 7,
+    # 14 day window
+    v2_14days_attn = abs(v2_days_attn) <= 14,
+    v2_14days_attn_wkd = abs(v2_days_attn_wkd) <= 14,
+    v3_14days_attn = abs(v3_days_attn) <= 14,
+    v3_14days_attn_wkd = abs(v3_days_attn_wkd) <= 14,
+    v4_14days_attn = abs(v4_days_attn) <= 14,
+    v4_14days_attn_wkd = abs(v4_days_attn_wkd) <= 14,
+    v5_14days_attn = abs(v5_days_attn) <= 14,
+    v5_14days_attn_wkd = abs(v5_days_attn_wkd) <= 14,
+    # 30 day window
+    v2_30days_attn = abs(v2_days_attn) <= 30,
+    v2_30days_attn_wkd = abs(v2_days_attn_wkd) <= 30,
+    v3_30days_attn = abs(v3_days_attn) <= 30,
+    v3_30days_attn_wkd = abs(v3_days_attn_wkd) <= 30,
+    v4_30days_attn = abs(v4_days_attn) <= 30,
+    v4_30days_attn_wkd = abs(v4_days_attn_wkd) <= 30,
+    v5_30days_attn = abs(v5_days_attn) <= 30,
+    v5_30days_attn_wkd = abs(v5_days_attn_wkd) <= 30,
+  )
+```
+
+We utilized our convenience function to extract compliance data.
+
+```{r}
+visit_list <- c('v2', 'v3', 'v4', 'v5')
+date_types <- c('', '_wkd')
+num_types <- c('_sch', '_attn')
+date_windows <- c('_strict', '_2days', '_4days', '_7days', '_14days', '_30days')
+
+# All Subjects
+scheduling_all_rolling <- extract_values(
+  checking_data,
+  visit_list,
+  date_windows,
+  num_types,
+  date_types
+  ) |>
+  mutate(
+    values = c(
+      'Number Scheduled', 'Number of Attendees', 'Mean Days from Protocol Date',
+      'Maximum Days from Protocol Date', 'Number NOT on Protocol Date',
+      'Number NOT within 2 Days of Protocol Date', 
+      'Number NOT within 4 Days of Protocol Date',
+      'Number NOT within 7 Days of Protocol Date',
+      'Number NOT within 14 Days of Protocol Date',
+      'Number NOT within 30 Days of Protocol Date'
+      )
+  ) |>
+  relocate(
+     values,
+     v2_sch, v2_attn, v2_sch_wkd, v2_attn_wkd, 
+     v3_sch, v3_attn, v3_sch_wkd, v3_attn_wkd, 
+     v4_sch, v4_attn, v4_sch_wkd, v4_attn_wkd, 
+     v5_sch, v5_attn, v5_sch_wkd, v5_attn_wkd
+  ) |>
+  rename_at(
+    c(
+      'values', 
+      'v2_sch', 'v2_sch_wkd', 'v2_attn', 'v2_attn_wkd', 
+      'v3_sch', 'v3_sch_wkd', 'v3_attn', 'v3_attn_wkd', 
+      'v4_sch', 'v4_sch_wkd', 'v4_attn', 'v4_attn_wkd', 
+      'v5_sch', 'v5_sch_wkd', 'v5_attn', 'v5_attn_wkd'
+      ), 
+    ~c(
+        'Value', 
+        'Visit 2: Schedule, Strict Date', 
+        'Visit 2: Schedule, Rounded for Weekends',
+        'Visit 2: Attendance, Strict Date', 
+        'Visit 2: Attendance, Rounded for Weekends',
+        'Visit 3: Schedule, Strict Date', 
+        'Visit 3: Schedule, Rounded for Weekends',
+        'Visit 3: Attendance, Strict Date', 
+        'Visit 3: Attendance, Rounded for Weekends',
+        'Visit 4: Schedule, Strict Date', 
+        'Visit 4: Schedule, Rounded for Weekends',
+        'Visit 4: Attendance, Strict Date', 
+        'Visit 4: Attendance, Rounded for Weekends',
+        'Visit 5: Schedule, Strict Date', 
+        'Visit 5: Schedule, Rounded for Weekends',
+        'Visit 5: Attendance, Strict Date', 
+        'Visit 5: Attendance, Rounded for Weekends'
+        )
+    )
+
+# Included Subjects Only
+scheduling_incl_rolling <- extract_values(
+  checking_data |>
+    filter(!drop_flag),
+  visit_list,
+  date_windows,
+  num_types,
+  date_types
+  ) |>
+  mutate(
+    values = c(
+      'Number Scheduled', 'Number of Attendees', 'Mean Days from Protocol Date',
+      'Maximum Days from Protocol Date', 'Number NOT on Protocol Date',
+      'Number NOT within 2 Days of Protocol Date', 
+      'Number NOT within 4 Days of Protocol Date',
+      'Number NOT within 7 Days of Protocol Date',
+      'Number NOT within 14 Days of Protocol Date',
+      'Number NOT within 30 Days of Protocol Date'
+      )
+  ) |>
+  relocate(
+     values,
+     v2_sch, v2_attn, v2_sch_wkd, v2_attn_wkd, 
+     v3_sch, v3_attn, v3_sch_wkd, v3_attn_wkd, 
+     v4_sch, v4_attn, v4_sch_wkd, v4_attn_wkd, 
+     v5_sch, v5_attn, v5_sch_wkd, v5_attn_wkd
+  ) |>
+  rename_at(
+    c(
+      'values', 
+      'v2_sch', 'v2_sch_wkd', 'v2_attn', 'v2_attn_wkd', 
+      'v3_sch', 'v3_sch_wkd', 'v3_attn', 'v3_attn_wkd', 
+      'v4_sch', 'v4_sch_wkd', 'v4_attn', 'v4_attn_wkd', 
+      'v5_sch', 'v5_sch_wkd', 'v5_attn', 'v5_attn_wkd'
+      ), 
+    ~c(
+        'Value', 
+        'Visit 2: Schedule, Strict Date', 
+        'Visit 2: Schedule, Rounded for Weekends',
+        'Visit 2: Attendance, Strict Date', 
+        'Visit 2: Attendance, Rounded for Weekends',
+        'Visit 3: Schedule, Strict Date', 
+        'Visit 3: Schedule, Rounded for Weekends',
+        'Visit 3: Attendance, Strict Date', 
+        'Visit 3: Attendance, Rounded for Weekends',
+        'Visit 4: Schedule, Strict Date', 
+        'Visit 4: Schedule, Rounded for Weekends',
+        'Visit 4: Attendance, Strict Date', 
+        'Visit 4: Attendance, Rounded for Weekends',
+        'Visit 5: Schedule, Strict Date', 
+        'Visit 5: Schedule, Rounded for Weekends',
+        'Visit 5: Attendance, Strict Date', 
+        'Visit 5: Attendance, Rounded for Weekends'
+        )
+    )
+```
+
+We added our data to the Excel Workbook, and cleared the data frames
+
+```{r}
+addWorksheet(wb, "Sched from Roll Act, All")
+
+writeDataTable(wb, 7, scheduling_all_rolling,
+                startCol = 1, startRow = 1, 
+                tableStyle = "TableStyleLight1"
+                )
+
+addWorksheet(wb, "Sched from Roll Act, Incl Only")
+
+writeDataTable(wb, 8, scheduling_incl_rolling,
+                startCol = 1, startRow = 1, 
+                tableStyle = "TableStyleLight1"
+                )
+
+rm(scheduling_all_rolling)
+rm(scheduling_incl_rolling)
+```
+
+# 💾 Saving the Data
+
+```{r}
+report_path <- here(
+   "data", "Combined Participant Data", "Isolated for Review",
+   "Scheduling and Attendance Compliance.xlsx"
+   )
+
+saveWorkbook(wb, report_path, overwrite = TRUE)
+```
+

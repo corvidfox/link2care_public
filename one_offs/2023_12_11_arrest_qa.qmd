@@ -1,0 +1,333 @@
+---
+title: "Arrest Data QA"
+format: pdf
+editor: 
+  markdown: 
+    wrap: sentence
+---
+
+# ⭐️Overview
+
+This file was used to check the arrest data log for quality assurance purposes.
+
+## Notes
+
+The original data was stored in an Excel file, with data manually entered by members of research staff based on law enforcement queries. The data consisted of subject ID, baseline date, a binary "yes/no" flag indicating if a subject had been arrested in the follow-up period, 12 arrest date fields, and a running total of the number of arrests for the subject.
+
+Subject arrest data was intended to be measured from the baseline date to 1 year after randomization.
+
+# 📦Load packages & Functions
+
+```{r, message=FALSE, warning=FALSE}
+library(dplyr, warn.conflicts = FALSE)
+library(purrr, warn.conflicts = FALSE)
+library(haven, warn.conflicts = FALSE)
+library(here, warn.conflicts = FALSE)
+library(stringr, warn.conflicts = FALSE)
+library(lubridate, warn.conflicts = FALSE)
+library(readxl, warn.conflicts = FALSE)
+library(openxlsx, warn.conflicts = FALSE)
+library(readr, warn.conflicts = FALSE)
+library(tidyverse, warn.conflicts = FALSE)
+```
+
+```{r}
+source(here("R", "data_mod_check.R"))
+source(here("R", "data_cols.R"))
+```
+
+```{r}
+# Remove Unnecessary Columns, for memory management
+rm(redcap_cols)
+rm(qds_col_list)
+rm(tlfb_cols)
+rm(arrest_proc_cols)
+rm(bridge_orig_cols)
+rm(bridge_proc_cols)
+rm(ddt_orig_cols)
+rm(ddt_pivot_cols)
+rm(avail_col_list)
+```
+
+# Date Window Data
+
+We set our desired input path.
+
+```{r}
+# RDS version
+rds_path <- here("data", "master_log", "ml_protocol_dates.rds")
+```
+
+We imported our visit window data.
+
+```{r}
+visit_windows <- readr::read_rds(rds_path)
+
+# Print a message for when this file is being sourced
+cat(
+  stringr::str_extract(rds_path, "([^/]+$)"),
+  "last modified on UTHealth server:",
+  as.character(file.info(rds_path)$mtime), "\n",
+  paste(Sys.Date(), ":"),
+  "Visit Window Data imported with", nrow(visit_windows), "rows and", 
+  ncol(visit_windows), "columns.\n"
+)
+
+# ml_protocol_dates.rds last modified on UTHealth server: 2023-12-11 12:21:44 
+#  2023-12-11 : Visit Window Data imported with 442 rows and 18 columns.
+```
+
+We performed a check for any changes to the data since it was last saved in RDS format.
+
+```{r}
+# Inputs last modified: 2023-12-11
+
+data_mod_check(
+  'df' = visit_windows,
+  'df_path_str' = rds_path,
+  'orig_path_str' = here("data", "master_log", "ml_protocol_dates.rds"),
+  'mod_dt' = '2023-12-11 12:21:44 CST',
+  'num_rows' = 442,
+  'num_cols' = 18,
+  'col_names' = visit_window_cols
+  )
+# TRUE
+```
+
+We isolated this data set down to the subject ID, baseline date, randomization date, and 1-year follow-up end date.
+
+```{r}
+visit_windows <- visit_windows |>
+  dplyr::select(id, baseline_dt, v2_dt, end_protocol_wkd)
+```
+
+Purge path variables and exported data to avoid potential errors in later processing.
+
+```{r}
+rm(rds_path)
+rm(visit_window_cols)
+```
+
+# Arrest Data
+
+The Arrest Data required calculation of variables in order to convert the rows collecting arrest dates for each subject into counts by window. In order to ensure the most accurate dates for the data collection events for each subject, the Master Log's record of each visit's date window was utilized.
+
+## 📥 Import the Data
+
+The arrest data was securely transmitted by Dr. Gonzalez as an Excel file, which was originally stored on OneDrive in Participant Data \> Arrest Data Requests.
+
+```{r}
+arrest_path <- here("data", "arrest", "arrest.xlsx")
+```
+
+Import the data.
+Check the most recent file modification dates and print for user when this file is being sourced.
+
+```{r}
+arrest_data <- readxl::read_excel( 
+  arrest_path,
+  sheet = "Sheet1",
+  col_names = c(
+    "id", "arrested_during_followup", "baseline_date", 
+    paste("arrested_date",1:12, sep = "_"),  "arrested_num_summary"
+  ),
+  col_types = c(
+    "numeric", "text", "date", 
+    rep("date", 12), "numeric"
+  ),
+  na = c("", "None"),
+  skip = 1
+) |>
+  # Remove empty rows
+dplyr::filter(!is.na(id))
+
+# Print a message for when this file is being sourced
+
+cat(
+  stringr::str_extract(arrest_path, "([^/]+$)"),
+  "last modified on UTHealth server:",
+  as.character(file.info(arrest_path)$mtime), "\n",
+  paste(Sys.Date(), ":"),
+  "Arrest data imported with", nrow(arrest_data), "rows and", 
+  ncol(arrest_data), "columns.\n"
+)
+# arrest.xlsx last modified on UTHealth server: 2023-12-08 15:50:31
+# 2023-12-08 : Arrest data imported with 442 rows and 16 columns.
+```
+
+### Data Check: Changes
+
+We checked for changes to the source data set since this file was last modified.
+
+```{r}
+# Inputs last modified: 2023-12-08
+
+data_mod_check(
+  'df' = arrest_data,
+  'df_path_str' = arrest_path,
+  'orig_path_str' = here("data", "arrest", "arrest.xlsx"),
+  'mod_dt' = '2023-12-08 15:50:31  CDT',
+  'num_rows' = 442,
+  'num_cols' = 16,
+  'col_names' = arrest_orig_cols
+  )
+# TRUE
+```
+
+We purged the file path for memory management.
+
+```{r}
+rm(arrest_path)
+rm(arrest_orig_cols)
+```
+
+## Processing
+
+We eliminated subjects that were missing a baseline date to eliminate any extra rows of empty values.
+
+We also converted the variable `arrested_during_followup`, which contained a "Yes" or "No" value to indicate if a subject had any arrest records in the file, to a logical boolean.
+
+```{r}
+arrest_data <- arrest_data |>
+  dplyr::filter(!is.na(baseline_date)) |>
+  dplyr::mutate(arrested_during_followup = dplyr::case_when(
+      toupper(arrested_during_followup) == "YES" ~ TRUE,
+      toupper(arrested_during_followup) == "NO" ~ FALSE,
+      TRUE ~ NA
+    )
+  )
+```
+
+We added the baseline, randomization, and 1-year follow-up end dates from the visit window data to the arrest data set.
+
+```{r}
+arrest_data <- dplyr::left_join(arrest_data, visit_windows, by = "id")
+```
+
+
+We used calculation to ensure no 'arrest date' was skipped out of order, and that all arrest dates for a subject were in chronological order, that no date was before the baseline date, and that no date was beyond the 1-year follow-up date. We then isolated the subjects that had any discrepancies for review.
+
+```{r}
+arrest_data <- arrest_data |>
+  dplyr::rowwise() |>
+  dplyr::mutate(
+    arrest_12 = dplyr::case_when(
+      !is.na(arrested_date_12) & is.na(arrested_date_11) ~ TRUE,
+      arrested_date_12 > end_protocol_wkd ~ TRUE,
+      arrested_date_12 < baseline_dt ~ TRUE,
+      arrested_date_12 < arrested_date_11 ~ TRUE,
+      TRUE ~ FALSE
+    ),
+    arrest_11 = dplyr::case_when(
+      !is.na(arrested_date_11) & is.na(arrested_date_10) ~ TRUE,
+      arrested_date_11 > end_protocol_wkd ~ TRUE,
+      arrested_date_11 < baseline_dt ~ TRUE,
+      arrested_date_11 < arrested_date_10 ~ TRUE,
+      TRUE ~ FALSE
+    ),
+    arrest_10 = dplyr::case_when(
+      !is.na(arrested_date_10) & is.na(arrested_date_9) ~ TRUE,
+      arrested_date_10 > end_protocol_wkd ~ TRUE,
+      arrested_date_10 < baseline_dt ~ TRUE,
+      arrested_date_10 < arrested_date_9 ~ TRUE,
+      TRUE ~ FALSE
+    ),
+    arrest_9 = dplyr::case_when(
+      !is.na(arrested_date_9) & is.na(arrested_date_8) ~ TRUE,
+      arrested_date_9 > end_protocol_wkd ~ TRUE,
+      arrested_date_9 < baseline_dt ~ TRUE,
+      arrested_date_9 < arrested_date_8 ~ TRUE,
+      TRUE ~ FALSE
+    ),
+    arrest_8 = dplyr::case_when(
+      !is.na(arrested_date_8) & is.na(arrested_date_7) ~ TRUE,
+      arrested_date_8 > end_protocol_wkd ~ TRUE,
+      arrested_date_8 < baseline_dt ~ TRUE,
+      arrested_date_8 < arrested_date_7 ~ TRUE,
+      TRUE ~ FALSE
+    ),
+    arrest_7 = dplyr::case_when(
+      !is.na(arrested_date_7) & is.na(arrested_date_6) ~ TRUE,
+      arrested_date_7 > end_protocol_wkd ~ TRUE,
+      arrested_date_7 < baseline_dt ~ TRUE,
+      arrested_date_7 < arrested_date_6 ~ TRUE,
+      TRUE ~ FALSE
+    ),
+    arrest_6 = dplyr::case_when(
+      !is.na(arrested_date_6) & is.na(arrested_date_5) ~ TRUE,
+      arrested_date_6 > end_protocol_wkd ~ TRUE,
+      arrested_date_6 < baseline_dt ~ TRUE,
+      arrested_date_6 < arrested_date_5 ~ TRUE,
+      TRUE ~ FALSE
+    ),
+    arrest_5 = dplyr::case_when(
+      !is.na(arrested_date_5) & is.na(arrested_date_4) ~ TRUE,
+      arrested_date_5 > end_protocol_wkd ~ TRUE,
+      arrested_date_5 < baseline_dt ~ TRUE,
+      arrested_date_5 < arrested_date_4 ~ TRUE,
+      TRUE ~ FALSE
+    ),
+    arrest_4 = dplyr::case_when(
+      !is.na(arrested_date_4) & is.na(arrested_date_3) ~ TRUE,
+      arrested_date_4 > end_protocol_wkd ~ TRUE,
+      arrested_date_4 < baseline_dt ~ TRUE,
+      arrested_date_4 < arrested_date_3 ~ TRUE,
+      TRUE ~ FALSE
+    ),
+    arrest_3 = dplyr::case_when(
+      !is.na(arrested_date_3) & is.na(arrested_date_2) ~ TRUE,
+      arrested_date_3 > end_protocol_wkd ~ TRUE,
+      arrested_date_3 < baseline_dt ~ TRUE,
+      arrested_date_3 < arrested_date_2 ~ TRUE,
+      TRUE ~ FALSE
+    ),
+    arrest_2 = dplyr::case_when(
+      !is.na(arrested_date_2) & is.na(arrested_date_1) ~ TRUE,
+      arrested_date_2 > end_protocol_wkd ~ TRUE,
+      arrested_date_2 < baseline_dt ~ TRUE,
+      arrested_date_2 < arrested_date_1 ~ TRUE,
+      TRUE ~ FALSE
+    ),
+    arrest_1 = dplyr::case_when(
+      !is.na(arrested_date_1) & is.na(baseline_date) ~ TRUE,
+      arrested_date_1 > end_protocol_wkd ~ TRUE,
+      arrested_date_1 < baseline_date ~ TRUE,
+      TRUE ~ FALSE
+    )
+  ) |>
+  dplyr::mutate(sum = sum(across(starts_with("arrest_")), na.rm = TRUE)) |>
+  ungroup() |>
+  dplyr::filter(sum != 0) |>
+  dplyr::select(-baseline_date) |>
+  dplyr::relocate(
+    id, arrested_during_followup, arrested_num_summary,
+    baseline_dt, v2_dt, end_protocol_wkd,
+    arrested_date_1, arrested_date_2, arrested_date_3, arrested_date_4, 
+    arrested_date_5, arrested_date_6, arrested_date_7, arrested_date_8, 
+    arrested_date_9, arrested_date_10, arrested_date_11, arrested_date_12,
+    arrest_1, arrest_2, arrest_3, arrest_4, arrest_5, arrest_6, arrest_7, 
+    arrest_8, arrest_9, arrest_10, arrest_11, arrest_12
+    )
+```
+
+
+# 💾 Save the Isolated Data
+
+We saved the data to an Excel Workbook, for review.
+
+```{r}
+wb <- createWorkbook()
+addWorksheet(wb, "Data")
+writeDataTable(wb, 1, arrest_data,
+                startCol = 1, startRow = 1, 
+                tableStyle = "TableStyleLight1"
+                )
+
+report_path <- here(
+   "data", "arrest", "Arrest Data Review.xlsx"
+   )
+saveWorkbook(wb, report_path, overwrite = TRUE)
+
+rm(arrest_data)
+rm(visit_windows)
+```

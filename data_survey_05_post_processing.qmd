@@ -133,7 +133,7 @@ cat(
       as.character(file.info(combined_data_path)$mtime), "\n"
     )
 
-# 2023-10-23: Combined data imported with 1610 rows and 1062 columns.
+# 2023-11-20: Combined data imported with 1610 rows and 1063 columns.
 # Combined data last modified on OneDrive 2023-10-27 15:54:38 
 ```
 
@@ -142,7 +142,7 @@ cat(
 We checked for changes to the source data set since this file was last modified.
 
 ```{r}
-# Inputs last modified: 2023-10-27
+# Inputs last modified: 2023-11-20
 # 
 data_mod_check(
   'df' = combined_data,
@@ -363,7 +363,8 @@ data_mod_check(
     'bridge_post_visits_reg_avg_duration',
     'bridge_post_visits_crisis_avg_duration',
     'bridge_post_visits_other_avg_duration',
-    'bridge_post_visits_total_avg_duration'
+    'bridge_post_visits_total_avg_duration',
+    'calc_age'
       )
   )
 # TRUE
@@ -406,8 +407,8 @@ cat(
       as.character(file.info(variable_map_path)$mtime), "\n"
     )
 
-# 2023-10-23: Variable Map imported with 1083 rows and 22 columns.
-# Variable Map data last modified on OneDrive 2023-10-23 15:35:45 
+# 2023-11-20: Variable Map imported with 1083 rows and 21 columns.
+# Variable Map data last modified on OneDrive 2023-10-27 15:35:45 
 ```
 
 #### Data Check: Changes
@@ -422,7 +423,7 @@ vm_check(variable_map)
 We checked for changes to the source data set since this file was last modified.
 
 ```{r}
-# Inputs last modified: 2023-10-23
+# Inputs last modified: 2023-11-20
 
 data_mod_check(
   'df' = variable_map,
@@ -430,8 +431,8 @@ data_mod_check(
   'orig_path_str' = here(
       "data", "Combined Participant Data", "variable_map_02.rds"
       ),
-  'mod_dt' = '2023-10-23 15:35:45 CDT',
-  'num_rows' = 1083,
+  'mod_dt' = '2023-10-27 15:54:38 CDT',
+  'num_rows' = 1084,
   'num_cols' = 21,
   'col_names' = c(
       'variable', 'section', 'sec_ord', 'instrument', 'inst_ord', 'item_ord',
@@ -1203,7 +1204,7 @@ variable_map <- variable_map %>%
     variable == 't_3a' ~ 't_03_quit_time',
     variable == 't_3ay' ~ 't_03_quit_time_year',
     variable == 't_3am' ~ 't_03_quit_time_month',
-    variable == 't_3ab' ~ 't_03_smoking_years',
+    variable == 't_3b' ~ 't_03_smoking_years',
     variable == 't_4' ~ 't_04_cigarettes_freq',
     variable == 't_5' ~ 't_05_cigarettes_24hrs_cat',
     variable == 't_5a1' ~ 't_05_cigarettes_24hrs_1_5',
@@ -1827,6 +1828,10 @@ variable_map <- variable_map %>%
     variable == 'tq_12_2' ~ 'tq_12_app_interest',
     variable == 'tq_13_2' ~ 'tq_13_assessment_accuracy',
     variable == 'tq_14_1' ~ 'tq_14_phone_swap',
+    variable == 'tq_15_3' ~ 'tq_15_l2c_like',
+    variable == 'tq_16_3' ~ 'tq_15_l2c_dislike',
+    variable == 'tq_17_3' ~ 'tq_15_l2c_improvement',
+    variable == 'tq_18_3' ~ 'tq_15_l2c_other',
     TRUE ~ final_variable
     ))
 ```
@@ -1870,13 +1875,706 @@ variable_map <- variable_map %>%
   mutate(final_variable = ifelse(drop_consolidated, NA, final_variable))
 ```
 
+# Adding Skip-Patterns
+
+We initialized a skip-pattern column in our variable map.
+
+```{r}
+variable_map <- variable_map %>%
+  add_column(skip_pattern = NA_character_)
+
+attributes(variable_map$skip_pattern)$label <- "Skip Pattern"
+```
+
+## Administrative Section
+
+
+```{r}
+variable_map <- variable_map  %>%
+  rowwise()  %>%
+  mutate(
+    skip_pattern = ifelse(
+      final_variable == 'subj_email',
+      'Only shown to RedCAP subjects',
+      skip_pattern
+    )
+  )  %>%
+  ungroup()
+```
+
+
+## Screening Section
+
+
+```{r}
+variable_map <- variable_map  %>%
+  rowwise()  %>%
+  mutate(
+    skip_pattern = case_when(
+      # Screening Instrument
+      final_variable == 'sq_07c_release_other' ~ paste0(
+                                  'Skipped if sq_07_release was "no", ',
+                                  'indicating subject was not recently ',
+                                  'released from the Dallas County Jail; ',
+                                  'Skipped if sq_07b_release_flier was provided'
+                                ),
+      final_variable %in% c(
+                            'sq_07a_release', 'sq_07b_release_flier',
+                            'sq_07d_release_verified'
+                            ) ~ paste0(
+                                        'Skipped if sq_07_release was "no", ',
+                                        'indicating subject was not recently ',
+                                        'released from the Dallas County Jail'
+                                        ),
+      final_variable == 'sq_09l_slept_loc_shelter' ~paste0(
+                            'Skipped if sq_09_slept_loc was anything ', 
+                            'other than "Homeless Shelter"'
+                            ),
+      stringr::str_starts(final_variable, 'sq_1[3-5]') ~paste0(
+                              'Skipped if sq_12_cellphone_has was "No", ',
+                              'indicating subject does not have a ',
+                              'cell phone'
+                            ),
+      final_variable == 'sq_16_cellphone_data' ~paste0(
+                              'Skipped if sq_15_cellphone_smart or ',
+                              'sq_12_cellphone_has was "No", ',
+                              'indicating subject does not have a ',
+                              'smart phone'
+                            ),
+      final_variable == 'sq_21_fb_freq' ~paste0(
+                                      'Skipped if sq_20_fb_active was "no", ',
+                                      'indicating subject does not have an ',
+                                      'active facebook page'
+                                    ),
+      # Mini-Mental State Exam (MMSE)
+      final_variable %in% c(
+                            'mms_04b_world', 'mms_04b_world_d', 
+                            'mms_04b_world_l', 'mms_04b_world_r',
+                            'mms_04b_world_o', 'mms_04b_world_w',
+                            'mms_04b_world_none', 'mms_04b_world_score'
+                            ) ~ paste0(
+                                      'Skipped if mms_04a_count_none was "No", ',
+                                      'indicating subject was assessed by ',
+                                      'counting backwards from 100'
+                                      ),
+      # REALM (had no skip patterns)
+      # Anthropometrics
+      final_variable == 'anth_read_3' ~ paste0(
+                        'Skip option was provided at time of ',
+                        'collection; ',
+                        'Skipped if anth_read_1 was "No", ',
+                        'indicating subject does not utilize ',
+                        'reading glasses; ',
+                        'Skipped if anth_read_2 was "Yes", ',
+                        'indicating subject had their own ',
+                        'reading glasses'
+                      ),
+      final_variable == 'anth_read_2' ~ paste0(
+                        'Skip option was provided at time of ',
+                        'collection; ',
+                        'Skipped if anth_read_1 was "No", ',
+                        'indicating subject does not utilize ',
+                        'reading glasses'
+                      ),
+      stringr::str_starts(final_variable,'anth_') ~ paste0(
+                        'Skip option was provided at time of ',
+                        'collection'
+                      ),
+      TRUE ~ skip_pattern
+      )
+  )  %>%
+  ungroup()
+```
+
+## Demographics Section
+
+```{r}
+variable_map <- variable_map  %>%
+rowwise()  %>%
+  mutate(
+    skip_pattern = case_when(
+      # Demographic Instrument
+      stringr::str_starts(final_variable,'dem_04_mrace') ~ paste0(
+                        'Skipped if dem_03_race was not "More than one race/',
+                        'multi-racial"'
+                        ),
+      final_variable == 'dem_05_edu_hs_ged' ~ paste0(
+                        'Skipped if dem_05_edu was not "GED or High School ',
+                        'Diploma"'
+                        ),
+      final_variable == 'dem_06_empl_hours' ~ paste0(
+                        'Skipped if dem_06_empl was anything other than ',
+                        '"Regular full-time" or "Regular part-time" work'
+                        ),
+      stringr::str_starts(final_variable, 'dem_07_ins') ~ paste0(
+                        'Skip option was provided at time of ',
+                        'collection'
+                      ),
+      final_variable == 'dem_09_ss_amt'  ~paste0(
+                        'Skip option was provided at time of ',
+                        'collection; Skipped if dem_08_ss was "No", ',
+                        'indicating the subject does not receive Social ',
+                        'Security benefits'
+                      ), 
+      final_variable == 'dem_11_foodstamps_amt'  ~paste0(
+                        'Skip option was provided at time of ',
+                        'collection; Skipped if dem_10_foodstamps was "No", ',
+                        'indicating the subject does not receive Food ',
+                        'Stamps benefits'
+                      ), 
+      stringr::str_starts(final_variable,'dem_12_inc') ~ paste0(
+                        'Skip option was provided at time of ',
+                        'collection'
+                      ),
+      stringr::str_starts(final_variable,'dem_13_income_') ~ paste0(
+                        'Skip option was provided at time of ',
+                        'collection; only single version was shown based ',
+                        'on subject selection in dem_13_income'
+                      ),
+      stringr::str_starts(final_variable,'dem_14_income_mnth_') ~ paste0(
+                        'Skip option was provided at time of ',
+                        'collection; only single version was shown based ',
+                        'on subject selection in dem_14_income_mnth'
+                      ),
+      stringr::str_starts(final_variable, 'dem_') ~ paste0(
+                        'Skip option was provided at time of ',
+                        'collection'
+                      ),
+      # Brief Homelessness
+      final_variable == 'bh_10_mh_treatmnt_type' ~ paste0(
+                          'Skip option was provided at time of ',
+                          'collection; ',
+                          'Skipped if bh_09_mh_treatmnt was "No", ',
+                          'indicating the subject is not receiving mental ',
+                          'health treatment'
+                          ),
+      stringr::str_starts(final_variable, 'bh_14_new_arrest_dur') ~ paste0(
+                          'Skip option was provided at time of ',
+                          'collection; ',
+                          'Skipped if bh_14_new_arrests was was "0", ',
+                          'indicating the subject has not been arrested or ',
+                          'booked in the interval'
+                          ),
+      final_variable == 'bh_18_supv_now' ~ paste0(
+                          'Skip option was provided at time of ',
+                          'collection'
+                         ),
+      final_variable == 'bh_18_supv_other_txt' ~ paste0(
+                          'Skip option was provided at time of ',
+                          'collection; ',
+                          'Skipped if bh_supv_other was not selected'
+                         ),
+      stringr::str_starts(final_variable, 'bh_18_supv') ~ paste0(
+                          'Skip option was provided at time of ',
+                          'collection; ',
+                          'Skipped if bh_18_supv_now was was "No", ',
+                          'indicating the subject is not currently under ',
+                          'supervision'
+                        ),
+      stringr::str_starts(final_variable,'bh_') ~ paste0(
+                         'Skip option was provided at time of ',
+                         'collection'
+                        ),
+      # Subjective Social Status
+      stringr::str_starts(final_variable, 'sss_') ~ paste0(
+                         'Skip option was provided at time of ',
+                         'collection'
+                        ),
+      TRUE ~ skip_pattern
+      )
+  )  %>%
+  ungroup()
+```
+
+## Health Section
+
+```{r}
+variable_map <- variable_map  %>%
+rowwise()  %>%
+  mutate(
+    skip_pattern = case_when(
+      # PHQ
+      stringr::str_starts(final_variable, 'phq_') ~ paste0(
+                         'Skip option was provided at time of ',
+                         'collection'
+                        ),
+      # SF12
+      stringr::str_starts(final_variable, 'hs_') ~ paste0(
+                         'Skip option was provided at time of ',
+                         'collection'
+                        ),
+      # Health Related Quality of Life
+      stringr::str_starts(final_variable, 'hrq_') ~ paste0(
+                         'Skip option was provided at time of ',
+                         'collection'
+                        ),
+      stringr::str_ends(final_variable, '_thoughts') ~ paste0(
+                         'Skip option was provided at time of ',
+                         'collection; Not shown if related behavior was ',
+                         'not endorsed'
+                        ),
+      # Self-Rated Health
+      final_variable == 's_04_substance_hx_ever' ~ paste0(
+                         'Skip option was provided at time of ',
+                         'collection'
+                        ),
+      stringr::str_starts(final_variable, 's_04_substance_hx_') ~ paste0(
+                         'Skip option was provided at time of ',
+                         'collection; ',
+                         'Skipped if s_04_substance_hx_ever was "No", ',
+                         'indicating subject denied a substance abuse history'
+                        ),
+      stringr::str_starts(final_variable, 's_25_mh_meds') ~ paste0(
+                         'Skip option was provided at time of ',
+                         'collection; ',
+                         'Skipped if the subject did not endorse ',
+                         'taking medication for the condition ',
+                         'in s_24_mh_meds',
+                         'indicating subject denied a substance abuse history'
+                        ),
+       stringr::str_starts(final_variable, 's_26_mh_meds') ~ paste0(
+                         'Skip option was provided at time of ',
+                         'collection; ',
+                         'Skipped if the subject did not endorse ',
+                         'taking medication for the condition ',
+                         'in s_24_mh_meds',
+                         'indicating subject denied a substance abuse history'
+                        ),
+      final_variable == 's_36_concussion_time' ~ paste0(
+                         'Skip option was provided at time of ',
+                         'collection; ',
+                         'Skipped if s_35_concussion was "No", indicating ',
+                         'the subject denied a history of concussion'
+                        ),
+      stringr::str_starts(final_variable, 's_43_app_use') ~ paste0(
+                         'Skip option was provided at time of ',
+                         'collection; ',
+                         'Skipped if the subject did not endorse ',
+                         'using a smartphone app for any health related ',
+                         'issue(s) in s_42_app_health'
+                        ),
+      stringr::str_starts(final_variable, 's_') ~ paste0(
+                         'Skip option was provided at time of ',
+                         'collection'
+                        ),
+      # TCU Drug Screen 5 (had no skip patterns)
+      # PC-PTSD
+      stringr::str_starts(final_variable, 'ptsd_') ~ paste0(
+                         'Skip option was provided at time of ',
+                         'collection'
+                        ),
+      # BRFSS ACE Module
+      stringr::str_starts(final_variable, 'brac_') ~ paste0(
+                         'Skip option was provided at time of ',
+                         'collection'
+                        ),
+      # Tobacco History
+      final_variable %in% c(
+                    't_01_cigarettes_lifetime_100', 't_02_cigarettes_30_days'
+                    ) ~ paste0(
+                        'Skip option was provided at time of collection'
+                        ),
+      final_variable %in% c('t_03_quit_time', 't_03_smoking_years') ~ paste0(
+                        'Skip option was provided at time of ',
+                         'collection; ',
+                  			 'Skipped if t_01_cigarettes_lifetime_100 or ',
+                  			 't_02_cigarettes_30_days were "0" ',
+                  			 'indicating the subject is not a current smoker '
+                        ),
+      final_variable %in% c(
+                      			't_03_quit_time_year', 't_03_quit_time_month'
+                      			 ) ~ paste0(
+                             'Skip option was provided at time of ',
+                             'collection; ',
+                      			 'Skipped if t_01_cigarettes_lifetime_100 was ',
+                      			 '"0" or t_02_cigarettes_30_days was not "0" ',
+                      			 'indicating the subject was not a former smoker; ',
+                             'Skipped if t_03_quit_time was also skipped'
+                            ),
+       final_variable %in% c(
+                      			't_04_cigarettes_freq', 
+                      			't_05_cigarrettes_24hrs_cat',
+                      			't_06_cigarettes_daily_cat', 
+                      			't_07_cigarettes_expense',
+                      			't_08_cigarettes_smoking_years',
+                      			't_09_cigarettes_menthol',
+                      			't_10_cigarettes_quit_count_30days',
+                            't_11_cigarettes_start_age',
+                      			't_12_cigarettes_quit_count_lifetime_cat',
+                      			't_13_work_policy',
+                            't_14_quit_aids',
+                            't_14_quit_aids_app',
+                            't_14_quit_aids_e_cig',
+                            't_14_quit_aids_helpline',
+                            't_14_quit_aids_med_chantix',
+                            't_14_quit_aids_med_gum',
+                            't_14_quit_aids_med_other',
+                            't_14_quit_aids_med_patch',
+                            't_14_quit_aids_med_wellbutrin',
+                            't_14_quit_aids_none',
+                      			't_16_treatment_30days',
+                      			't_17_meds_30days'
+                      			 ) ~ paste0(
+                             'Skip option was provided at time of ',
+                             'collection; ',
+                      			 'Skipped if t_01_cigarettes_lifetime_100 and ',
+                      			 't_02_cigarettes_30_days were both ',
+                      			 '"0", indicating the subject is not a current ',
+                      			 'smoker; ',
+                             'Skipped if t_03_quit_time was also skipped'
+                            ),
+      stringr::str_starts(final_variable, 't_05_cigarettes_24hrs_[0-9]') ~ paste0(
+                         'Skip option was provided at time of collection; ',
+                         'Skipped if t_01_cigarettes_lifetime_100 was ',
+                  			 '"0" indicating that the subject was never a smoker; ',
+                         'Skipped if the range was not selected in ',
+                         't_05_cigarettes_24hrs_cat'
+                          ),
+      stringr::str_starts(final_variable, 't_06_cigarettes_daily_[0-9]') ~ paste0(
+                         'Skip option was provided at time of collection; ',
+                         'Skipped if t_01_cigarettes_lifetime_100 was ',
+                  			 '"0" indicating that the subject was never a smoker; ',
+                         'Skipped if the range was not selected in ',
+                         't_06_cigarettes_daily_cat'
+                          ),
+      stringr::str_starts(final_variable, 
+                         't_12_cigarettes_quit_count_lifetime_[0-9]') ~ paste0(
+                             'Skip option was provided at time of collection; ',
+                             'Skipped if the range was not selected in ',
+                             't_12_cigarettes_quit_count_lifetime_cat'
+                              ),
+      final_variable == 't_15_quit_aid_helpful' ~ paste0(
+                         'Skip option was provided at time of collection; ',
+                         'Skipped if no quit aid was selected in ',
+                         't_14_quit_aids'
+                          ),
+      stringr::str_starts(final_variable, 't_31_') ~ paste0(
+                         'Skip option was provided at time of collection'
+                          ),
+      stringr::str_starts(final_variable, 't_31_alt_prod_ever_e_cig_type') ~ 
+                          paste0(
+                         'Skip option was provided at time of collection; ',
+                         'Skipped if t_31_alt_prod_ever_e_cig was not ',
+                         'selected, indicating the subject has not used ',
+                         'electronic cigarettes' 
+                          ),
+      stringr::str_starts(final_variable, 't_32_') ~ paste0(
+                   'Skip option was provided at time of collection'
+                    ),
+      stringr::str_starts(final_variable, 't_33_') ~ paste0(
+                         'Skip option was provided at time of collection'
+                          ),
+      stringr::str_starts(final_variable, 't_34_') ~ paste0(
+                         'Skip option was provided at time of collection'
+                          ),  
+      final_variable == 't_35_spouse_smoke' ~ paste0(
+                         'Skip option was provided at time of collection; ',
+                         'Skipped if t_34_spouse was "No", indicating that ',
+                         'the subject did not have a spouse'
+                          ),
+      stringr::str_starts(final_variable, 't_36_') ~ paste0(
+                         'Skip option was provided at time of collection'
+                          ),
+      stringr::str_starts(final_variable, 't_37_') ~ paste0(
+                         'Skip option was provided at time of collection'
+                          ),  
+      
+      stringr::str_starts(final_variable, 't_38_') ~ paste0(
+                         'Skip option was provided at time of collection'
+                          ),
+      stringr::str_starts(final_variable, 't_39_') ~ paste0(
+                         'Skip option was provided at time of collection'
+                          ),  
+      
+      stringr::str_starts(final_variable, 't_40_') ~ paste0(
+                         'Skip option was provided at time of collection'
+                          ),
+      final_variable %in% c('t_friends', 't_spouse') ~ paste0(
+                         'Skip option was provided at time of collection'
+                          ),  
+      stringr::str_starts(final_variable, 't_') ~ paste0(
+                             'Skip option was provided at time of ',
+                             'collection; ',
+                      			 'Skipped if t_01_cigarettes_lifetime_100 and ',
+                      			 't_02_cigarettes_30_days were both ',
+                      			 '"0", indicating the subject was not a current ',
+                      			 'smoker'
+                            ),
+      # Heaviness of Smoking Index
+      stringr::str_starts(final_variable, 'hsi_') ~ paste0(
+                       'Skip option was provided at time of ',
+                       'collection; ',
+                			 'Skipped if t_01_cigarettes_lifetime_100 and ',
+                			 't_02_cigarettes_30_days were both ',
+                			 '"0", indicating the subject was not a current ',
+                			 'smoker'
+                      ),
+      # BRFSS Inadequate Sleep Module
+      stringr::str_starts(final_variable, 'brs_') ~ paste0(
+                      'Skip option was provided at time of ',
+                      'collection'
+                      ),
+      # Alcohol Quantity and Frequency Questionnaire
+      final_variable == 'af_drinks' ~ NA_character_,
+      final_variable == 'af_01_ever_3years' ~ paste0(
+                      'Skip option was provided at time of ',
+                      'collection'
+                      ),
+      stringr::str_starts(final_variable, 'af_09_heavy_day_30day_[0-9]') ~ 
+                paste0(
+                      'Skip option was provided at time of ',
+                      'collection; ',
+                      'Skipped if af_01_ever_3years was "No", ',
+                      'indicating the subject had not consumed alcohol ',
+                      'in the past 3 years; ',
+                      'Skipped if the range was not selected in ',
+                      'af_09_heavy_day_30day_cat'
+                      ),
+      stringr::str_starts(final_variable, 'af_') ~ paste0(
+                      'Skip option was provided at time of ',
+                      'collection; ',
+                      'Skipped if af_01_ever_3years was "No", ',
+                      'indicating the subject had not consumed alcohol ',
+                      'in the past 3 years'
+                      ),
+      # Alcohol and Drug Timeline Follow-Back (TLFB)
+      # Personality Beliefs Questionnaire (had no skip patterns)
+      # USDA Food Security Survey
+      final_variable == 'fss_03_skip_freq' ~ paste0(
+                      'Skip option was provided at time of ',
+                      'collection; ',
+                      'Skipped if ffs_03_skip was not answered as "Yes", ',
+                      'indicating the subject did not endorse skipping or ',
+                      'cutting meals because of cost'
+                      ),
+      stringr::str_starts(final_variable, 'fss_') ~ paste0(
+                      'Skip option was provided at time of ',
+                      'collection'
+                      ),
+      # Meal Survey
+      stringr::str_starts(final_variable, 'ms_') ~ paste0(
+                      'Skip option was provided at time of ',
+                      'collection'
+                      ),
+      # TCU CJ CEST
+      final_variable == 'cj_01_use_12month' ~ NA_character_,
+      stringr::str_starts(final_variable, 'cj_0[2-7]') ~ paste0(
+                      'Skip option was provided at time of ',
+                      'collection; ',
+                      'Skipped if cj_01_use_12month was "No", indicating ',
+                      'subject denied drug or alcohol use in the past 12 months'
+                      ),
+      # Sexual Behaviors
+      final_variable == 'sb_01_ever' ~ paste0(
+                      'Skip option was provided at time of ',
+                      'collection'
+                      ),
+      final_variable == 'sb_02_age_first' ~  paste0(
+                      'Skip option was provided at time of ',
+                      'collection; ',
+                      'Skipped if sb_01_ever was "No", indicating that the ',
+                      'subject has not experienced any sex of any kind'
+                      ),
+      
+      stringr::str_starts(final_variable, 'sb_') ~ paste0(
+                      'Skip option was provided at time of ',
+                      'collection'
+                      ),
+      TRUE ~ skip_pattern
+      )
+  )  %>%
+  ungroup()
+```
+
+## Stress Section
+
+```{r}
+variable_map <- variable_map  %>%
+  rowwise()  %>%
+  mutate(
+    skip_pattern = case_when(
+        # Detroit Day-to-Day Discrimination
+        final_variable == 'dd_10_reason' ~ paste0(
+                      'Skip option was provided at time of ',
+                      'collection; ',
+                      'Skipped if all forms of discrimination were marked as ',
+                      '"Never"'
+                      ),
+        stringr::str_starts(final_variable, 'dd_') ~ paste0(
+                      'Skip option was provided at time of ',
+                      'collection'
+                      ),
+        # MacArthur Major Discrimination (mmd2 on skipped if all 0)
+        stringr::str_starts(final_variable, 'mmd_0[2-4]') ~ paste0(
+                      'Skip option was provided at time of ',
+                      'collection; ',
+                      'Skipped if subject denied any discrimination experience ',
+                      'in mmd_01 items'
+                      ),
+        # Urban Life Stress Scale (had no skip patterns)
+        # Personal Victimization (had no skip patterns)
+        # Perceived Stress Scale (had no skip patterns)
+        # Distress Tolerance Scale (had no skip patterns)
+        TRUE ~ skip_pattern
+      )
+  )  %>% 
+  ungroup()
+```
+
+
+## Negative Affect Section
+
+```{r}
+variable_map <- variable_map  %>%
+  rowwise()  %>%
+  mutate(
+    skip_pattern = case_when(
+        # AQ-12
+        stringr::str_starts(final_variable, 'aq_') ~ paste0(
+                      'Skip option was provided at time of ',
+                      'collection'
+                      ),
+        # CES-D
+        stringr::str_starts(final_variable, 'ces_') ~ paste0(
+                      'Skip option was provided at time of ',
+                      'collection'
+                      ),
+        TRUE ~ skip_pattern
+      )
+  )  %>% 
+  ungroup()
+```
+
+## Interpersonal/Intrapersonal Resources Section
+
+```{r}
+variable_map <- variable_map  %>%
+  rowwise()  %>%
+  mutate(
+    skip_pattern = case_when(
+        # Interpersonal Support Evaluation List
+        stringr::str_starts(final_variable, 'is_') ~ paste0(
+                      'Skip option was provided at time of ',
+                      'collection'
+                      ),
+        # Religious Participation
+        stringr::str_starts(final_variable, 'rp_') ~ paste0(
+                      'Skip option was provided at time of ',
+                      'collection'
+                      ),
+        # Lubben Social Network Scale 6
+        stringr::str_starts(final_variable, 'lsn_') ~ paste0(
+                      'Skip option was provided at time of ',
+                      'collection'
+                      ),
+        # Homeless TLFB
+        # Resource Utilization Questionnaire
+        final_variable == 'r_11_referrals_used' ~ paste0(
+                      'Skip option was provided at time of ',
+                      'collection; ',
+                      'Skipped if r_11_referrals was "No", indicating that ',
+                      'the subject had not requested any referrals'
+                      ),
+        stringr::str_starts(final_variable, 'r_') ~ paste0(
+                      'Skip option was provided at time of ',
+                      'collection'
+                      ),
+        
+        # Barriers to Phone Based Case Management
+        stringr::str_starts(final_variable, 'bpm_') ~ paste0(
+                      'Skip option was provided at time of ',
+                      'collection'
+                      ),
+        TRUE ~ skip_pattern
+      )
+  )  %>% 
+  ungroup()
+```
+
+## Treatment Quality and Satisfaction Section
+
+```{r}
+variable_map <- variable_map  %>%
+  rowwise()  %>%
+  mutate(
+    skip_pattern = case_when(
+        # Treatment Quality and Satisfaction Survey
+        final_variable %in% c(
+                            'tq_03_assessment_num', 'tq_04_phone_aware',
+                            'tq_09_app_helpful'
+                            ) ~ paste0(
+                      'Not shown to Group 1 (UCM)'
+                      ),
+        stringr::str_starts(final_variable, 'tq_1[0-3]') ~ paste0(
+                      'Not shown to Group 1 (UCM)'
+                      ),
+        stringr::str_starts(final_variable, 'tq_0[5-8]') ~ paste0(
+                      'Not shown to Groups 1 or 2 (UCM or UCM + SP)'
+                      ),
+        stringr::str_starts(final_variable, 'tq_1[5-8]') ~ paste0(
+                      'Not shown to Groups 1 or 2 (UCM or UCM + SP); ',
+                      'Not shown to RedCAP participants'
+                      ),
+        # Delay Discount Task (DDT) (no clear skip pattern)
+        TRUE ~ skip_pattern
+      )
+  )  %>% 
+  ungroup()
+```
+
+## COVID-19 Pandemic Related Data Section
+
+```{r}
+variable_map <- variable_map  %>%
+  rowwise()  %>%
+  mutate(
+    skip_pattern = case_when(
+        # COVID-19 Vaccination Questionnaire
+        final_variable == 'vac_01' ~ paste0(
+                      'Skip option was provided at time of ',
+                      'collection'
+                      ),
+        stringr::str_starts(final_variable, 'vac_02') ~ paste0(
+                      'Skipped by RedCAP; ',
+                      'Skipped if vac_01 was answered "No" or "Unsure", ',
+                      'or skipped, ',
+                      'indicating the subject could not report receiving a ',
+                      'first dose of a COVID-19 vaccine'
+                      ),
+        stringr::str_starts(final_variable, 'vac_02') ~ paste0(
+              'Skip option was provided at time of ',
+              'collection; ',
+              'Skipped if vac_01 was answered "No", "Unsure", or',
+              '"Yes, I received 1 dose", or skipped, ',
+              'indicating the subject could not report receiving a ',
+              'second dose of a COVID-19 vaccine'
+              ),
+        TRUE ~ skip_pattern
+      )
+  )  %>% 
+  ungroup()
+```
+
+# Calculated Variables
+
+```{r}
+variable_map <- variable_map  %>%
+  mutate(
+    skip_pattern = ifelse(
+      calculated,
+      'Calculated variable missing if source variables were missing', 
+      skip_pattern)
+    )
+```
+
+
 # Adding Source to Variables
 
 We initialized a source column in our variable map.
 
 ```{r}
 variable_map <- variable_map %>%
-  add_column(source = NA)
+  add_column(source = NA_character_)
 
 attributes(variable_map$source)$label <- "Variable Source"
 ```
@@ -1885,7 +2583,7 @@ We added the source identifiers for the variables collected in the Arrest, Bridg
 
 ```{r}
 variable_map <- variable_map %>%
-  mutate(
+ mutate(
     source = ifelse(!is.na(bridge), "Bridge Session Data", source)
     ) %>%
   mutate(
@@ -1903,7 +2601,7 @@ We added the source identifer to each variable in the QDS or REDCap data, indica
 
 ```{r}
 variable_map <- variable_map %>%
-  mutate(source = ifelse(
+mutate(source = ifelse(
         (!is.na(qds_v1) | !is.na(qds_v2) | !is.na(qds_v3) | !is.na(qds_v4) | 
            !is.na(qds_v5)),
         NA,
@@ -1912,29 +2610,45 @@ variable_map <- variable_map %>%
     ) %>%
   mutate(source = ifelse(!is.na(qds_v1), "V1", source)) %>%
   mutate(source = ifelse(
-        !is.na(qds_v2), 
-        paste(source[!is.na(source)], "V2", sep = ", "), 
+        !is.na(qds_v2),
+        ifelse(
+               !is.na(source),
+               paste(source, 'V2', sep = ', '), 
+               'V2'
+               ),
         source
       )
     ) %>%
   mutate(source = ifelse(
-        !is.na(qds_v3), 
-        paste(source[!is.na(source)], "V3", sep = ", "), 
+        !is.na(qds_v3),
+        ifelse(
+               !is.na(source),
+               paste(source, 'V3', sep = ', '), 
+               'V3'
+               ),
         source
       )
     ) %>%
   mutate(source = ifelse(
-        !is.na(qds_v4), 
-        paste(source[!is.na(source)], "V4", sep = ", "), 
+        !is.na(qds_v4),
+        ifelse(
+               !is.na(source),
+               paste(source, 'V4', sep = ', '), 
+               'V4'
+               ),
         source
       )
     ) %>%
   mutate(source = ifelse(
-        !is.na(qds_v5), 
-        paste(source[!is.na(source)], "V5", sep = ", "), 
+        !is.na(qds_v5),
+        ifelse(
+               !is.na(source),
+               paste(source, 'V5', sep = ', '), 
+               'V5'
+               ),
         source
       )
-    ) 
+    )
 ```
 
 We overrode any variables from the Master Log, to indicate they were from the Master Log (as their values overrode any others). We assigned the source value to all Arrest and Bridge Session Data.
