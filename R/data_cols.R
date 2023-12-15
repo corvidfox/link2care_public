@@ -1163,9 +1163,9 @@ retrieve_data_stats <- function(target_set){
       sav_path = here::here(
         "data", "Combined Participant Data", "combined_data_02.sav"
       ),
-      mod_dt = '2023-12-15 14:46:19 CDT',
+      mod_dt = '2023-12-15 16:57:14 CDT',
       num_rows = 1606,
-      num_cols = 1128,
+      num_cols = 1129,
       cols = c(
         'subject', 'group', 'visit', 'visit_type', 'drop_flag',
         'today', 'protocol_dt', 'attn_days_from_protocol',
@@ -1303,7 +1303,7 @@ retrieve_data_stats <- function(target_set){
         'af_6sa', 'af_8su', 'af_1_val', 'af_1_heavy', 'af_9',
         'af_9a', 'af_9b', 'af_9c', 'af_9_val', 'af_9_binge',
         'totaldrinks', 'num_alc_abstinent_days',
-        'num_drinking_days', 'ave_drinks_day',
+        'num_drinking_days', 'tlfb_alc_drink_perc', 'ave_drinks_day',
         'heavy_drinking_days', 'greatest_drinks_1_day',
         'drinks_wk', 'num_days_using_drugs', 'tlfb_drug_use',
         'per_days_using_drugs', 'per_drug_abstinent_days',
@@ -1433,7 +1433,7 @@ retrieve_data_stats <- function(target_set){
   }
 
   if (target_set == 'combined_data_03_stats'){
-    # Step 4 Output: Post-Processed Set 2023-12-15
+    # Step 5 Output: Post-Processed Set 2023-12-15
     # -------------------------------------------------------------------------
     
     combined_data_01_stats <- list(
@@ -1443,9 +1443,9 @@ retrieve_data_stats <- function(target_set){
       sav_path = here::here(
         "data", "Combined Participant Data", "combined_data_03.sav"
       ),
-      mod_dt = '2023-12-15 15:15:21 CDT',
+      mod_dt = '2023-12-15 16:57:14 CDT',
       num_rows = 1606,
-      num_cols = 1128,
+      num_cols = 1129,
       cols = c(
         'id', 'group', 'visit', 'visit_type',
         'drop_flag', 'visit_date', 'protocol_dt',
@@ -1803,7 +1803,7 @@ retrieve_data_stats <- function(target_set){
         'af_09_heavy_day_30days_11_20',
         'af_09_heavy_day_30days_21_30', 'af_09_heavy_day_total',
         'af_09_binge_30days', 'tlfb_drinks_total',
-        'tlfb_alc_abstinent_days', 'tlfb_alc_drink_days',
+        'tlfb_alc_abstinent_days', 'tlfb_alc_drink_days', 'tlfb_alc_drink_per',
         'tlfb_alc_drink_days_avg', 'tlfb_alc_drink_heavy_days',
         'tlfb_alc_greatest_drink_1day', 'tlfb_alc_drink_days_week',
         'tlfb_drug_days', 'tlfb_drug_use', 'tlfb_drug_days_perc',
@@ -2041,8 +2041,8 @@ retrieve_data_stats <- function(target_set){
       rds_path = here::here(
         "data", "Combined Participant Data", "variable_map_02.rds"
       ),
-      mod_dt = '2023-12-15 14:39:22 CDT',
-      num_rows = 1147,
+      mod_dt = '2023-12-15 16:57:14 CDT',
+      num_rows = 1148,
       num_cols = 21,
       cols = c(
         'variable', 'section', 'sec_ord', 'instrument', 'inst_ord', 
@@ -2062,8 +2062,8 @@ retrieve_data_stats <- function(target_set){
     rds_path = here::here(
       "data", "Combined Participant Data", "variable_map_03.rds"
     ),
-    mod_dt = '2023-12-15 15:20:02 CDT',
-    num_rows = 1147,
+    mod_dt = '2023-12-15 16:57:14 CDT',
+    num_rows = 1148,
     num_cols = 25,
     cols = c(
       'variable', 'section', 'sec_ord', 'instrument', 'inst_ord', 
