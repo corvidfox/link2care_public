@@ -2285,7 +2285,7 @@ combined_data <- combined_data |>
   )
 ```
 
-### Alcohol and Drug Timeline Follow Back @@
+### Alcohol and Drug Timeline Follow Back
 
 We calculated a dichotomous variable to indicate if a subject endorsed any drug use in the timeline follow-back period.
 
@@ -2315,6 +2315,25 @@ combined_data <- combined_data |>
   )
 ```
 
+We also calculated the percentage of days a subject endorsed using alcohol.
+
+```{r}
+variable_map <- vm_add_variable(
+  variable_map, "Alcohol and Drug Timeline Follow-Back (TLFB)", 
+  'tlfb_alc_drink_perc', prev_var = 'num_drinking_days',
+  opts = tibble::tibble(
+    'attr_label' = paste(
+      "Percentage of days in the TLFB period with reported alcohol intake"
+      ),
+    'calculated' = TRUE
+    )
+  )
+
+combined_data <- combined_data |>
+  dplyr::mutate(
+    tlfb_alc_drink_perc = num_drinking_days * 100 / days_followed
+  )
+```
 
 ### Personality Beliefs Questionnaire
 
