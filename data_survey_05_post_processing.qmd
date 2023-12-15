@@ -98,6 +98,7 @@ source(here("R", "vm_delete_variable.R"))
 source(here("R", "vm_process_source_df.R"))
 source(here("R", "vm_process_many_source.R"))
 source(here("R", "data_mod_check.R"))
+source(here("R", "data_cols.R"))
 ```
 
 # 📥 Import data
@@ -107,7 +108,7 @@ source(here("R", "data_mod_check.R"))
 We imported our Combined Data Set
 
 ```{r}
-combined_data_path <- here(
+combined_data_path <- here::here(
   "data", "Combined Participant Data", "combined_data_02.rds"
   )
 ```
@@ -116,7 +117,7 @@ Import the data.
 Check the most recent file modification dates and print for user when this file is being sourced.
 
 ```{r message=FALSE}
-combined_data <- readRDS(combined_data_path)
+combined_data <- readr::read_rds(combined_data_path)
 
 # Print a message for when this file is being sourced
 cat(
@@ -133,8 +134,8 @@ cat(
       as.character(file.info(combined_data_path)$mtime), "\n"
     )
 
-# 2023-11-20: Combined data imported with 1610 rows and 1063 columns.
-# Combined data last modified on OneDrive 2023-10-27 15:54:38 
+# 2023-12-15: Combined data imported with 1606 rows and 1128 columns.
+# Combined data last modified on OneDrive 2023-12-15 14:46:19   
 ```
 
 #### Data Check: Changes
@@ -142,230 +143,18 @@ cat(
 We checked for changes to the source data set since this file was last modified.
 
 ```{r}
-# Inputs last modified: 2023-11-20
-# 
+# Inputs last modified: 2023-12-15
+
+data_stats <- retrieve_data_stats('combined_data_02_stats')
+
 data_mod_check(
-  'df' = combined_data,
-  'df_path_str' = combined_data_path,
-  'orig_path_str' = here(
-      "data", "Combined Participant Data", "combined_data_02.rds"
-      ),
-  'mod_dt' = '2023-10-27 15:54:38 CDT',
-  'num_rows' = 1610,
-  'num_cols' = 1063,
-  'col_names' = c(
-    'subject', 'group','visit',
-    'visit_type', 'today', 'ii', 'name_first',
-    'name_middle', 'name_last', 'care_manager', 'ctime',
-    'endtime', 'time_to_complete', 'maca_mdd_timestamp',
-    'maca_mdd_complete', 'ps_timestamp', 'ps_complete',
-    'email', 'days_followed', 'flag_outofwindow',
-    'v2_status', 'dropped_status', 'gender', 'ml_gender',
-    'sq_2', 'ml_hispanic_latino', 'sq_3', 'ml_race',
-    'sq_4', 'ml_dob', 'ml_age', 'sq_5', 'sq_6', 'sq_7',
-    'sq_7a', 'sq_7b', 'sq_7c', 'sq_7d', 'sq_8', 'sq_9',
-    'sq_9l', 'sq_10', 'sq_11', 'sq_12', 'sq_13', 'sq_14',
-    'sq_15', 'sq_16', 'sq_17', 'sq_18', 'sq_18a', 'sq_18b',
-    'sq_18c', 'sq_18d', 'sq_18e', 'sq_18f', 'sq_18g',
-    'sq_18h', 'sq_18i', 'sq_19', 'sq_20', 'sq_21', 'sq_22',
-    'sq_22a', 'sq_22b', 'sq_22c', 'sq_22d', 'sq_22e', 'sq_22f',
-    'sq_22g', 'sq_22h', 'sq_23', 'mms_1', 'mms_1a', 'mms_1b',
-    'mms_1c', 'mms_1d', 'mms_1e', 'mms_2', 'mms_2a', 'mms_2b',
-    'mms_2c', 'mms_2d', 'mms_2e', 'mms_3', 'mms_3g', 'mms_3h',
-    'mms_3i', 'mms_3j', 'recal_1', 'mms_4', 'mms_4a', 'mms_4b',
-    'mms_4c', 'mms_4d', 'mms_4e', 'mms_4f', 'count', 'mms_4v',
-    'mms_4va', 'mms_4vb', 'mms_4vc', 'mms_4vd', 'mms_4ve',
-    'mms_4vf', 'num_calc', 'mms_5', 'mms_5a', 'mms_5b',
-    'mms_5c', 'mms_5d', 'recal_2', 'mms_6', 'mms_6a', 'mms_6b',
-    'mms_6c', 'object', 'mms_7', 'mms_8', 'mms_8a', 'mms_8b',
-    'mms_8c', 'mms_8d', 'paper', 'mms_9', 'mms_10', 'mms_11',
-    'mms_s_main', 'mms_s_alt', 'mms_total', 'mms_severity',
-    'realm', 'realma', 'realmb', 'realmc', 'realmd', 'realme',
-    'realmf', 'realmg', 'realmh', 'realmi', 'realm_s',
-    'weight', 'weight_kg', 'height', 'height_meters', 'bmi',
-    'weight_status', 'obese', 'overwt_obese', 'waist_c',
-    'co', 'read_1', 'read_2', 'read_3', 'dem_1', 'dem_2',
-    'dem_3', 'dem_4', 'dem_4a', 'dem_4b', 'dem_4c', 'dem_4d',
-    'dem_4e', 'dem_4f', 'dem_5', 'dem_5a', 'dem_6', 'dem_6a',
-    'dme_6b', 'dem_7', 'dem_7a', 'dem_7b', 'dem_7c', 'dem_7d',
-    'dem_7e', 'any_health_insurance', 'dem_8', 'dem_9',
-    'dem_10', 'dem_11', 'dem_12', 'dem_12a', 'dem_12b',
-    'dem_12c', 'dem_12d', 'dem_12e', 'dem_12f', 'dem_12g',
-    'dem_12h', 'dem_12i', 'dem_12j', 'dem_12k', 'dem_12l',
-    'dem_13', 'dem_13a', 'dem_13b', 'dem_13c', 'dem_13d',
-    'dem_13e', 'dem_13f', 'dem_13g', 'dem_13h', 'dem_13_val',
-    'dem_14', 'dem_14a', 'dem_14b', 'dem_14c', 'dem_14d',
-    'dem_14e', 'dem_14f', 'dem_14g', 'dem_14h', 'dem_14_val',
-    'dem_15', 'dem_16', 'dem_17', 'dem_18', 'bh_1', 'bh_1y',
-    'bh_1m', 'bh_1d', 'bh_2', 'bh_3', 'bh_4', 'bh_4y', 'bh_4m',
-    'bh_4d', 'bh_5', 'bh_6', 'bh_7', 'bh_7y', 'bh_7m', 'bh_7w',
-    'bh_8', 'bh_9', 'bh_10', 'bh_11a', 'bh_12a', 'bh_12aa',
-    'bh_12ab', 'bh_12ac', 'bh_12ad', 'bh_12ae', 'bh_12af',
-    'bh_12ag', 'bh_12ah', 'bh_12ai', 'bh_12aj', 'bh_12ak',
-    'bh_12al', 'bh_13a', 'bh_13aa', 'bh_13ab', 'bh_13ac',
-    'bh_13ad', 'bh_13ae', 'bh_13af', 'bh_13b', 'bh_13ba',
-    'bh_13bb', 'bh_13bc', 'bh_13bd', 'bh_13be', 'bh_13bf',
-    'bh_13bg', 'bh_13bh', 'bh_13c', 'bh_13ca', 'bh_13cb',
-    'bh_13cc', 'bh_13cd', 'bh_13ce', 'bh_13cf', 'bh_13cg',
-    'bh_13ch', 'bh_14', 'bh_14b', 'bh_14by', 'bh_14bm',
-    'bh_14bw', 'bh_14bd', 'bh_15', 'bh_15a', 'bh_16', 'bh_17',
-    'bh_17y', 'bh_17m', 'bh_17w', 'bh_18', 'bh_18b', 'bh_18ba',
-    'bh_18bb', 'bh_18bc', 'bh_18bd', 'bh_18be', 'bh_18bf',
-    'bh_18bg', 'bh_18bh', 'bh_18b1', 'bh_19', 'bh_20', 'sss_1',
-    'sss_2', 'well_being_1', 'well_being_2', 'well_being_3',
-    'phq_1', 'phq_1_dichot', 'phq_2', 'phq_2_dichot',
-    'phq_3', 'phq_3_dichot', 'phq_4', 'phq_4_dichot',
-    'phq_5', 'phq_5_dichot', 'phq_6', 'phq_6_dichot',
-    'phq_7', 'phq_7_dichot', 'phq_8', 'phq_8_dichot', 'phq_9',
-    'phq_10', 'phq_11', 'phq_12', 'phq_13', 'phq_14', 'phq_15',
-    'phq_dep_total', 'phq_dep_dichot_total', 'phq_dep_symp',
-    'phq_mdd', 'phq_gad_total', 'hs_1', 'hs_1_dichot', 'hs_2',
-    'hs_3', 'hs_4', 'hs_5', 'hs_6', 'hs_7', 'hs_8', 'hs_9',
-    'hs_10', 'hs_11', 'hs_12', 'hrq_1', 'hrq_2', 'hrq_3',
-    's_2', 's_2a', 's_2b', 's_2c', 's_2d', 's_2e', 's_2f',
-    's_2g', 's_2h', 'sr_3a', 'sr_3b', 'sr_3c', 'sr_3d',
-    'sr_3e', 'sr_3f', 's_3', 's_4', 's_4a', 's_4b', 's_4c',
-    's_4d', 's_4e', 's_4f', 's_4g', 's_4h', 's_5', 's_6',
-    's_7', 's_7a', 's_7b', 's_7c', 's_7d', 's_7e', 's_7f',
-    's_7g', 's_8', 's_8a', 's_8b', 's_8c', 's_8d', 's_8e',
-    's_8f', 's_8g', 's_9', 's_9a', 's_9b', 's_9c', 's_9d',
-    's_9e', 's_9f', 's_9g', 's_9h', 's_9i', 's_9j', 's_9k',
-    's_9l', 's_9m', 's_9n', 's_9o', 's_9p', 's_9q', 's_9r',
-    's_10', 's_11', 's_12', 's_13', 's_14', 's_14a', 's_14b',
-    's_14c', 's_14d', 's_15', 's_16', 's_17', 's_18', 's_18a',
-    's_18b', 's_18c', 's_18d', 's_18e', 's_18f', 's_18g',
-    's_18h', 's_18i', 's_18j', 's_18k', 's_18l', 's_19',
-    's_20', 's_21', 's_22', 's_23', 's_mental_hx', 's_24',
-    's_24a', 's_24b', 's_24c', 's_24d', 's_24e', 's_24f',
-    's_25a', 's_26a', 's_26aa', 's_26ab', 's_26ac', 's_26ad',
-    's_26ae', 's_26af', 's_26ag', 's_25b', 's_26b', 's_26ba',
-    's_26bb', 's_26bc', 's_26bd', 's_26be', 's_26bf', 's_26bg',
-    's_25c', 's_26c', 's_26ca', 's_26cb', 's_26cc', 's_26cd',
-    's_26ce', 's_26cf', 's_26cg', 's_25d', 's_26d', 's_26da',
-    's_26db', 's_26dc', 's_26dd', 's_26de', 's_26df', 's_26dg',
-    's_25e', 's_26e', 's_26ea', 's_26eb', 's_26ec', 's_26ed',
-    's_26ee', 's_26ef', 's_26eg', 's_27', 's_28', 's_29',
-    's_30', 's_30a', 's_30b', 's_30c', 's_30d', 's_30e',
-    's_30f', 's_30g', 's_substance_hx', 's_31', 's_32',
-    's_32a', 's_32b', 's_32c', 's_32d', 's_32e', 's_32f',
-    's_32g', 's_32h', 's_32i', 's_substance_use', 's_33',
-    's_34', 's_35', 's_36', 's_37', 's_38', 's_39a', 's_39b',
-    's_40', 's_pain', 's_41', 's_42', 's_43', 's_43a', 's_43b',
-    's_43c', 's_43d', 's_43e', 's_43f', 's_43g', 's_43h',
-    's_43i', 'ds_1', 'ds_2', 'ds_3', 'ds_4', 'ds_5', 'ds_6',
-    'ds_7', 'ds_8', 'ds_9', 'ds_10a', 'ds_10b', 'ds_10_val',
-    'ds_11a', 'ds_11b', 'ds_11_val', 'ds_total', 'ds_cat',
-    'ptsd_1', 'ptsd_2', 'ptsd_3', 'ptsd_4', 'ptsd_total',
-    'ptsd_positive', 'brac_1', 'brac_2', 'brac_3', 'brac_4',
-    'brac_5', 'brac_6', 'brac_7', 'brac_8', 'brac_9',
-    'brac_10', 'brac_11', 't_1', 't_2', 't_3a', 't_3ay',
-    't_3am', 't_3b', 't_4', 't_5', 't_5a1', 't_5a2', 't_5a3',
-    't_5a4', 't_5a5', 't_5a6', 't_5_val', 't_6', 't_6a1',
-    't_6a2', 't_6a3', 't_6a4', 't_6a5', 't_6a6', 't_6_val',
-    't_7', 't_8', 't_9', 't_10', 't_11', 't_12', 't_12a',
-    't_12b', 't_13', 't_14', 't_14a', 't_14b', 't_14c',
-    't_14d', 't_14e', 't_14f', 't_14g', 't_14h', 't_14i',
-    't_15', 't_16', 't_17', 't_18', 't_19', 't_20', 't_21',
-    't_22', 't_23', 't_23a', 't_23b', 't_23c', 't_23d',
-    't_23e', 't_23f', 't_23g', 't_23h', 't_24', 't_25',
-    't_26a', 't_26aa', 't_26ab', 't_26ac', 't_26ad', 't_26ae',
-    't_26af', 't_27', 't_28', 't_29', 't_30', 't_31', 't_31a',
-    't_31b', 't_31c', 't_31d', 't_31e', 't_31f', 't_31g',
-    't_31h', 't_31i', 't_31j', 't_31_b', 't_31ba', 't_31bb',
-    't_31bc', 't_32', 't_33', 't_33a', 't_33b', 't_33c',
-    't_33d', 't_33e', 't_33f', 't_33g', 't_33h', 't_33i',
-    't_33j', 't_34', 't_35', 't_spouse', 't_36', 't_37',
-    't_38', 't_39', 't_friends', 't_40', 'hsi_1', 'hsi_2',
-    'hsi_score', 'hsi_cat', 'brs_1', 'brs_2', 'brs_2_dichot',
-    'brs_3', 'brs_4', 'brs_4_dichot', 'brs_5', 'drinks',
-    'af_1', 'af_2m', 'af_3tu', 'af_4w', 'af_5th', 'af_6f',
-    'af_6sa', 'af_8su', 'af_1_val', 'af_1_heavy', 'af_9',
-    'af_9a', 'af_9b', 'af_9c', 'af_9_val', 'af_9_binge',
-    'totaldrinks', 'num_alc_abstinent_days',
-    'num_drinking_days', 'ave_drinks_day',
-    'heavy_drinking_days', 'greatest_drinks_1_day',
-    'drinks_wk', 'num_days_using_drugs',
-    'per_days_using_drugs', 'per_drug_abstinent_days',
-    'drug_use_days_yr', 'drug_use_days_week', 'pbq_1', 'pbq_2',
-    'pbq_3', 'pbq_4', 'pbq_5', 'pbq_6', 'pbq_7', 'pbq_total',
-    'fss_1', 'fss_1_dichot', 'fss_2', 'fss_2_dichot', 'fss_3',
-    'fss_3_dichot', 'fss_3a', 'fss_3a_dichot', 'fss_4',
-    'fss_4_dichot', 'fss_5', 'fss_5_dichot', 'fss_total',
-    'fss_cat', 'fss_cat_dichot', 'ms_1', 'ms_2', 'ms_3',
-    'ms_4', 'cj_1', 'cj_2', 'cj_3', 'cj_4', 'cj_5', 'cj_6',
-    'cj_7', 'cj_8', 'cj_9', 'cj_10', 'cj_11', 'cj_12', 'cj_13',
-    'cj_14', 'cj_15', 'cj_16', 'cj_17', 'cj_18', 'cj_19',
-    'cj_20', 'cj_21', 'cj_22', 'cj_23', 'cj_24', 'cj_25',
-    'cj_26', 'cj_27', 'cj_28', 'cj_29', 'cj_30', 'cj_31',
-    'cj_32', 'cj_33', 'cj_34', 'cj_35', 'cj_36', 'cj_37',
-    'cj_38', 'cj_39', 'cj_40', 'cj_desire', 'cj_needs',
-    'cj_satisfaction', 'cj_selfesteem', 'cj_hostility',
-    'cj_risktaking', 'sb_1', 'sb_2', 'sb_3', 'sb_4', 'sb_5',
-    'sb_6', 'sb_7', 'sb_7a', 'sb_7b', 'sb_7c', 'sb_7d',
-    'sb_7e', 'sb_7f', 'sb_7g', 'sb_8', 'sb_9', 'dd_1',
-    'dd_2', 'dd_3', 'dd_4', 'dd_5', 'dd_6', 'dd_7', 'dd_8',
-    'dd_9', 'dd_10', 'dd_total', 'mmd_1a', 'mmd_1b', 'mmd_1c',
-    'mmd_1d', 'mmd_1e', 'mmd_1f', 'mmd_1g', 'mmd_1h', 'mmd_1i',
-    'mmd_1j', 'mmd_1k', 'mmd_total', 'mmd_2', 'mmd_3',
-    'mmd_4', 'uls_1', 'uls_2', 'uls_3', 'uls_4', 'uls_5',
-    'uls_6', 'uls_7', 'uls_8', 'uls_9', 'uls_10', 'uls_11',
-    'uls_12', 'uls_13', 'uls_14', 'uls_15', 'uls_16', 'uls_17',
-    'uls_18', 'uls_19', 'uls_20', 'uls_21', 'uls_total',
-    'pv_1', 'pv_2', 'pv_3', 'ps_1', 'ps_2', 'ps_3', 'ps_4',
-    'ps_total', 'dts_1', 'dts_2', 'dts_3', 'dts_4', 'dts_5',
-    'dts_6', 'dts_7', 'dts_8', 'dts_9', 'dts_10', 'dts_11',
-    'dts_12', 'dts_13', 'dts_14', 'dts_15', 'dts_16',
-    'dts_tolerance', 'dts_absorption', 'dts_appraisal',
-    'dts_regulation', 'dts_total', 'aq_1', 'aq_2', 'aq_3',
-    'aq_4', 'aq_5', 'aq_6', 'aq_7', 'aq_8', 'aq_9', 'aq_10',
-    'aq_11', 'aq_12', 'aq_physical', 'aq_verbal', 'aq_anger',
-    'aq_hostility', 'aq_total', 'ces_1', 'ces_1_dichot',
-    'ces_2', 'ces_2_dichot', 'ces_3', 'ces_3_dichot', 'ces_4',
-    'ces_4_dichot', 'ces_5', 'ces_5_dichot', 'ces_6',
-    'ces_6_dichot', 'ces_7', 'ces_7_dichot', 'ces_8',
-    'ces_8_dichot', 'ces_9', 'ces_9_dichot', 'ces_10',
-    'ces_10_dichot', 'ces_total', 'ces_dichot_total',
-    'ces_dichot_cat', 'ces_cat', 'is_1', 'is_2', 'is_3',
-    'is_4', 'is_5', 'is_6', 'is_7', 'is_8', 'is_9', 'is_10',
-    'is_11', 'is_12', 'is_app', 'is_bel', 'is_tan', 'rp_1',
-    'rp_2', 'lsn_1', 'lsn_2', 'lsn_3', 'lsn_4', 'lsn_5',
-    'lsn_6', 'lsn_family', 'lsn_family_cat', 'lsn_friends',
-    'lsn_friends_cat', 'lsn_total', 'lsn_total_cat',
-    'num_days_homeless', 'per_days_homeless', 'num_days_home',
-    'est_days_homeless_yr', 'avg_days_homeless_wk', 'r_1',
-    'r_2', 'r_3', 'r_4', 'r_5', 'r_6', 'r_7', 'r_8', 'r_9',
-    'r_10', 'r_11', 'r_11b', 'r_12', 'r_13', 'r_14', 'r_15',
-    'r_15a', 'r_15b', 'r_15c', 'r_15d', 'r_15e', 'r_15f',
-    'r_15g', 'r_15h', 'r_15i', 'r_15j', 'r_15k', 'r_15l',
-    'r_15m', 'r_15n', 'r_15o', 'bpm_1', 'bpm_2', 'bpm_3',
-    'bpm_4', 'bpm_5', 'bpm_5a', 'bpm_5b', 'bpm_5c',
-    'bpm_5d', 'bpm_5e', 'bpm_5f', 'bpm_5g', 'tq_1_1',
-    'tq_2_1', 'tq_3_2', 'tq_4_2', 'tq_5_3', 'tq_6_3',
-    'tq_7_3', 'tq_8_3', 'tq_9_2', 'tq_10_2', 'yq_11_2',
-    'tq_12_2', 'tq_13_2', 'tq_14_1', 'tq_15_3', 'tq_16_3',
-    'tq_17_3', 'tq_18_3', 'ddt_k', 'ddt_ed50', 'vac_1',
-    'vac_2', 'vac_2y', 'vac_2m', 'vac_2d', 'vac_3', 'vac_3y',
-    'vac_3m', 'vac_3d', 'arrest_count_since_prev_visit',
-    'bridge_reg_sessions', 'bridge_crisis_sessions',
-    'bridge_other_sessions', 'bridge_total_sessions',
-    'bridge_reg_minutes', 'bridge_crisis_minutes',
-    'bridge_total_minutes', 'bridge_other_minutes',
-    'bridge_reg_avg_duration', 'bridge_crisis_avg_duration',
-    'bridge_other_avg_duration', 'bridge_total_avg_duration',
-    'bridge_post_visits_reg_sessions',
-    'bridge_post_visits_crisis_sessions',
-    'bridge_post_visits_other_sessions',
-    'bridge_post_visits_total_sessions',
-    'bridge_post_visits_reg_minutes',
-    'bridge_post_visits_crisis_minutes',
-    'bridge_post_visits_other_minutes',
-    'bridge_post_visits_total_minutes',
-    'bridge_post_visits_reg_avg_duration',
-    'bridge_post_visits_crisis_avg_duration',
-    'bridge_post_visits_other_avg_duration',
-    'bridge_post_visits_total_avg_duration',
-    'calc_age'
-      )
+  df = combined_data,
+  df_path_str = combined_data_path,
+  orig_path_str = data_stats$rds_path,
+  mod_dt = data_stats$mod_dt,
+  num_rows = data_stats$num_rows,
+  num_cols = data_stats$num_cols,
+  col_names = data_stats$cols
   )
 # TRUE
 ```
@@ -381,7 +170,7 @@ rm(combined_data_path)
 We imported our Variable Map.
 
 ```{r}
-variable_map_path <- here(
+variable_map_path <- here::here(
   "data", "Combined Participant Data", "variable_map_02.rds"
   )
 ```
@@ -390,7 +179,7 @@ Import the data.
 Check the most recent file modification dates and print for user when this file is being sourced.
 
 ```{r message=FALSE}
-variable_map <- readRDS(variable_map_path)
+variable_map <- readr::read_rds(variable_map_path)
 
 # Print a message for when this file is being sourced
 cat(
@@ -407,8 +196,8 @@ cat(
       as.character(file.info(variable_map_path)$mtime), "\n"
     )
 
-# 2023-11-20: Variable Map imported with 1083 rows and 21 columns.
-# Variable Map data last modified on OneDrive 2023-10-27 15:35:45 
+# 2023-12-15: Variable Map imported with 1147 rows and 21 columns.
+# Variable Map data last modified on OneDrive 2023-12-15 14:39:22 
 ```
 
 #### Data Check: Changes
@@ -423,23 +212,18 @@ vm_check(variable_map)
 We checked for changes to the source data set since this file was last modified.
 
 ```{r}
-# Inputs last modified: 2023-11-20
+# Inputs last modified: 2023-12-15
+
+data_stats <- retrieve_data_stats('variable_map_02_stats')
 
 data_mod_check(
-  'df' = variable_map,
-  'df_path_str' = variable_map_path,
-  'orig_path_str' = here(
-      "data", "Combined Participant Data", "variable_map_02.rds"
-      ),
-  'mod_dt' = '2023-10-27 15:54:38 CDT',
-  'num_rows' = 1084,
-  'num_cols' = 21,
-  'col_names' = c(
-      'variable', 'section', 'sec_ord', 'instrument', 'inst_ord', 'item_ord',
-      'qds_v1', 'qds_v2', 'qds_v3', 'qds_v4', 'qds_v5', 'redcap',
-      'master_log', 'tlfb', 'ddt', 'arrest', 'bridge', 'attr_label',
-      'attr_var_labels', 'drop_consolidated', 'calculated'
-      )
+  df = variable_map,
+  df_path_str = variable_map_path,
+  orig_path_str = data_stats$rds_path,
+  mod_dt = data_stats$mod_dt,
+  num_rows = data_stats$num_rows,
+  num_cols = data_stats$num_cols,
+  col_names = data_stats$cols
   )
 # TRUE
 ```
@@ -448,6 +232,7 @@ We purged the import path for memory management.
 
 ```{r}
 rm(variable_map_path)
+rm(data_stats)
 ```
 
 # Flagging PHI Variables
@@ -455,8 +240,8 @@ rm(variable_map_path)
 We created a new variable within our data set, which would allow us to flag any variable that contained PHI.
 
 ```{r}
-variable_map <- variable_map %>%
-  add_column(phi = FALSE)
+variable_map <- variable_map |>
+  tibble::add_column(phi = FALSE)
 
 attributes(variable_map$phi)$label <- "Is this variable PHI?"
 ```
@@ -466,8 +251,8 @@ We identified the variables containing the subject's name, date of birth, or ema
 ```{r}
 phi_vars <- c('name_first', 'name_last', 'name_middle', 'ml_dob', 'email')
 
-variable_map <- variable_map %>%
-  mutate(phi = ifelse((variable %in% phi_vars), TRUE, phi))
+variable_map <- variable_map |>
+  dplyr::mutate(phi = ifelse((variable %in% phi_vars), TRUE, phi))
 
 rm(phi_vars)
 ```
@@ -478,9 +263,9 @@ While our initial variable names were useful in pre-processing, the majority of 
 To maintain the usefulness of the Variable Map in tracing processing changes for variables, we created a new column, `final_variable`.
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = variable) %>%
-  relocate(final_variable)
+variable_map <- variable_map |>
+  dplyr::mutate(final_variable = variable) |>
+  dplyr::relocate(final_variable)
 
 attributes(variable_map$final_variable)$label <- paste(
   "Finalized Variable Names"
@@ -495,8 +280,8 @@ We then manually sorted through our variables and created our desired variable n
 We could adjust the numerical components of variable names in aggregate.
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = stringr::str_replace_all(variable, 
+variable_map <- variable_map |>
+  dplyr::mutate(final_variable = stringr::str_replace_all(variable, 
                                              "\\d+", 
                                              function(m) 
                                                sprintf("%02d", as.integer(m))
@@ -509,8 +294,8 @@ variable_map <- variable_map %>%
 We manually inspected and renamed variables from the Administrative Section.
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+  dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'subject' ~ 'id',
     variable == 'today' ~ 'visit_date',
     variable == 'ii' ~ 'interviewer',
@@ -536,8 +321,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the Screening Instrument.
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'gender' ~ 'sq_01_subj_gender',
     variable == 'ml_gender' ~ 'sq_01_subj_gender_ml',
     variable == 'sq_2' ~ 'sq_02_subj_hispanic',
@@ -596,8 +381,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the Mini-Mental State Exam
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'mms_1' ~ 'mms_01_time',
     variable == 'mms_1a' ~ 'mms_01_time_year',
     variable == 'mms_1b' ~ 'mms_01_time_season',
@@ -663,8 +448,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the REALM
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'realm' ~ 'realm',
     variable == 'realma' ~ 'realm_01_fat',
     variable == 'realmb' ~ 'realm_02_flu',
@@ -683,8 +468,8 @@ variable_map <- variable_map %>%
 We added the prefix 'anth_' to all anthropometric variables.
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = ifelse(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = ifelse(
       (section == "Screening" & instrument == "Anthropometrics"),
       paste0('anth_', variable),
       final_variable
@@ -697,8 +482,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the Demographic Questionnaire. This included fixing a typo in `dme_6b`.
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'dem_1' ~ 'dem_01_marital',
     variable == 'dem_2' ~ 'dem_02_children',
     variable == 'dem_3' ~ 'dem_03_race',
@@ -769,8 +554,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the Brief Homelessness Questionnaire
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'bh_1' ~ 'bh_01_time_lifetime',
     variable == 'bh_1y' ~ 'bh_01_time_lifetime_year',
     variable == 'bh_1m' ~ 'bh_01_time_lifetime_month',
@@ -862,8 +647,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the MacArthur Scale of Subjective Social Status
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'sss_1' ~ 'sss_01_community',
     variable == 'sss_2' ~ 'sss_02_usa',
     variable == 'well_being_1' ~ 'sss_03_now',
@@ -878,8 +663,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the Patient Health Questionnaire
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'phq_1' ~ 'phq_01_interest',
     variable == 'phq_2' ~ 'phq_02_down',
     variable == 'phq_3' ~ 'phq_03_sleep',
@@ -910,8 +695,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the SF12 Health Survey
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'hs_1' ~ 'hs_01_general',
     variable == 'hs_1_dichot' ~ 'hs_01_general_dichot',
     variable == 'hs_2' ~ 'hs_02_mod_act',
@@ -932,8 +717,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the Health Related Quality of Life
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'hrq_1' ~ 'hrq_01_physical',
     variable == 'hrq_2' ~ 'hrq_02_mental',
     variable == 'hrq_3' ~ 'hrq_03_limited',
@@ -944,8 +729,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from Self-Rated Health
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 's_2' ~ 's_02_behav',
     variable == 's_2a' ~ 's_02_behav_smoke',
     variable == 's_2b' ~ 's_02_behav_sex',
@@ -1140,8 +925,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the TCU Drug Screen 5
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'ds_1' ~ 'ds_01_longer_use',
     variable == 'ds_2' ~ 'ds_02_reduce_failed',
     variable == 'ds_3' ~ 'ds_03_time_spent',
@@ -1164,8 +949,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the Primary Care PTSD Screen (PC-PTSD)
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'ptsd_1' ~ 'ptsd_01_nightmares',
     variable == 'ptsd_2' ~ 'ptsd_02_avoidance',
     variable == 'ptsd_3' ~ 'ptsd_03_hypervigilance',
@@ -1177,8 +962,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the BRFSS Adverse Childhood Experience (ACE) Module
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'brac_1' ~ 'brac_01_mh',
     variable == 'brac_2' ~ 'brac_02_etoh',
     variable == 'brac_3' ~ 'brac_03_drugs',
@@ -1197,8 +982,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from Tobacco History
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 't_1' ~ 't_01_cigarettes_lifetime_100',
     variable == 't_2' ~ 't_02_cigarettes_30days',
     variable == 't_3a' ~ 't_03_quit_time',
@@ -1312,8 +1097,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the Heaviness of Smoking Index
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'hsi_1' ~ 'hsi_01_num_cigarettes_day',
     variable == 'hsi_2' ~ 'hsi_02_soon_first_smoke',
     TRUE ~ final_variable
@@ -1323,8 +1108,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the Behavioral Risk Factor Surveillance System (BRFSS) Inadequate Sleep
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'brs_1' ~ 'brs_01_lack_sleep_days',
     variable == 'brs_2' ~ 'brs_02_avg_sleep',
     variable == 'brs_2_dichot' ~ 'brs_02_avg_sleep_dichot',
@@ -1339,8 +1124,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the Alcohol Quantity and Frequency Questionnaire
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'drinks' ~ 'af_drinks',
     variable == 'af_1' ~ 'af_01_ever_3years',
     variable == 'af_2m' ~ 'af_02_avg_mon',
@@ -1365,8 +1150,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the Alcohol and Drug Timeline Follow-Back (TLFB)
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'totaldrinks' ~ 'tlfb_drinks_total',
     variable == 'num_alc_abstinent_days' ~ 'tlfb_alc_abstinent_days',
     variable == 'num_drinking_days' ~ 'tlfb_alc_drink_days',
@@ -1386,8 +1171,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the Personality Beliefs Questionnaire
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'pbq_1' ~ 'pbq_01_whatever_get_away',
     variable == 'pbq_2' ~ 'pbq_02_strong_survive',
     variable == 'pbq_3' ~ 'pbq_03_whatever_necessary',
@@ -1402,8 +1187,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the USDA Food Security Survey
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'fss_1' ~ 'fss_01_didnt_last',
     variable == 'fss_2' ~ 'fss_02_balanced',
     variable == 'fss_3' ~ 'fss_03_skip',
@@ -1423,8 +1208,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the Meal Survey
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'ms_1' ~ 'ms_01_meals_24hrs',
     variable == 'ms_2' ~ 'ms_02_meals_24hrs_shelter',
     variable == 'ms_3' ~ 'ms_03_meals_24hrs_fruit_veg',
@@ -1436,8 +1221,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the TCU CJ Client Evaluation of Self and Treatment (CJ CEST)
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'cj_1' ~ 'cj_01_use_12month',
     variable == 'cj_2' ~ 'cj_02_help_need',
     variable == 'cj_3' ~ 'cj_03_help_need_urgent',
@@ -1485,8 +1270,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from Sexual Behaviors
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'sb_1' ~ 'sb_01_ever',
     variable == 'sb_2' ~ 'sb_02_age_first',
     variable == 'sb_3' ~ 'sb_03_num_partners_12months',
@@ -1512,8 +1297,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the Detroit Area Study Assessment of Day-to-Day Discrimination
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'dd_1' ~ 'dd_01_courtesy',
     variable == 'dd_2' ~ 'dd_02_respect',
     variable == 'dd_3' ~ 'dd_03_service',
@@ -1531,8 +1316,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the MacAurthur Major Discrimination
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'mmd_1a' ~ 'mmd_01_edu_discouraged',
     variable == 'mmd_1b' ~ 'mmd_01_edu_scholarship',
     variable == 'mmd_1c' ~ 'mmd_01_work_hire',
@@ -1554,8 +1339,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the Urban Life Stress Scale
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'uls_1' ~ 'uls_01_finance',
     variable == 'uls_2' ~ 'uls_02_work',
     variable == 'uls_3' ~ 'uls_03_parenting',
@@ -1584,8 +1369,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from Personal Victimization
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'pv_1' ~ 'pv_01_violence_victim_30days',
     variable == 'pv_2' ~ 'pv_02_violence_witness_30days',
     variable == 'pv_3' ~ 'pv_03_violence_witness_6months',
@@ -1596,8 +1381,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the Perceived Stress Scale
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'ps_1' ~ 'ps_01_no_control',
     variable == 'ps_2' ~ 'ps_02_confident',
     variable == 'ps_3' ~ 'ps_03_going_your_way',
@@ -1609,8 +1394,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the Distress Tolerance Scale
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'dts_1' ~ 'dts_01_unbearable',
     variable == 'dts_2' ~ 'dts_02_dominating',
     variable == 'dts_3' ~ 'dts_03_cant_handle',
@@ -1636,8 +1421,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the Aggression Questionnaire (AQ-12)
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'aq_1' ~ 'aq_01_violence_willing',
     variable == 'aq_2' ~ 'aq_02_violence_hx',
     variable == 'aq_3' ~ 'aq_03_threaten_hx',
@@ -1657,8 +1442,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the Center for Epidemiological Studies Depression (CES-D)
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'ces_1' ~ 'ces_01_bother',
     variable == 'ces_2' ~ 'ces_02_concentrate',
     variable == 'ces_3' ~ 'ces_03_depressed',
@@ -1688,8 +1473,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the Interpersonal Support Evaluation List
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'is_1' ~ 'is_01_trip',
     variable == 'is_2' ~ 'is_02_fears',
     variable == 'is_3' ~ 'is_03_chores',
@@ -1709,8 +1494,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the Religious Participation
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'rp_1' ~ 'rp_01_attendance_general',
     variable == 'rp_2' ~ 'rp_02_attendance_week',
     TRUE ~ final_variable
@@ -1720,8 +1505,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the Lubben Social Network Scale 6
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'lsn_1' ~ 'lsn_01_family_monthly',
     variable == 'lsn_2' ~ 'lsn_02_family_private',
     variable == 'lsn_3' ~ 'lsn_03_family_help',
@@ -1735,8 +1520,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the Homeless Timeline Follow Back (TLFB)
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'num_days_homeless' ~ 'tlfb_hl_homeless_days_num',
     variable == 'per_days_homeless' ~ 'tlfb_hl_homeless_days_per',
     variable == 'num_days_home' ~ 'tlfb_hl_home_days',
@@ -1749,8 +1534,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the Resource Utilization Questionnaire
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'r_1' ~ 'r_01_counsel_mh',
     variable == 'r_2' ~ 'r_02_counsel_substance',
     variable == 'r_3' ~ 'r_03_counsel_smoking',
@@ -1789,8 +1574,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the Barriers to Phone Based Case Management
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'bpm_1' ~ 'bpm_01_comfortable_office',
     variable == 'bpm_2' ~ 'bpm_02_comfortable_phone',
     variable == 'bpm_3' ~ 'bpm_03_comfortable_text',
@@ -1812,8 +1597,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the Treatment Quality and Satisfaction Survey
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'tq_1_1' ~ 'tq_01_bridge_helpful',
     variable == 'tq_2_1' ~ 'tq_02_cm_helpful',
     variable == 'tq_3_2' ~ 'tq_03_assessment_num',
@@ -1841,8 +1626,8 @@ variable_map <- variable_map %>%
 We manually reviewed and renamed variables from the COVID-19 Vaccination Questionnaire
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = dplyr::case_when(
     variable == 'vac_2y' ~ 'vac_02_year',
     variable == 'vac_2m' ~ 'vac_02_month',
     variable == 'vac_2d' ~ 'vac_02_day',
@@ -1853,26 +1638,14 @@ variable_map <- variable_map %>%
     ))
 ```
 
-## Arrest Data Section
-
-We manually reviewed and renamed variables from the Arrest Data
-
-```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = case_when(
-    variable == 'arrested_during_followup' ~ 'arrest_during_followup',
-    TRUE ~ final_variable
-    ))
-```
-
 
 ## Eliminating `final_variable` in Dropped Rows
 
 The `final_variable` should be empty for variables that we intended to drop from our data set. We replaced any `final_variable` values for these items with a missing (`NA`) value in our Variable Map.
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(final_variable = ifelse(drop_consolidated, NA, final_variable))
+variable_map <- variable_map |>
+ dplyr::mutate(final_variable = ifelse(drop_consolidated, NA, final_variable))
 ```
 
 # Adding Skip-Patterns
@@ -1880,8 +1653,8 @@ variable_map <- variable_map %>%
 We initialized a skip-pattern column in our variable map.
 
 ```{r}
-variable_map <- variable_map %>%
-  add_column(skip_pattern = NA_character_)
+variable_map <- variable_map |>
+  tibble::add_column(skip_pattern = NA_character_)
 
 attributes(variable_map$skip_pattern)$label <- "Skip Pattern"
 ```
@@ -1890,16 +1663,16 @@ attributes(variable_map$skip_pattern)$label <- "Skip Pattern"
 
 
 ```{r}
-variable_map <- variable_map  %>%
-  rowwise()  %>%
-  mutate(
+variable_map <- variable_map  |>
+  dplyr::rowwise()  |>
+ dplyr::mutate(
     skip_pattern = ifelse(
       final_variable == 'subj_email',
       'Only shown to RedCAP subjects',
       skip_pattern
     )
-  )  %>%
-  ungroup()
+  )  |>
+  dplyr::ungroup()
 ```
 
 
@@ -1907,10 +1680,10 @@ variable_map <- variable_map  %>%
 
 
 ```{r}
-variable_map <- variable_map  %>%
-  rowwise()  %>%
-  mutate(
-    skip_pattern = case_when(
+variable_map <- variable_map  |>
+ dplyr::rowwise()  |>
+ dplyr::mutate(
+    skip_pattern = dplyr::case_when(
       # Screening Instrument
       final_variable == 'sq_07c_release_other' ~ paste0(
                                   'Skipped if sq_07_release was "no", ',
@@ -1982,17 +1755,17 @@ variable_map <- variable_map  %>%
                       ),
       TRUE ~ skip_pattern
       )
-  )  %>%
-  ungroup()
+  )  |>
+  dplyr::ungroup()
 ```
 
 ## Demographics Section
 
 ```{r}
-variable_map <- variable_map  %>%
-rowwise()  %>%
-  mutate(
-    skip_pattern = case_when(
+variable_map <- variable_map  |>
+ dplyr::rowwise()  |>
+ dplyr::mutate(
+    skip_pattern = dplyr::case_when(
       # Demographic Instrument
       stringr::str_starts(final_variable,'dem_04_mrace') ~ paste0(
                         'Skipped if dem_03_race was not "More than one race/',
@@ -2082,17 +1855,17 @@ rowwise()  %>%
                         ),
       TRUE ~ skip_pattern
       )
-  )  %>%
-  ungroup()
+  )  |>
+  dplyr::ungroup()
 ```
 
 ## Health Section
 
 ```{r}
-variable_map <- variable_map  %>%
-rowwise()  %>%
-  mutate(
-    skip_pattern = case_when(
+variable_map <- variable_map  |>
+ dplyr::rowwise()  |>
+ dplyr::mutate(
+    skip_pattern = dplyr::case_when(
       # PHQ
       stringr::str_starts(final_variable, 'phq_') ~ paste0(
                          'Skip option was provided at time of ',
@@ -2382,17 +2155,17 @@ rowwise()  %>%
                       ),
       TRUE ~ skip_pattern
       )
-  )  %>%
-  ungroup()
+  )  |>
+  dplyr::ungroup()
 ```
 
 ## Stress Section
 
 ```{r}
-variable_map <- variable_map  %>%
-  rowwise()  %>%
-  mutate(
-    skip_pattern = case_when(
+variable_map <- variable_map  |>
+  dplyr::rowwise()  |>
+ dplyr::mutate(
+    skip_pattern = dplyr::case_when(
         # Detroit Day-to-Day Discrimination
         final_variable == 'dd_10_reason' ~ paste0(
                       'Skip option was provided at time of ',
@@ -2417,18 +2190,18 @@ variable_map <- variable_map  %>%
         # Distress Tolerance Scale (had no skip patterns)
         TRUE ~ skip_pattern
       )
-  )  %>% 
-  ungroup()
+  )  |> 
+  dplyr::ungroup()
 ```
 
 
 ## Negative Affect Section
 
 ```{r}
-variable_map <- variable_map  %>%
-  rowwise()  %>%
-  mutate(
-    skip_pattern = case_when(
+variable_map <- variable_map  |>
+  dplyr::rowwise()  |>
+ dplyr::mutate(
+    skip_pattern = dplyr::case_when(
         # AQ-12
         stringr::str_starts(final_variable, 'aq_') ~ paste0(
                       'Skip option was provided at time of ',
@@ -2441,17 +2214,17 @@ variable_map <- variable_map  %>%
                       ),
         TRUE ~ skip_pattern
       )
-  )  %>% 
-  ungroup()
+  )  |> 
+  dplyr::ungroup()
 ```
 
 ## Interpersonal/Intrapersonal Resources Section
 
 ```{r}
-variable_map <- variable_map  %>%
-  rowwise()  %>%
-  mutate(
-    skip_pattern = case_when(
+variable_map <- variable_map  |>
+  dplyr::rowwise()  |>
+ dplyr::mutate(
+    skip_pattern = dplyr::case_when(
         # Interpersonal Support Evaluation List
         stringr::str_starts(final_variable, 'is_') ~ paste0(
                       'Skip option was provided at time of ',
@@ -2487,17 +2260,17 @@ variable_map <- variable_map  %>%
                       ),
         TRUE ~ skip_pattern
       )
-  )  %>% 
-  ungroup()
+  )  |> 
+  dplyr::ungroup()
 ```
 
 ## Treatment Quality and Satisfaction Section
 
 ```{r}
-variable_map <- variable_map  %>%
-  rowwise()  %>%
-  mutate(
-    skip_pattern = case_when(
+variable_map <- variable_map  |>
+  dplyr::rowwise()  |>
+ dplyr::mutate(
+    skip_pattern = dplyr::case_when(
         # Treatment Quality and Satisfaction Survey
         final_variable %in% c(
                             'tq_03_assessment_num', 'tq_04_phone_aware',
@@ -2518,17 +2291,17 @@ variable_map <- variable_map  %>%
         # Delay Discount Task (DDT) (no clear skip pattern)
         TRUE ~ skip_pattern
       )
-  )  %>% 
-  ungroup()
+  )  |> 
+  dplyr::ungroup()
 ```
 
 ## COVID-19 Pandemic Related Data Section
 
 ```{r}
-variable_map <- variable_map  %>%
-  rowwise()  %>%
-  mutate(
-    skip_pattern = case_when(
+variable_map <- variable_map  |>
+  dplyr::rowwise()  |>
+ dplyr::mutate(
+    skip_pattern = dplyr::case_when(
         # COVID-19 Vaccination Questionnaire
         final_variable == 'vac_01' ~ paste0(
                       'Skip option was provided at time of ',
@@ -2551,15 +2324,15 @@ variable_map <- variable_map  %>%
               ),
         TRUE ~ skip_pattern
       )
-  )  %>% 
-  ungroup()
+  )  |> 
+  dplyr::ungroup()
 ```
 
 # Calculated Variables
 
 ```{r}
-variable_map <- variable_map  %>%
-  mutate(
+variable_map <- variable_map  |>
+ dplyr::mutate(
     skip_pattern = ifelse(
       calculated,
       'Calculated variable missing if source variables were missing', 
@@ -2573,8 +2346,8 @@ variable_map <- variable_map  %>%
 We initialized a source column in our variable map.
 
 ```{r}
-variable_map <- variable_map %>%
-  add_column(source = NA_character_)
+variable_map <- variable_map |>
+  tibble::add_column(source = NA_character_)
 
 attributes(variable_map$source)$label <- "Variable Source"
 ```
@@ -2582,17 +2355,17 @@ attributes(variable_map$source)$label <- "Variable Source"
 We added the source identifiers for the variables collected in the Arrest, Bridge Session, TLFB, and DDT Data.
 
 ```{r}
-variable_map <- variable_map %>%
- mutate(
+variable_map <- variable_map |>
+dplyr::mutate(
     source = ifelse(!is.na(bridge), "Bridge Session Data", source)
-    ) %>%
-  mutate(
+    ) |>
+ dplyr::mutate(
     source = ifelse(!is.na(arrest), "Arrest Data", source)
-    ) %>%
-  mutate(
+    ) |>
+ dplyr::mutate(
     source = ifelse(!is.na(tlfb), "V1, V3, V4, V5", source)
-    ) %>%
-  mutate(
+    ) |>
+ dplyr::mutate(
     source = ifelse(!is.na(ddt), "V1, V3, V4, V5", source)
     )
 ```
@@ -2600,16 +2373,16 @@ variable_map <- variable_map %>%
 We added the source identifer to each variable in the QDS or REDCap data, indicating which visit it was collected in. This was done by using the QDS data sets.
 
 ```{r}
-variable_map <- variable_map %>%
+variable_map <- variable_map |>
 mutate(source = ifelse(
         (!is.na(qds_v1) | !is.na(qds_v2) | !is.na(qds_v3) | !is.na(qds_v4) | 
            !is.na(qds_v5)),
         NA,
         source
       )
-    ) %>%
-  mutate(source = ifelse(!is.na(qds_v1), "V1", source)) %>%
-  mutate(source = ifelse(
+    ) |>
+ dplyr::mutate(source = ifelse(!is.na(qds_v1), "V1", source)) |>
+ dplyr::mutate(source = ifelse(
         !is.na(qds_v2),
         ifelse(
                !is.na(source),
@@ -2618,8 +2391,8 @@ mutate(source = ifelse(
                ),
         source
       )
-    ) %>%
-  mutate(source = ifelse(
+    ) |>
+ dplyr::mutate(source = ifelse(
         !is.na(qds_v3),
         ifelse(
                !is.na(source),
@@ -2628,8 +2401,8 @@ mutate(source = ifelse(
                ),
         source
       )
-    ) %>%
-  mutate(source = ifelse(
+    ) |>
+ dplyr::mutate(source = ifelse(
         !is.na(qds_v4),
         ifelse(
                !is.na(source),
@@ -2638,8 +2411,8 @@ mutate(source = ifelse(
                ),
         source
       )
-    ) %>%
-  mutate(source = ifelse(
+    ) |>
+ dplyr::mutate(source = ifelse(
         !is.na(qds_v5),
         ifelse(
                !is.na(source),
@@ -2654,8 +2427,8 @@ mutate(source = ifelse(
 We overrode any variables from the Master Log, to indicate they were from the Master Log (as their values overrode any others). We assigned the source value to all Arrest and Bridge Session Data.
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(
+variable_map <- variable_map |>
+ dplyr::mutate(
     source = ifelse(!is.na(master_log), "Master Log", source)
          )
 ```
@@ -2663,8 +2436,8 @@ variable_map <- variable_map %>%
 We added a source of "calculated" to any calculated variables.
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(
+variable_map <- variable_map |>
+ dplyr::mutate(
     source = ifelse(calculated, "Calculated", source)
   )
 ```
@@ -2673,8 +2446,8 @@ The remaining seven variables were unique to the REDCap data set.
 
 ```{r}
 pull(
-  variable_map %>%
-    filter(is.na(source)) %>%
+  variable_map |>
+    filter(is.na(source)) |>
       select(variable)
   )
 
@@ -2687,8 +2460,8 @@ pull(
 We manually added the source to these seven variables.
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(source = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(source = dplyr::case_when(
       variable == 'redcap_event_name' ~ 'V1, V2, V3, V4, V5',
       variable == 'email' ~ 'V1, V2, V3, V4, V5',
       variable == 'maca_mdd_timestamp' ~ 'V2',
@@ -2717,8 +2490,8 @@ length(care_managers)
 We performed point-modifications to combine these values. To avoid revealing an individual's name in the code, numeric indexing of using the sorted list of unique values was utilized. **Note: If the data changes significantly, and the unique values for care managers change, this indexing may no longer be valid.**
 
 ```{r}
-combined_data <- combined_data %>%
-  mutate(care_manager = case_when(
+combined_data <- combined_data |>
+ dplyr::mutate(care_manager = dplyr::case_when(
       care_manager == care_managers[1] ~ care_managers[2],
       care_manager == care_managers[3] ~ care_managers[4],
       care_manager == care_managers[6] ~ care_managers[7],
@@ -2761,21 +2534,21 @@ length(care_managers)
 We replaced all care manager values with the index of the case manager in the sorted list, to reduce PHI and enable summary statistics of the care manager column as a factor.
 
 ```{r}
-combined_data <- combined_data %>%
-  rowwise() %>%
-  mutate(care_manager = ifelse(
+combined_data <- combined_data |>
+  dplyr::rowwise() |>
+ dplyr::mutate(care_manager = ifelse(
       !is.na(care_manager), which(care_managers == care_manager), NA_integer_
       )
-    ) %>%
-  ungroup() %>%
-  mutate(care_manager = as.factor(care_manager))
+    ) |>
+  dplyr::ungroup() |>
+ dplyr::mutate(care_manager = as.factor(care_manager))
 ```
 
 We added the variable label values to our variable map, which included the character names.
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(attr_var_labels = ifelse(
+variable_map <- variable_map |>
+ dplyr::mutate(attr_var_labels = ifelse(
       variable == 'care_manager',
       list(setNames(c(1:length(care_managers)), care_managers)),
       attr_var_labels
@@ -2803,8 +2576,8 @@ length(interviewers)
 We converted all interviewer initials to uppercase, and found 23 unique interviewers. No other significant similarities were found.
 
 ```{r}
-combined_data <- combined_data %>%
-  mutate(ii = toupper(ii))
+combined_data <- combined_data |>
+ dplyr::mutate(ii = toupper(ii))
 
 interviewers <- na.omit(sort(unique(combined_data$ii)))
 
@@ -2815,21 +2588,21 @@ length(interviewers)
 We replaced all interviewer values with the index of the interviewer in the sorted list, to reduce PHI and enable summary statistics of the interviewer column as a factor.
 
 ```{r}
-combined_data <- combined_data %>%
-  rowwise() %>%
-  mutate(ii = ifelse(
+combined_data <- combined_data |>
+  dplyr::rowwise() |>
+ dplyr::mutate(ii = ifelse(
       !is.na(ii), which(interviewers == ii), NA_integer_
       )
-    ) %>%
-  ungroup() %>%
-  mutate(ii = as.factor(ii))
+    ) |>
+  dplyr::ungroup() |>
+ dplyr::mutate(ii = as.factor(ii))
 ```
 
 We added the variable label values to our variable map, which included the character names.
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(attr_var_labels = ifelse(
+variable_map <- variable_map |>
+ dplyr::mutate(attr_var_labels = ifelse(
       variable == 'ii',
       list(setNames(c(1:length(interviewers)), interviewers)),
       attr_var_labels
@@ -2848,9 +2621,9 @@ rm(interviewers)
 The Master Log variables did not automatically come with value labels for conversion into factors. As such, we converted values to match the QDS/REDCap equivalent for the Master Log variables.
 
 ```{r}
-combined_data <- combined_data %>%
-  mutate(
-    ml_race = case_when(
+combined_data <- combined_data |>
+ dplyr::mutate(
+    ml_race = dplyr::case_when(
       ml_race == 'More Than One' ~ '1',
       ml_race == 'W' ~ '2',
       ml_race == 'AA' ~ '3',
@@ -2860,30 +2633,30 @@ combined_data <- combined_data %>%
       ml_race == 'O/U' ~ '7',
       TRUE ~ ml_race
       ),
-    ml_gender = case_when(
+    ml_gender = dplyr::case_when(
       ml_gender == 'M' ~ '0',
       ml_gender == 'F' ~ '1',
       ml_gender == 'Other' ~ '2',
       TRUE ~ ml_gender
     ),
-    ml_hispanic_latino = case_when(
+    ml_hispanic_latino = dplyr::case_when(
       ml_hispanic_latino == 'Y' ~ '1',
       ml_hispanic_latino == 'N' ~ '0',
       TRUE ~ ml_hispanic_latino
     ),
-    v2_status = case_when(
+    v2_status = dplyr::case_when(
       v2_status == 'Randomized' ~ '1',
       v2_status == 'No Show' ~ '2',
       v2_status == 'Do Not Include' ~ '3',
       TRUE ~ v2_status
     ),
-    dropped_status = case_when(
+    dropped_status = dplyr::case_when(
       dropped_status == 'Before Randomization' ~ '1',
       dropped_status == 'After Randomization' ~ '2',
       TRUE ~ dropped_status
     )
-  ) %>%
-  mutate(across(c(
+  ) |>
+ dplyr::mutate(across(c(
     'ml_race', 'ml_gender', 'ml_hispanic_latino', 'v2_status', 
     'dropped_status'
     ),
@@ -2894,8 +2667,8 @@ combined_data <- combined_data %>%
 We set value labels in our variable map for these modified variables.
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(attr_var_labels = case_when(
+variable_map <- variable_map |>
+ dplyr::mutate(attr_var_labels = dplyr::case_when(
     variable == 'ml_race' ~ 
       variable_map[variable_map$variable == 'sq_3',]$attr_var_labels,
     variable == 'ml_gender' ~ 
@@ -2924,8 +2697,8 @@ variable_map[variable_map$variable == 'overwt_obese', ]$attr_var_labels[[1]] <- 
 We noted that the variable value labels stored for `sq_7b`, `weight`, `height`, `waist_c`, `co`, `s_4`, and `r_7` were not applicable to their current format. We eliminated these labels in the variable map.
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(attr_var_labels = ifelse(
+variable_map <- variable_map |>
+ dplyr::mutate(attr_var_labels = ifelse(
     variable %in% c('sq_7b', 'weight', 'height', 'waist_c', 'co', 's_4', 'r_7'),
     list(NULL),
     attr_var_labels
@@ -2948,25 +2721,25 @@ We ensured that none of the `drop_consolidated` variables were kept, as all shou
 
 ```{r}
 dropping_vars <- pull(
-  variable_map_stripped %>%
-    filter(drop_consolidated) %>%
+  variable_map_stripped |>
+    filter(drop_consolidated) |>
     select(variable)
   )
 
-combined_data <- combined_data %>%
+combined_data <- combined_data |>
   select(-any_of(dropping_vars))
 ```
 
 We ensured any variable which had variable value labels was converted into a factor variable, rather than a numeric, logical, or character. We also converted the `subject` variable into a factor, and `time_to_complete` into hms.
 
 ```{r}
-labeled_val_map <- variable_map_stripped %>%
+labeled_val_map <- variable_map_stripped |>
   filter(!drop_consolidated)
 
 combined_data <- vm_factor_apply_val_labels(
   combined_data, labeled_val_map, 'variable'
-  ) %>%
-  mutate(
+  ) |>
+ dplyr::mutate(
     subject = as.factor(subject),
     time_to_complete = as_hms(time_to_complete)
     )
@@ -2976,9 +2749,9 @@ We ordered the variables within our variable map, filtered to only include varia
 
 ```{r}
 variable_order <- pull(
-  variable_map %>%
-    arrange(sec_ord, inst_ord, item_ord) %>%
-    filter(variable %in% colnames(combined_data)) %>%
+  variable_map |>
+    arrange(sec_ord, inst_ord, item_ord) |>
+    filter(variable %in% colnames(combined_data)) |>
     select(variable)
   )
 
@@ -2989,9 +2762,9 @@ Since the order was enforced, we were able to use this to rename all of our vari
 
 ```{r}
 final_variables <- pull(
-  variable_map %>%
-    arrange(sec_ord, inst_ord, item_ord) %>%
-    filter(variable %in% colnames(combined_data)) %>%
+  variable_map |>
+    arrange(sec_ord, inst_ord, item_ord) |>
+    filter(variable %in% colnames(combined_data)) |>
     select(final_variable)
   )
 
@@ -3005,22 +2778,22 @@ for (var_name in colnames(combined_data)){
   attributes(
     combined_data[[var_name]]
     )$label <- pull(
-      variable_map_stripped %>%
-        filter(final_variable == var_name) %>%
+      variable_map_stripped |>
+        filter(final_variable == var_name) |>
         select(attr_label)
       )
    attributes(
      combined_data[[var_name]]
      )$labels <- pull(
-       variable_map_stripped %>%
-          filter(final_variable == var_name) %>% 
+       variable_map_stripped |>
+          filter(final_variable == var_name) |> 
           select(attr_var_labels)
        )[[1]] 
    attributes(
      combined_data[[var_name]]
      )$source <- pull(
-       variable_map_stripped %>%
-          filter(final_variable == var_name) %>%
+       variable_map_stripped |>
+          filter(final_variable == var_name) |>
           select(source)
        )
 }
@@ -3043,12 +2816,18 @@ rm(labeled_val_map)
 
 ```{r}
 # RDS
-
-combined_data_path <- here(
+combined_data_path <-here::here(
   "data", "Combined Participant Data", "combined_data_03.rds"
   )
 
-write_rds(combined_data, combined_data_path)
+readr::write_rds(combined_data, combined_data_path)
+
+# SPSS
+combined_data_path <-here::here(
+  "data", "Combined Participant Data", "combined_data_03.sav"
+  )
+
+haven::write_sav(combined_data, combined_data_path)
 ```
 
 We purged the related variables to reduce memory burden and protect against memory leak.
@@ -3062,8 +2841,7 @@ rm(combined_data)
 
 ```{r}
 # RDS
-
-variable_map_path <- here(
+variable_map_path <-here::here(
   "data", "Combined Participant Data", "variable_map_03.rds"
   )
 
@@ -3071,14 +2849,14 @@ write_rds(variable_map, variable_map_path)
 
 # EXCEL
 
- variable_map_path <- here(
+ variable_map_path <-here::here(
    "data", "Combined Participant Data", "variable_map_03.xlsx"
    )
 
 # Ensure labels are character to enable writing to EXCEL file
 
-variable_map <- variable_map %>%
-  mutate(attr_var_labels = as.character(attr_var_labels))
+variable_map <- variable_map |>
+ dplyr::mutate(attr_var_labels = as.character(attr_var_labels))
  
 write.xlsx(variable_map, variable_map_path)
 ```

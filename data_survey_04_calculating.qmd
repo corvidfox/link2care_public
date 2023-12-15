@@ -70,18 +70,19 @@ library(tidyverse, warn.conflicts = FALSE)
 ```
 
 ```{r}
-source(here("R", "standardize_col_names.R"))
-source(here("R", "flag_unmatching_variables.R"))
-source(here("R", "vm_make_source_map.R"))
-source(here("R", "vm_check.R"))
-source(here("R", "vm_create_for_instrument.R"))
-source(here("R", "vm_join_inst_section.R"))
-source(here("R", "vm_join_sections.R"))
-source(here("R", "vm_add_variable.R"))
-source(here("R", "vm_delete_variable.R"))
-source(here("R", "vm_process_source_df.R"))
-source(here("R", "vm_process_many_source.R"))
-source(here("R", "data_mod_check.R"))
+source(here::here("R", "data_cols.R"))
+source(here::here("R", "standardize_col_names.R"))
+source(here::here("R", "flag_unmatching_variables.R"))
+source(here::here("R", "vm_make_source_map.R"))
+source(here::here("R", "vm_check.R"))
+source(here::here("R", "vm_create_for_instrument.R"))
+source(here::here("R", "vm_join_inst_section.R"))
+source(here::here("R", "vm_join_sections.R"))
+source(here::here("R", "vm_add_variable.R"))
+source(here::here("R", "vm_delete_variable.R"))
+source(here::here("R", "vm_process_source_df.R"))
+source(here::here("R", "vm_process_many_source.R"))
+source(here::here("R", "data_mod_check.R"))
 ```
 
 # 📥 Import data
@@ -91,7 +92,7 @@ source(here("R", "data_mod_check.R"))
 We imported our Combined Data Set
 
 ```{r}
-combined_data_path <- here(
+combined_data_path <- here::here(
   "data", "Combined Participant Data", "combined_data_01.rds"
   )
 ```
@@ -100,7 +101,7 @@ Import the data.
 Check the most recent file modification dates and print for user when this file is being sourced.
 
 ```{r message=FALSE}
-combined_data <- readRDS(combined_data_path)
+combined_data <- readr::read_rds(combined_data_path)
 
 # Print a message for when this file is being sourced
 cat(
@@ -117,8 +118,8 @@ cat(
       as.character(file.info(combined_data_path)$mtime), "\n"
     )
 
-# 2023-10-23: Combined data imported with 1610 rows and 976 columns.
-# Combined data last modified on OneDrive 2023-10-23 10:28:56 
+# 2023-12-15: Combined data imported with 1606 rows and 1020 columns.
+# Combined data last modified on OneDrive 2023-12-13 13:39:20
 ```
 
 #### Data Check: Changes
@@ -126,166 +127,18 @@ cat(
 We checked for changes to the source data set since this file was last modified.
 
 ```{r}
-# Inputs last modified: 2023-10-23
-# 
+# Inputs last modified: 2023-12-13
+
+data_stats <- retrieve_data_stats("combined_data_01_stats")
+
 data_mod_check(
-  'df' = combined_data,
-  'df_path_str' = combined_data_path,
-  'orig_path_str' = here(
-      "data", "Combined Participant Data", "combined_data_01.rds"
-      ),
-  'mod_dt' = '2023-10-23 10:28:56 CDT',
-  'num_rows' = 1610,
-  'num_cols' = 976,
-  'col_names' = c(
-      'subject', 'group', 'redcap_event_name', 'visit', 'visit_type',
-      'today', 'ii', 'name_first', 'name_middle', 'name_last', 'care_manager', 
-      'ctime', 'endtime', 'etime', 'maca_mdd_timestamp', 'maca_mdd_complete', 
-      'ps_timestamp', 'ps_complete', 'email', 'days_followed', 
-      'flag_outofwindow', 'v2_status', 'dropped_status', 'gender', 
-      'ml_gender', 'sq_2', 'ml_hispanic_latino', 'sq_3', 'ml_race', 
-      'sq_4', 'ml_dob', 'ml_age', 'sq_5', 'sq_6', 'sq_7', 'sq_7a', 'sq_7b', 
-      'sq_7b_1', 'sq_7c', 'sq_7d', 'sq_8', 'sq_9', 'sq_9l', 'sq_10', 'sq_11', 
-      'sq_12', 'sq_13', 'sq_14', 'sq_15', 'sq_16', 'sq_17', 'sq_18', 
-      'sq_18a', 'sq_18b', 'sq_18c', 'sq_18d', 'sq_18e', 'sq_18f', 'sq_18g', 
-      'sq_18h', 'sq_18i', 'sq_19', 'sq_20', 'sq_21', 'sq_22', 'sq_22a', 
-      'sq_22b', 'sq_22c', 'sq_22d', 'sq_22e', 'sq_22f', 'sq_22g', 'sq_22h', 
-      'sq_23', 'mms_1', 'mms_1a', 'mms_1b', 'mms_1c', 'mms_1d', 'mms_1e', 
-      'mms_2', 'mms_2a', 'mms_2b', 'mms_2c', 'mms_2d', 'mms_2e', 'mms_3', 
-      'mms_3g', 'mms_3h', 'mms_3i', 'mms_3j', 'recal_1', 'mms_4', 'mms_4a', 
-      'mms_4b', 'mms_4c', 'mms_4d', 'mms_4e', 'mms_4f', 'count', 'mms_4v', 
-      'mms_4va', 'mms_4vb', 'mms_4vc', 'mms_4vd', 'mms_4ve', 'mms_4vf', 'num', 
-      'mms_5', 'mms_5a', 'mms_5b', 'mms_5c', 'mms_5d', 'recal_2', 'mms_6', 
-      'mms_6a', 'mms_6b', 'mms_6c', 'object', 'mms_7', 'mms_8', 'mms_8a', 
-      'mms_8b', 'mms_8c', 'mms_8d', 'paper', 'mms_9', 'mms_10', 'mms_11', 
-      'mms_s', 'realm', 'realma', 'realmb', 'realmc', 'realmd', 'realme', 
-      'realmf', 'realmg', 'realmh', 'realmi', 'realm_s', 'weight', 'height', 
-      'waist_c', 'co', 'read_1', 'read_2', 'read_3', 'dem_1', 'dem_2', 
-      'dem_3', 'dem_4', 'dem_4a', 'dem_4b', 'dem_4c', 'dem_4d', 'dem_4e', 
-      'dem_4f', 'dem_5', 'dem_5a', 'dem_6', 'dem_6a', 'dme_6b', 'dem_7', 
-      'dem_7a', 'dem_7b', 'dem_7c', 'dem_7d', 'dem_7e', 'dem_8', 'dem_9', 
-      'dem_10', 'dem_11', 'dem_12', 'dem_12a', 'dem_12b', 'dem_12c', 
-      'dem_12d', 'dem_12e', 'dem_12f', 'dem_12g', 'dem_12h', 'dem_12i', 
-      'dem_12j', 'dem_12k', 'dem_12l', 'dem_13', 'dem_13a', 'dem_13b', 
-      'dem_13c', 'dem_13d', 'dem_13e', 'dem_13f', 'dem_13g', 'dem_13h', 
-      'dem_14', 'dem_14a', 'dem_14b', 'dem_14c', 'dem_14d', 'dem_14e', 
-      'dem_14f', 'dem_14g', 'dem_14h', 'dem_15', 'dem_16', 'dem_17', 
-      'dem_18', 'bh_1', 'bh_1y', 'bh_1m', 'bh_1d', 'bh_2', 'bh_3', 'bh_4', 
-      'bh_4y', 'bh_4m', 'bh_4d', 'bh_5', 'bh_6', 'bh_7', 'bh_7y', 'bh_7m', 
-      'bh_7w', 'bh_8', 'bh_9', 'bh_10', 'bh_11a', 'bh_12a', 'bh_12aa', 
-      'bh_12ab', 'bh_12ac', 'bh_12ad', 'bh_12ae', 'bh_12af', 'bh_12ag', 
-      'bh_12ah', 'bh_12ai', 'bh_12aj', 'bh_12ak', 'bh_12al', 'bh_13a', 
-      'bh_13aa', 'bh_13ab', 'bh_13ac', 'bh_13ad', 'bh_13ae', 'bh_13af', 
-      'bh_13b', 'bh_13ba', 'bh_13bb', 'bh_13bc', 'bh_13bd', 'bh_13be', 
-      'bh_13bf', 'bh_13bg', 'bh_13bh', 'bh_13c', 'bh_13ca', 'bh_13cb', 
-      'bh_13cc', 'bh_13cd', 'bh_13ce', 'bh_13cf', 'bh_13cg', 'bh_13ch', 
-      'bh_14', 'bh_14b', 'bh_14by', 'bh_14bm', 'bh_14bw', 'bh_14bd', 'bh_15',
-      'bh_15a', 'bh_16', 'bh_17', 'bh_17y', 'bh_17m', 'bh_17w', 'bh_18', 
-      'bh_18b', 'bh_18ba', 'bh_18bb', 'bh_18bc', 'bh_18bd', 'bh_18be', 
-      'bh_18bf', 'bh_18bg', 'bh_18bh', 'bh_18b1', 'bh_19', 'bh_20', 'sss_1',
-      'sss_2', 'well_being_1', 'well_being_2', 'well_being_3', 'phq_1', 
-      'phq_2', 'phq_3', 'phq_4', 'phq_5', 'phq_6', 'phq_7', 'phq_8', 'phq_9',
-      'phq_10', 'phq_11', 'phq_12', 'phq_13', 'phq_14', 'phq_15', 'hs_1', 
-      'hs_2', 'hs_3', 'hs_4', 'hs_5', 'hs_6', 'hs_7', 'hs_8', 'hs_9', 'hs_10',
-      'hs_11', 'hs_12', 'hrq_1', 'hrq_2', 'hrq_3', 's_2', 's_2a', 's_2b', 
-      's_2c', 's_2d', 's_2e', 's_2f', 's_2g', 's_2h', 'sr_3a', 'sr_3b', 
-      'sr_3c', 'sr_3d', 'sr_3e', 'sr_3f', 's_3', 's_4', 's_4a', 's_4b', 
-      's_4c', 's_4d', 's_4e', 's_4f', 's_4g', 's_4h', 's_5', 's_6', 's_7',
-      's_7a', 's_7b', 's_7c', 's_7d', 's_7e', 's_7f', 's_7g', 's_8', 's_8a',
-      's_8b', 's_8c', 's_8d', 's_8e', 's_8f', 's_8g', 's_9', 's_9a', 's_9b',
-      's_9c', 's_9d', 's_9e', 's_9f', 's_9g', 's_9h', 's_9i', 's_9j', 's_9k',
-      's_9l', 's_9m', 's_9n', 's_9o', 's_9p', 's_9q', 's_9r', 's_10', 's_11',
-      's_12', 's_13', 's_14', 's_14a', 's_14b', 's_14c', 's_14d', 's_15', 
-      's_16', 's_17', 's_18', 's_18a', 's_18b', 's_18c', 's_18d', 's_18e', 
-      's_18f', 's_18g', 's_18h', 's_18i', 's_18j', 's_18k', 's_18l', 's_19',
-      's_20', 's_21', 's_22', 's_23', 's_24', 's_24a', 's_24b', 's_24c', 
-      's_24d', 's_24e', 's_24f', 's_25a', 's_26a', 's_26aa', 's_26ab', 
-      's_26ac', 's_26ad', 's_26ae', 's_26af', 's_26ag', 's_25b', 's_26b', 
-      's_26ba', 's_26bb', 's_26bc', 's_26bd', 's_26be', 's_26bf', 's_26bg',
-      's_25c', 's_26c', 's_26ca', 's_26cb', 's_26cc', 's_26cd', 's_26ce', 
-      's_26cf', 's_26cg', 's_25d', 's_26d', 's_26da', 's_26db', 's_26dc', 
-      's_26dd', 's_26de', 's_26df', 's_26dg', 's_25e', 's_26e', 's_26ea', 
-      's_26eb', 's_26ec', 's_26ed', 's_26ee', 's_26ef', 's_26eg', 's_27', 
-      's_28', 's_29', 's_30', 's_30a', 's_30b', 's_30c', 's_30d', 's_30e',
-      's_30f', 's_30g', 's_31', 's_32', 's_32a', 's_32b', 's_32c', 's_32d',
-      's_32e', 's_32f', 's_32g', 's_32h', 's_32i', 's_33', 's_34', 's_35', 
-      's_36', 's_37', 's_38', 's_39a', 's_39b', 's_40', 's_41', 's_42', 
-      's_43', 's_43a', 's_43b', 's_43c', 's_43d', 's_43e', 's_43f', 's_43g',
-      's_43h', 's_43i', 'ds_1', 'ds_2', 'ds_3', 'ds_4', 'ds_5', 'ds_6', 
-      'ds_7', 'ds_8', 'ds_9', 'ds_10a', 'ds_10b', 'ds_11a', 'ds_11b', 
-      'ptsd_1', 'ptsd_2', 'ptsd_3', 'ptsd_4', 'brac_1', 'brac_2', 'brac_3',
-      'brac_4', 'brac_5', 'brac_6', 'brac_7', 'brac_8', 'brac_9', 'brac_10',
-      'brac_11', 't_1', 't_2', 't_3a', 't_3ay', 't_3am', 't_3b', 't_4', 't_5',
-      't_5a1', 't_5a2', 't_5a3', 't_5a4', 't_5a5', 't_5a6', 't_6', 't_6a1',
-      't_6a2', 't_6a3', 't_6a4', 't_6a5', 't_6a6', 't_7', 't_8', 't_9',
-      't_10', 't_11', 't_12', 't_12a', 't_12b', 't_13', 't_14', 't_14a',
-      't_14b', 't_14c', 't_14d', 't_14e', 't_14f', 't_14g', 't_14h', 't_14i',
-      't_15', 't_16', 't_17', 't_18', 't_19', 't_20', 't_21', 't_22', 't_23',
-      't_23a', 't_23b', 't_23c', 't_23d', 't_23e', 't_23f', 't_23g', 't_23h',
-      't_24', 't_25', 't_26a', 't_26aa', 't_26ab', 't_26ac', 't_26ad',
-      't_26ae', 't_26af', 't_27', 't_28', 't_29', 't_30', 't_31', 't_31a',
-      't_31b', 't_31c', 't_31d', 't_31e', 't_31f', 't_31g', 't_31h', 't_31i',
-      't_31j', 't_31_b', 't_31ba', 't_31bb', 't_31bc', 't_32', 't_33',
-      't_33a', 't_33b', 't_33c', 't_33d', 't_33e', 't_33f', 't_33g', 't_33h',
-      't_33i', 't_33j', 't_34', 't_35', 't_36', 't_37', 't_38', 't_39',
-      't_40', 'hsi_1', 'hsi_2', 'brs_1', 'brs_2', 'brs_3', 'brs_4', 'brs_5',
-      'drinks', 'af_1', 'af_2m', 'af_3tu', 'af_4w', 'af_5th', 'af_6f', 
-      'af_6sa', 'af_8su', 'af_9', 'af_9a', 'af_9b', 'af_9c', 'totaldrinks',
-      'num_alc_abstinent_days', 'num_drinking_days', 'ave_drinks_day', 
-      'heavy_drinking_days', 'greatest_drinks_1_day', 'drinks_wk', 
-      'num_days_using_drugs', 'per_days_using_drugs', 
-      'per_drug_abstinent_days', 'drug_use_days_yr', 'drug_use_days_week', 
-      'pbq_1', 'pbq_2', 'pbq_3', 'pbq_4', 'pbq_5', 'pbq_6', 'pbq_7', 'fss_1',
-      'fss_2', 'fss_3', 'fss_3a', 'fss_4', 'fss_5', 'ms_1', 'ms_2', 'ms_3', 
-      'ms_4', 'cj_1', 'cj_2', 'cj_3', 'cj_4', 'cj_5', 'cj_6', 'cj_7', 'cj_8',
-      'cj_9', 'cj_10', 'cj_11', 'cj_12', 'cj_13', 'cj_14', 'cj_15', 'cj_16', 
-      'cj_17', 'cj_18', 'cj_19', 'cj_20', 'cj_21', 'cj_22', 'cj_23', 'cj_24',
-      'cj_25', 'cj_26', 'cj_27', 'cj_28', 'cj_29', 'cj_30', 'cj_31', 'cj_32',
-      'cj_33', 'cj_34', 'cj_35', 'cj_36', 'cj_37', 'cj_38', 'cj_39', 'cj_40', 
-      'sb_1', 'sb_2', 'sb_3', 'sb_4', 'sb_5', 'sb_6', 'sb_7', 'sb_7a', 
-      'sb_7b', 'sb_7c', 'sb_7d', 'sb_7e', 'sb_7f', 'sb_7g', 'sb_8', 'sb_9', 
-      'dd_1', 'dd_2', 'dd_3', 'dd_4', 'dd_5', 'dd_6', 'dd_7', 'dd_8', 'dd_9',
-      'dd_10', 'mmd_1a', 'mmd_1b', 'mmd_1c', 'mmd_1d', 'mmd_1e', 'mmd_1f',
-      'mmd_1g', 'mmd_1h', 'mmd_1i', 'mmd_1j', 'mmd_1k', 'mmd_2', 'mmd_3',
-      'mmd_4', 'uls_1', 'uls_2', 'uls_3', 'uls_4', 'uls_5', 'uls_6', 'uls_7',
-      'uls_8', 'uls_9', 'uls_10', 'uls_11', 'uls_12', 'uls_13', 'uls_14',
-      'uls_15', 'uls_16', 'uls_17', 'uls_18', 'uls_19', 'uls_20', 'uls_21',
-      'pv_1', 'pv_2', 'pv_3', 'ps_1', 'ps_2', 'ps_3', 'ps_4', 'dts_1', 
-      'dts_2', 'dts_3', 'dts_4', 'dts_5', 'dts_6', 'dts_7', 'dts_8', 'dts_9',
-      'dts_10', 'dts_11', 'dts_12', 'dts_13', 'dts_14', 'dts_15', 'dts_16',
-      'aq_1', 'aq_2', 'aq_3', 'aq_4', 'aq_5', 'aq_6', 'aq_7', 'aq_8', 'aq_9',
-      'aq_10', 'aq_11', 'aq_12', 'ces_1', 'ces_2', 'ces_3', 'ces_4', 'ces_5',
-      'ces_6', 'ces_7', 'ces_8', 'ces_9', 'ces_10', 'is_1', 'is_2', 'is_3',
-      'is_4', 'is_5', 'is_6', 'is_7', 'is_8', 'is_9', 'is_10', 'is_11',
-      'is_12', 'rp_1', 'rp_2', 'lsn_1', 'lsn_2', 'lsn_3', 'lsn_4', 'lsn_5',
-      'lsn_6', 'num_days_homeless', 'per_days_homeless', 'num_days_home',
-      'est_days_homeless_yr', 'avg_days_homeless_wk', 'r_1', 'r_2', 'r_3',
-      'r_4', 'r_5', 'r_6', 'r_7', 'r_8', 'r_9', 'r_10', 'r_11', 'r_11b',
-      'r_12', 'r_13', 'r_14', 'r_15', 'r_15a', 'r_15b', 'r_15c', 'r_15d',
-      'r_15e', 'r_15f', 'r_15g', 'r_15h', 'r_15i', 'r_15j', 'r_15k', 'r_15l',
-      'r_15m', 'r_15n', 'r_15o', 'bpm_1', 'bpm_2', 'bpm_3', 'bpm_4', 'bpm_5',
-      'bpm_5a', 'bpm_5b', 'bpm_5c', 'bpm_5d', 'bpm_5e', 'bpm_5f', 'bpm_5g',
-      'tq_1_1', 'tq_2_1', 'tq_3_2', 'tq_4_2', 'tq_5_3', 'tq_6_3', 'tq_7_3',
-      'tq_8_3', 'tq_9_2', 'tq_10_2', 'yq_11_2', 'tq_12_2', 'tq_13_2',
-      'tq_14_1', 'tq_15_3', 'tq_16_3', 'tq_17_3', 'tq_18_3', 'tq_14_2',
-      'tq_1_2', 'tq_2_2', 'tq_1_3', 'tq_2_3', 'tq_3_3', 'tq_4_3', 'tq_9_3',
-      'tq_10_3', 'tq_11_3', 'tq_12_3', 'tq_13_3', 'tq_14_3', 'ddt_k',
-      'ddt_ed50', 'vac_1', 'vac_2', 'vac_2y', 'vac_2m', 'vac_2d', 'vac_3',
-      'vac_3y', 'vac_3m', 'vac_3d', 'arrest_count_since_prev_visit',
-      'bridge_reg_sessions', 'bridge_crisis_sessions',
-      'bridge_other_sessions', 'bridge_total_sessions', 'bridge_reg_minutes',
-      'bridge_crisis_minutes', 'bridge_total_minutes', 'bridge_other_minutes',
-      'bridge_reg_avg_duration', 'bridge_crisis_avg_duration',
-      'bridge_other_avg_duration', 'bridge_total_avg_duration',
-      'bridge_post_visits_reg_sessions', 'bridge_post_visits_crisis_sessions',
-      'bridge_post_visits_other_sessions',
-      'bridge_post_visits_total_sessions', 'bridge_post_visits_reg_minutes',
-      'bridge_post_visits_crisis_minutes', 'bridge_post_visits_other_minutes',
-      'bridge_post_visits_total_minutes', 'bridge_post_visits_reg_avg_duration',
-      'bridge_post_visits_crisis_avg_duration',
-      'bridge_post_visits_other_avg_duration',
-      'bridge_post_visits_total_avg_duration'
-      )
+  df = combined_data,
+  df_path_str = combined_data_path,
+  orig_path_str = data_stats$rds_path,
+  mod_dt = data_stats$mod_dt,
+  num_cols = data_stats$num_cols,
+  num_rows = data_stats$num_rows,
+  col_names = data_stats$cols
   )
 # TRUE
 ```
@@ -301,7 +154,7 @@ rm(combined_data_path)
 We imported our Variable Map.
 
 ```{r}
-variable_map_path <- here(
+variable_map_path <- here::here(
   "data", "Combined Participant Data", "variable_map_01.rds"
   )
 ```
@@ -310,7 +163,7 @@ Import the data.
 Check the most recent file modification dates and print for user when this file is being sourced.
 
 ```{r message=FALSE}
-variable_map <- readRDS(variable_map_path)
+variable_map <- readr::read_rds(variable_map_path)
 
 # Print a message for when this file is being sourced
 cat(
@@ -327,8 +180,8 @@ cat(
       as.character(file.info(variable_map_path)$mtime), "\n"
     )
 
-# 2023-10-23: Variable Map imported with 979 rows and 19 columns.
-# Variable Map data last modified on OneDrive 2023-10-23 10:04:09 
+# 2023-12-15: Variable Map imported with 979 rows and 19 columns.
+# Variable Map data last modified on OneDrive 2023-12-13 13:26:57
 ```
 
 #### Data Check: Changes
@@ -343,23 +196,18 @@ vm_check(variable_map)
 We checked for changes to the source data set since this file was last modified.
 
 ```{r}
-# Inputs last modified: 2023-10-23
+# Inputs last modified: 2023-12-13
+
+data_stats <- retrieve_data_stats("variable_map_01_stats")
 
 data_mod_check(
-  'df' = variable_map,
-  'df_path_str' = variable_map_path,
-  'orig_path_str' = here(
-      "data", "Combined Participant Data", "variable_map_01.rds"
-      ),
-  'mod_dt' = '2023-10-23 10:04:09 CDT',
-  'num_rows' = 979,
-  'num_cols' = 19,
-  'col_names' = c(
-      'variable', 'section', 'sec_ord', 'instrument', 'inst_ord', 'item_ord',
-      'qds_v1', 'qds_v2', 'qds_v3', 'qds_v4', 'qds_v5', 'redcap',
-      'master_log', 'tlfb', 'ddt', 'arrest', 'bridge', 'attr_label',
-      'attr_var_labels'
-      )
+  df = variable_map,
+  df_path_str = variable_map_path,
+  orig_path_str = data_stats$rds_path,
+  mod_dt = data_stats$mod_dt,
+  num_cols = data_stats$num_cols,
+  num_rows = data_stats$num_rows,
+  col_names = data_stats$cols
   )
 # TRUE
 ```
@@ -370,13 +218,256 @@ We purged the import path for memory management.
 rm(variable_map_path)
 ```
 
+## Excel Master Log 
+
+We imported the master log data, manually assigning column names and types. 
+
+The Master Log was our only source of several demographic variables, such as subject name, subject date of birth, subject age, and subject care manager. It was also the only source of variables relating to subject continuation vs drop status, or if the research team determined the subject should be omitted from analyses.
+
+The Master Log was also our most reliable source of subject group assignment.
+
+We imported our Master Log with all of these variables.
+
+```{r}
+master_log_path  <- here::here("data", "master_log", "master_log.xlsx")
+```
+
+Import the data.
+Check the most recent file modification dates and print for user when this file is being sourced.
+
+```{r}
+master_log <- readxl::read_excel(
+  master_log_path, 
+  sheet = "Screened In",
+  col_names = c(
+    "id", "baseline_dt",
+    "v2_sched", "v2_dt", "v2_late", "v2_noshow",
+    "v3_sched", "v3_dt", "v3_late", "v3_noshow",
+    "v4_sched", "v4_dt", "v4_late", "v4_noshow",
+    "v5_sched", "v5_dt", "v5_late", "v5_noshow", 
+    "group", "v2_status", "dropped_status", 
+    "name_first", "name_middle", "name_last",
+    "gender", "race", "hispanic_latino", "dob", "age", "care_manager", 
+    "v1_attend", "v2_attend", "v3_attend", "v4_attend", "v5_attend"
+    ),
+  col_types = c(
+    "text", "skip", "date", "skip",
+    rep("date",2), rep("text",2), "skip",
+    rep("date",2), rep("text",2), "skip",
+    rep("date",2), rep("text",2), "skip",
+    rep("date",2), rep("text",2), 
+    rep("text", 3),
+    rep("text", 3),
+    rep("text", 5),
+    rep("skip", 5), "text",
+    rep("text", 5), rep("skip", 10)
+                ),
+  skip = 1
+) |> 
+  # Coerce group to numeric so that it can be combined with the QDS data.
+  dplyr::mutate(
+    group = dplyr::case_when(
+      group == "UCM"    ~ 1,
+      group == "UCM+SP" ~ 2,
+      group == "L2C"    ~ 3
+    )
+  ) |>
+  # Coerce age to a numeric
+  dplyr::mutate(age = as.numeric(age)) |>
+  # Remove empty rows
+  dplyr::filter(!is.na(id))
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "Master log imported with", nrow(master_log), "rows and", ncol(master_log),
+  "columns.\n"
+)
+
+# Check the most recent file modification dates and print for user when this
+# file is being sourced.
+
+cat(
+      "Master log last modified on OneDrive", 
+      as.character(file.info(master_log_path)$mtime), "\n"
+    )
+
+# 2023-12-15: Master log imported with 442 rows and 35 columns.
+# Master log last modified on OneDrive 2023-09-28 11:52:59
+```
+
+#### Data Check: Changes
+
+We checked for changes to the source data set since this file was last modified.
+
+```{r}
+# Inputs last modified: 2023-12-13
+
+data_mod_check(
+  'df' = master_log,
+  'df_path_str' = master_log_path,
+  'orig_path_str' =  here::here("data", "master_log", "master_log.xlsx"),
+  'mod_dt' = '2023-09-28 11:52:59 CDT',
+  'num_rows' = 442,
+  'num_cols' = 35,
+  'col_names' = c(
+      'id', 'baseline_dt', 'v2_sched', 'v2_dt', 'v2_late', 'v2_noshow', 
+      'v3_sched', 'v3_dt', 'v3_late', 'v3_noshow', 'v4_sched', 'v4_dt', 
+      'v4_late', 'v4_noshow', 'v5_sched', 'v5_dt', 'v5_late', 'v5_noshow', 
+      'group', 'v2_status', 'dropped_status', 'name_first', 'name_middle', 
+      'name_last', 'gender', 'race', 'hispanic_latino', 'dob', 'age', 
+      'care_manager', 'v1_attend', 'v2_attend', 'v3_attend', 'v4_attend', 
+      'v5_attend'
+      )
+  )
+# TRUE
+```
+
+We purged the import path for memory management.
+
+```{r}
+rm(master_log_path)
+```
+
+## Visit Windows
+
+We imported our Visit Window Data
+
+```{r}
+visit_window_path <- here::here("data", "master_log", "ml_protocol_dates.rds")
+```
+
+Import the data.
+Check the most recent file modification dates and print for user when this file is being sourced.
+
+```{r message=FALSE}
+visit_windows <- readr::read_rds(visit_window_path)
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "Visit Window Data imported with", nrow(visit_windows), "rows and", 
+  ncol(visit_windows), "columns.\n"
+)
+
+# Check the most recent file modification dates and print for user when this
+# file is being sourced.
+
+cat(
+      "Visit Window Data last modified on OneDrive", 
+      as.character(file.info(visit_window_path)$mtime), "\n"
+    )
+# 2023-12-15: Visit Window Data imported with 442 rows and 18 columns.
+# Visit Window Data last modified on OneDrive 2023-12-13 13:01:02
+```
+
+#### Data Check: Changes
+
+We checked for changes to the source data set since this file was last modified.
+
+```{r}
+# Inputs last modified: 2023-12-13
+
+data_stats <- retrieve_data_stats("visit_window_stats")
+
+data_mod_check(
+  df = visit_windows,
+  df_path_str = visit_window_path,
+  orig_path_str = data_stats$rds_path,
+  mod_dt = data_stats$mod_dt,
+  num_cols = data_stats$num_cols,
+  num_rows = data_stats$num_rows,
+  col_names = data_stats$cols
+  )
+# TRUE
+```
+
+We purged the import path for memory management.
+
+```{r}
+rm(visit_window_path)
+```
+
+## Race Point-Fixes
+
+We imported an Excel document containing point-fixes for race values. There were several disparities in values for race, Hispanic origin, and age found previously between the Master Log and subject responses. These disparities were resolved in discussion with the PIs on 2023-11-22; The values for race would require several point-fixes
+
+```{r}
+race_fixes_path  <- here::here(
+  "data","Combined Participant Data", "race_point_fixes.xlsx"
+  )
+```
+
+Import the data.
+Check the most recent file modification dates and print for user when this file is being sourced.
+
+```{r}
+race_fixes <- readxl::read_excel(
+  race_fixes_path, 
+  sheet = "Sheet1",
+  col_names = c("subject", "race"),
+  col_types = c("text", "text"),
+  skip = 1
+  ) |>
+  dplyr::mutate(subject = as.numeric(subject)) |>
+  dplyr::filter(!is.na(subject))
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "Race Point Fixes imported with", nrow(race_fixes), "rows and", 
+  ncol(race_fixes), "columns.\n"
+)
+
+# Check the most recent file modification dates and print for user when this
+# file is being sourced.
+
+cat(
+      "Race Point Fixes last modified on OneDrive", 
+      as.character(file.info(race_fixes_path)$mtime), "\n"
+    )
+
+# 2023-12-15: Master log imported with 15 rows and 2 columns.
+# Master log last modified on OneDrive 2023-12-14 16:09:58 
+```
+
+#### Data Check: Changes
+
+We checked for changes to the source data set since this file was last modified.
+
+```{r}
+# Inputs last modified: 2023-12-14
+
+data_mod_check(
+  'df' = race_fixes,
+  'df_path_str' = race_fixes_path,
+  'orig_path_str' =  here::here(
+      "data","Combined Participant Data", "race_point_fixes.xlsx"
+      ),
+  'mod_dt' = '2023-12-14 16:09:58 CDT',
+  'num_rows' = 15,
+  'num_cols' = 2,
+  'col_names' = c(
+      'subject', 'race'
+      )
+  )
+# TRUE
+```
+
+We purged the import path for memory management.
+
+```{r}
+rm(race_fixes_path)
+rm(data_stats)
+```
+
 # Adding Flag Columns
 
 We initialized two columns within our variable map: one to indicate if a variable was dropped after consolidation, and one to indicate if a variable was created from calculation after import.
 
 ```{r}
-variable_map <- variable_map %>%
-  add_column(drop_consolidated = FALSE, calculated = FALSE)
+variable_map <- variable_map |>
+  tibble::add_column(drop_consolidated = FALSE, calculated = FALSE)
 
 attributes(variable_map$drop_consolidated)$label <- paste(
   "Was the variable dropped after consolidation?"
@@ -401,8 +492,8 @@ variable_map <- vm_add_variable(
     'attr_label' = "Time to complete (finish time - start time)",
     'calculated' = TRUE
     )
-  )  %>%
-  mutate(drop_consolidated = ifelse(variable == 'etime',
+  )  |>
+  dplyr::mutate(drop_consolidated = ifelse(variable == 'etime',
                                     TRUE,
                                     drop_consolidated
                                     )
@@ -412,8 +503,8 @@ variable_map <- vm_add_variable(
 We performed the calculation.
 
 ```{r}
-combined_data <- combined_data %>%
-  mutate(
+combined_data <- combined_data |>
+  dplyr::mutate(
     time_to_complete = endtime - ctime
   )
 ```
@@ -423,8 +514,8 @@ combined_data <- combined_data %>%
 The Screening Questionnaire was only completed once for each subject. However, The QDS and REDCap data sets had differing options. As a result, the variables `sq_7b` and `sq_7b_1` referenced the same material: Was there a recruitment flier number provided by the subject? We wished to merge these variables.
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(
+variable_map <- variable_map |>
+  dplyr::mutate(
     drop_consolidated = ifelse(
       variable == 'sq_7b_1', TRUE, drop_consolidated
       )
@@ -434,8 +525,8 @@ variable_map <- variable_map %>%
 We performed the modifications necessary to consolidate the repeated variables.
 
 ```{r}
-combined_data <- combined_data %>%
-  mutate(
+combined_data <- combined_data |>
+  dplyr::mutate(
     sq_7b = ifelse(
       is.na(sq_7b), 
       sq_7b_1, 
@@ -446,8 +537,8 @@ combined_data <- combined_data %>%
 We noted that the date of birth value stored in `ml_dob` was not properly stored as a date variable. This was corrected.
 
 ```{r}
-combined_data <- combined_data %>%
-  mutate(ml_dob = as.Date(as.numeric(ml_dob), origin = "1899-12-30"))
+combined_data <- combined_data |>
+  dplyr::mutate(ml_dob = as.Date(as.numeric(ml_dob), origin = "1899-12-30"))
 ```
 
 We also created a calculated age, using this date of birth value against the visit date.
@@ -462,8 +553,8 @@ variable_map <- vm_add_variable(
       )
     )
 
-combined_data <- combined_data %>%
-  mutate(
+combined_data <- combined_data |>
+  dplyr::mutate(
     calc_age = lubridate::interval(ml_dob, today) %/% lubridate::years(1)
   )
 ```
@@ -475,9 +566,11 @@ The original coding of the Treatment Quality and Satisfaction Survey created sep
 For analysis, we needed to combine the identical variables into a single variable. We also saw that there were 18 unique questions.
 
 ```{r}
-survey_vars <- pull(variable_map %>%
-  filter(instrument == "Treatment Quality and Satisfaction Survey") %>%
-  select(variable))
+survey_vars <- dplyr::pull(
+  variable_map |>
+    dplyr::filter(instrument == "Treatment Quality and Satisfaction Survey") |>
+    dplyr::select(variable)
+  )
 
 survey_vars
 ```
@@ -494,8 +587,8 @@ drop_vars <- c(
   'tq_10_3', 'tq_11_3', 'tq_12_3', 'tq_13_3', 'tq_14_2', 'tq_14_3'
   )
 
-variable_map <- variable_map  %>%
-  mutate(drop_consolidated = ifelse((variable %in% drop_vars),
+variable_map <- variable_map  |>
+  dplyr::mutate(drop_consolidated = ifelse((variable %in% drop_vars),
                                     TRUE,
                                     drop_consolidated
                                     )
@@ -505,56 +598,56 @@ variable_map <- variable_map  %>%
 We consolidated these values.
 
 ```{r}
-combined_data <- combined_data %>%
-  mutate(
-    tq_1_1 = case_when(
+combined_data <- combined_data |>
+  dplyr::mutate(
+    tq_1_1 = dplyr::case_when(
       !is.na(tq_1_1) ~ tq_1_1,
       (is.na(tq_1_1) & is.na(tq_1_3)) & !is.na(tq_1_2) ~ tq_1_2,
       (is.na(tq_1_1) & is.na(tq_1_2)) & !is.na(tq_1_3) ~ tq_1_3,
       TRUE ~ tq_1_1
       ),
-    tq_2_1 = case_when(
+    tq_2_1 = dplyr::case_when(
       !is.na(tq_2_1) ~ tq_2_1,
       (is.na(tq_2_1) & is.na(tq_2_3)) & !is.na(tq_2_2) ~ tq_2_2,
       (is.na(tq_2_1) & is.na(tq_2_2)) & !is.na(tq_2_3) ~ tq_2_3,
       TRUE ~ tq_2_1
       ),
-    tq_3_2 = case_when(
+    tq_3_2 = dplyr::case_when(
       !is.na(tq_3_2) ~ tq_3_2,
       is.na(tq_3_2) & !is.na(tq_3_3) ~ tq_3_3,
       TRUE ~ tq_3_2
       ),
-    tq_4_2 = case_when(
+    tq_4_2 = dplyr::case_when(
       !is.na(tq_4_2) ~ tq_4_2,
       is.na(tq_4_2) & !is.na(tq_4_3) ~ tq_4_3,
       TRUE ~ tq_4_2
       ),
-    tq_9_2 = case_when(
+    tq_9_2 = dplyr::case_when(
       !is.na(tq_9_2) ~ tq_9_2,
       is.na(tq_9_2) & !is.na(tq_9_3) ~ tq_9_3,
       TRUE ~ tq_9_2
       ),
-    tq_10_2 = case_when(
+    tq_10_2 = dplyr::case_when(
       !is.na(tq_10_2) ~ tq_10_2,
       is.na(tq_10_2) & !is.na(tq_10_3) ~ tq_10_3,
       TRUE ~ tq_10_2
       ),
-    yq_11_2 = case_when(
+    yq_11_2 = dplyr::case_when(
       !is.na(yq_11_2) ~ yq_11_2,
       is.na(yq_11_2) & !is.na(tq_11_3) ~ tq_11_3,
       TRUE ~ yq_11_2
       ),
-    tq_12_2 = case_when(
+    tq_12_2 = dplyr::case_when(
       !is.na(tq_12_2) ~ tq_12_2,
       is.na(tq_12_2) & !is.na(tq_12_3) ~ tq_12_3,
       TRUE ~ tq_12_2
       ),
-    tq_13_2 = case_when(
+    tq_13_2 = dplyr::case_when(
       !is.na(tq_13_2) ~ tq_13_2,
       is.na(tq_13_2) & !is.na(tq_13_3) ~ tq_13_3,
       TRUE ~ tq_13_2
       ),
-    tq_14_1 = case_when(
+    tq_14_1 = dplyr::case_when(
       !is.na(tq_14_1) ~ tq_14_1,
       (is.na(tq_14_1) & is.na(tq_14_3)) & !is.na(tq_14_2) ~ tq_14_2,
       (is.na(tq_14_1) & is.na(tq_14_2)) & !is.na(tq_14_3) ~ tq_14_3,
@@ -563,16 +656,395 @@ combined_data <- combined_data %>%
   )
 ```
 
+# New Values
+
+## Replacing Visit Dates
+
+Nearly all visit dates as recorded in the REDCap and QDS data sets were found to be erroneous due to clock errors on the computers and phones used to record the data. As such, attendance dates for all subjects were reviewed, and the management strategy agreed by PIs on 2023-12-07. All visit dates, with the exception of 2 visit 5 dates (subjects 2009 and 2198), were to be overwritten by the attendance date in the Master Log.
+
+```{r}
+combined_data <- dplyr::left_join(
+  combined_data,
+  # Extract visit attendance dates for all subjects, and pivot into long
+  # format (from wide). Join to existing data by matching subject and visit.
+  master_log |>
+    dplyr::select(id, baseline_dt, v2_dt, v3_dt, v4_dt, v5_dt) |>
+    dplyr::rename_at(
+      c('id', 'baseline_dt', 'v2_dt', 'v3_dt', 'v4_dt', 'v5_dt'),
+      ~c('subject', '1', '2', '3', '4', '5')
+      ) |>
+    tidyr::pivot_longer(
+      cols = c('1','2', '3', '4', '5'), 
+      names_to = 'visit', 
+      values_to = 'visit_date'
+      ) |>
+    dplyr::mutate(
+      visit = as.numeric(visit),
+      subject = as.numeric(subject)
+      ),
+  by = c('subject', 'visit')
+  ) |>
+  # Replace visit date values stored in `today` unless the visit is one of our
+  # two exclusions
+  dplyr::mutate(
+    today = dplyr::if_else(
+      !(subject %in% c(2009, 2198) & visit == 5), 
+      visit_date, 
+      today
+      )
+  ) |>
+  dplyr::select(-visit_date)
+```
+
+We additionally calculated the time since randomization for all subject visits.
+
+```{r}
+combined_data <- dplyr::left_join(
+  combined_data,
+  master_log |>
+    dplyr::select(id, v2_dt) |>
+    dplyr::rename_at( c('id'), ~c('subject')
+      ) |>
+    dplyr::mutate(
+      subject = as.numeric(subject)
+      ),
+  by = 'subject'
+) |>
+  dplyr::mutate(
+    days_since_randomization = 
+      lubridate::interval(v2_dt, today) %/% lubridate::days(1)
+  ) |>
+  select(-v2_dt)
+
+variable_map <- variable_map |>
+  vm_add_variable(
+    'Administrative', 'days_since_randomization', 
+    prev_var = 'today', 
+    opts = tibble::tibble(
+    'attr_label' = "Days since V2 Randomization Date",
+    'calculated' = TRUE,
+    'drop_consolidated' = FALSE
+    )
+  )
+```
+
+We additionally needed to flag any subjects that had data collection outside of the protocol-based windows. For Visits 3-5, a collection more than 5 days prior to the protocol date should be flagged as 'Early'. For Visits 3 or 4 visits more than 14 days after the protocol date and Visit 5 more than 30 days after the protocol date should be flagged as 'Late'. These protocol dates were stored in our Visit Windows Data.
+
+First, we extracted the protocol dates and calculated our flags for each subject and visit.
+
+```{r}
+flag_data <- dplyr::left_join(
+    combined_data |>
+      dplyr::select(subject, visit, today),
+    visit_windows |>
+      dplyr::select(id, v3_protocol_wkd, v4_protocol_wkd, v5_protocol_wkd) |>
+      dplyr::rename_at(
+        c('id', 'v3_protocol_wkd', 'v4_protocol_wkd', 'v5_protocol_wkd'),
+        ~c('subject', '3', '4', '5')) |>
+      tidyr::pivot_longer(
+        cols = c('3','4','5'), 
+        names_to = 'visit', 
+        values_to = 'protocol_dt'
+        ) |>
+      dplyr::mutate(visit = as.numeric(visit)),
+    by = c('subject', 'visit')
+  ) |>
+  dplyr::mutate(
+    distance = lubridate::interval(protocol_dt, today) %/% lubridate::ddays(1),
+    visit_flag_type = dplyr::case_when(
+      visit == 3 & distance < -5 ~ 'Early',
+      visit == 4 & distance < -5 ~ 'Early',
+      visit == 5 & distance < -5 ~ 'Early',
+      visit == 3 & distance > 14 ~ 'Late',
+      visit == 4 & distance > 14 ~ 'Late',
+      visit == 5 & distance > 30 ~ 'Late',
+      TRUE ~ NA
+    ),
+    visit_flag = !is.na(visit_flag_type),
+    visit_flag_type = factor(visit_flag_type, levels = c('Early', 'Late'))
+  ) |>
+  dplyr::select(
+    subject, visit, protocol_dt, visit_flag, visit_flag_type, distance
+    ) |>
+  dplyr::rename_at('distance', ~'attn_days_from_protocol')
+```
+
+We then joined this new data into our combined data set, and our variable map.
+
+```{r}
+combined_data <- dplyr::left_join(
+  combined_data,
+  flag_data,
+  by = c('subject','visit')
+)
+
+variable_map <- variable_map |>
+  vm_add_variable(
+    'Administrative', 'protocol_dt', 
+    prev_var = 'today', 
+    opts = tibble::tibble(
+    'attr_label' = "Visit Date per Protocol (from V2 Attendance Date)",
+    'calculated' = TRUE,
+    'drop_consolidated' = FALSE
+    )
+  ) |>
+  vm_add_variable(
+    'Administrative', 'attn_days_from_protocol', 
+    prev_var = 'protocol_dt', 
+    opts = tibble::tibble(
+    'attr_label' = "Days between protocol date and attendance date for visit",
+    'calculated' = TRUE,
+    'drop_consolidated' = FALSE
+    )
+  ) |>
+  vm_add_variable(
+    'Administrative', 'visit_flag', 
+    prev_var = 'attn_days_from_protocol', 
+    opts = tibble::tibble(
+    'attr_label' = "Was Visit outside of protocol range?",
+    'calculated' = TRUE,
+    'drop_consolidated' = FALSE
+    )
+  ) |>
+  vm_add_variable(
+    'Administrative', 'visit_flag_type', 
+    prev_var = 'visit_flag', 
+    opts = tibble::tibble(
+    'attr_label' = "Visit flag type",
+    'attr_var_labels' = list(c("Early" = "Early", 'Late' = "Late")),
+    'calculated' = TRUE,
+    'drop_consolidated' = FALSE
+    )
+  )
+```
+
+## Flagging Exclusions
+
+There were several subjects that failed to appear after their baseline visit, and were thus excluded. There were additionally three subjects with protocol deviations that were marked for exclusion. We generated a binary exclusion flag, and descriptor for the reason for exclusion.
+
+```{r}
+combined_data <- combined_data |>
+  dplyr::mutate(
+    drop_flag = ifelse(
+      ((!is.na(group) &
+         v2_status != "Do Not Include")),
+      FALSE,
+      TRUE
+    ),
+    drop_reason = dplyr::case_when(
+      v2_status == 'Do Not Include' ~ 'Protocol Exclusion',
+      is.na(group) ~ 'No show after V1',
+      TRUE ~ NA
+    )
+  ) 
+
+variable_map <- variable_map |>
+  vm_add_variable(
+    'Administrative', 'drop_flag', 
+    prev_var = 'visit_type', 
+    opts = tibble::tibble(
+    'attr_label' = "Is subject marked for exclusion?",
+    'calculated' = TRUE,
+    'drop_consolidated' = FALSE
+    )
+  ) |>
+  vm_add_variable(
+    'Administrative', 'drop_flag_type', 
+    prev_var = 'drop_flag', 
+    opts = tibble::tibble(
+    'attr_label' = "Reason for Exclusion, if any",
+    'calculated' = TRUE,
+    'drop_consolidated' = FALSE
+    )
+  )
+```
+
+We purged the Master Log, Visit Window, and Flag data sets, as they were no longer necessary.
+
+```{r}
+rm(master_log)
+rm(visit_windows)
+rm(flag_data)
+```
+
+## Master Demographics
+
+There were several disparities in values for race between the master log and subjective responses. Similarly, age and Hispanic origin also had disparities. These were resolved in conference with the PIs on 2023-11-22. The race variable from the Master Log required several point-fixes.
+
+```{r}
+combined_data <- dplyr::left_join(
+  combined_data |>
+    dplyr::mutate(
+      subj_race = ml_race,
+      subj_race = dplyr::case_when(
+        subj_race == 'NH/PI' ~ paste0(
+                  'Native Hawaiian or Other Pacific Islander (Guam, Samoa)'
+                  ),
+        subj_race == 'O/U' ~ 'Other',
+        subj_race == 'AA' ~ 'Black or African American',
+        subj_race == 'A' ~ paste0(
+                  'Asian (Cambodia, China, India, Japan, Korea, Malaysia,',
+                  ' Pakistan, Vietnam)'
+                  ),
+        subj_race == 'W' ~ 'White',
+        subj_race == 'AI/AN' ~ 'American Indian / Alaska Native',
+        subj_race == 'More Than One' ~ 'More than one race/multi-racial'
+      )
+    ),
+  race_fixes,
+  by = 'subject'
+  ) |>
+  dplyr::mutate(
+    subj_race = if_else(!is.na(race), race, subj_race)
+  ) |>
+  dplyr::select(-race)
+```
+
+The master value for age was the calculated age, the master value for Hispanic origin was the subjective response in the screening instrument, and the gender variable was the subjective response (which had no deviation from the master log).
+
+```{r}
+combined_data <- combined_data |>
+  dplyr::mutate(
+    subj_age = calc_age,
+    subj_hispanic = sq_2,
+    subj_gender = gender
+  ) |>
+  dplyr::mutate(
+    subj_hispanic = dplyr::case_when(
+      subj_hispanic == 1 ~ TRUE,
+      subj_hispanic == 0 ~ FALSE
+    )
+  )
+```
+
+We calculated each subject's aggregate race and ethnicity similar to use in [NHANES](https://wwwn.cdc.gov/nchs/nhanes/search/variablelist.aspx?Component=Demographics).
+
+```{r}
+combined_data <- combined_data |>
+  dplyr::mutate(
+    subj_race_ethn = dplyr::case_when(
+      subj_hispanic == TRUE ~ 1,
+      subj_race == 'White' ~ 2,
+      subj_race == 'Black or African American' ~ 3,
+      !is.na(subj_race) ~ 4
+    ),
+    subj_race = dplyr::case_when(
+      subj_race == 'More than one race/multi-racial' ~ 1,
+      subj_race == 'White' ~ 2,
+      subj_race == 'Black or African American' ~ 3,
+      subj_race == paste0(
+        'Asian (Cambodia, China, India, Japan, Korea,',
+        ' Malaysia, Pakistan, Vietnam)'
+        ) ~ 4,
+      subj_race=='Native Hawaiian or Other Pacific Islander (Guam, Samoa)' ~ 5,
+      subj_race == 'American Indian / Alaska Native' ~ 6,
+      subj_race == 'Other' ~ 7
+    )
+  )
+```
+
+We added these variables to our Variable Map.
+
+```{r}
+variable_map <- variable_map |>
+  vm_add_variable(
+    'Administrative', 'subj_race', 
+    prev_var = 'dropped_status', 
+    opts = tibble::tibble(
+    'attr_label' = "Master Variable: Subject Race",
+    'attr_var_labels' = list(c(
+      'More than one race/multi-racial' = 1,
+      'White' = 2,
+      'Black or African American' = 3, 
+      'Asian (Cambodia, China, India, Japan, Korea, Malaysia, Pakistan, Vietnam)'
+        = 4,
+      'Native Hawaiian or Other Pacific Islander (Guam, Samoa)' = 5, 
+      'American Indian / Alaska Native' = 6, 
+      'Other' = 7
+      )),
+    'calculated' = TRUE,
+    'drop_consolidated' = FALSE
+    )
+  ) |>
+  vm_add_variable(
+    'Administrative', 'subj_hispanic', 
+    prev_var = 'subj_race', 
+    opts = tibble::tibble(
+    'attr_label' = "Master Variable: Subject Hispanic Ethnicity",
+    'calculated' = TRUE,
+    'drop_consolidated' = FALSE
+    )
+  ) |>
+  vm_add_variable(
+    'Administrative', 'subj_race_ethn', 
+    prev_var = 'subj_hispanic', 
+    opts = tibble::tibble(
+    'attr_label' = "Subject Race and Ethnicity, 4 Category",
+    'attr_var_labels' = list(c(
+      'Hispanic (any race)' = 1,
+      'Non-Hispanic White' = 2,
+      'Non-Hispanic Black' = 3,  
+      'Non-Hispanic, Other (including Multiracial' = 4
+      )),
+    'calculated' = TRUE,
+    'drop_consolidated' = FALSE
+    )
+  ) |>
+  vm_add_variable(
+    'Administrative', 'subj_age', 
+    prev_var = 'subj_race_ethn', 
+    opts = tibble::tibble(
+    'attr_label' = "Master Variable: Subject Age",
+    'calculated' = TRUE,
+    'drop_consolidated' = FALSE
+    )
+  ) |>
+  vm_add_variable(
+    'Administrative', 'subj_gender', 
+    prev_var = 'subj_age', 
+    opts = tibble::tibble(
+    'attr_label' = "Master Variable: Subject Gender",
+    'calculated' = TRUE,
+    'drop_consolidated' = FALSE
+    )
+  )
+
+rm(race_fixes)
+```
+
 # Recreating Calculated Variables
 
 ## Screening Section
 
 ### Mini-Mental State Exam (MMSE)
 
-There were six dropped calculated variables that referenced the Mini-Mental State Exam measures. These variables calculated scoring for the instrument.
+There were six dropped calculated variables that referenced the Mini-Mental State Exam measures. These variables calculated scoring for the instrument. Scores for each item were recalculated as automatic QDS calculation failed in several subjects.
+
+```{r}
+combined_data <- combined_data |>
+  dplyr::mutate(
+    mms_1 = (mms_1a + mms_1b + mms_1c + mms_1d + mms_1e),
+    mms_2 = (mms_2a + mms_2b + mms_2c + mms_2d + mms_2e),
+    recal_1 = (mms_3g + mms_3h + mms_3i + mms_3j),
+    mms_3 = recal_1,
+    count = (mms_4a + mms_4b + mms_4c + mms_4d + mms_4e + mms_4f),
+    mms_4 = count,
+    num = (mms_4va + mms_4vb + mms_4vc + mms_4vd + mms_4ve + mms_4vf),
+    mms_4v = num,
+    recal_2 = (mms_5a + mms_5b + mms_5c + mms_5d),
+    mms_5 = recal_2,
+    object = (mms_6a + mms_6b + mms_6c),
+    mms_6 = object,
+    paper = (mms_8a + mms_8b + mms_8c + mms_8d),
+    mms_8 = paper
+    )
+
+```
 
 There were two possible versions - if subjects were unable to count backwards from 100 by 7s, they were offered the ability to spell WORLD backwards.
+
 This resulted in two potential scoring systems (one using `count` when numerically tested, and one using `num` when tested using WORLD).
+
 Unfortunately `num` values were not consistent in the original instrument and required recalculation.
 
 The Mini-Mental State Exam automatically calculated a total score for the `num` item based on two potential forms of the question, but there were notable errors in this calculation (such as impossible negative values). We opted to recalculate this value.
@@ -584,14 +1056,14 @@ variable_map <- vm_add_variable(
     'attr_label' = "Number Count (revised)",
     'calculated' = TRUE
     )
-  ) %>%
-  mutate(drop_consolidated = ifelse(variable == 'num',
+  ) |>
+  dplyr::mutate(drop_consolidated = ifelse(variable == 'num',
                                TRUE,
                                drop_consolidated)
   )
 
-combined_data <- combined_data %>%
-  mutate(num_calc = ifelse(is.na(mms_4v) & !is.na(mms_4), 0, num))
+combined_data <- combined_data |>
+  dplyr::mutate(num_calc = ifelse(is.na(mms_4v) & !is.na(mms_4), 0, num))
 ```
 
 We calculated scores for both possible versions scores, and marked the original total for dropping.
@@ -607,7 +1079,7 @@ variable_map <- vm_add_variable(
                         ),
     'calculated' = TRUE
     )
-  ) %>%
+  ) |>
   vm_add_variable("Mini-Mental State Exam (MMSE)", "mms_s_alt", 
                   prev_var = 'mms_s_main',
                   opts = tibble::tibble(
@@ -618,14 +1090,14 @@ variable_map <- vm_add_variable(
                         ),
     'calculated' = TRUE
     )
-  ) %>%
-  mutate(drop_consolidated = ifelse(variable == 'mms_s',
+  ) |>
+  dplyr::mutate(drop_consolidated = ifelse(variable == 'mms_s',
                                TRUE,
                                drop_consolidated)
   )
 
-combined_data <- combined_data %>%
-  mutate(
+combined_data <- combined_data |>
+  dplyr::mutate(
     mms_s_main = (mms_1 + mms_2 + recal_1 + count + recal_2 + object +
                     mms_7 + paper + mms_9 + mms_10 + mms_11),
     mms_s_alt = (mms_1 + mms_2 + recal_1 + num_calc + recal_2 + object + 
@@ -643,7 +1115,7 @@ variable_map <- vm_add_variable(
     'attr_label' = "MINI Mental State Exam total score",
     'calculated' = TRUE
     )
-  ) %>%
+  ) |>
   vm_add_variable(
     "Mini-Mental State Exam (MMSE)", "mms_severity", 
     prev_var = 'mms_total',
@@ -658,19 +1130,30 @@ variable_map <- vm_add_variable(
       )
   )
 
-combined_data <- combined_data %>%
-  mutate(
-    mms_total = case_when(
+combined_data <- combined_data |>
+  dplyr::mutate(
+    mms_total = dplyr::case_when(
       !is.na(num_calc) & (num_calc != 0) ~ mms_s_alt,
       (count > 0) & 
         (num_calc == 0 | is.na(num_calc)) ~ mms_s_main, 
       TRUE ~ NA),
-    mms_severity = case_when(
+    mms_severity = dplyr::case_when(
       mms_total >= 24 ~ 0, 
       (mms_total >=18) & (mms_total <24) ~ 1, 
       (mms_total < 18) ~ 2, 
       TRUE ~ NA)
     )
+```
+
+### REALM
+
+The REALM scoring ignored the first two words ("Fat", "Flu"). Unfortunately, QDS scoring failed to automatically calculate scores for several subjects, so scoring was recalculated.
+
+```{r}
+combined_data <- combined_data |>
+  dplyr::mutate(
+    realm_s = (realmc + realmd + realme + realmf + realmg + realmh + realmi)
+  )
 ```
 
 ### Anthropometrics
@@ -687,7 +1170,7 @@ variable_map <- vm_add_variable(
     'attr_label' = "Height (meters)",
     'calculated' = TRUE
     )
-  ) %>%
+  ) |>
   vm_add_variable(
     "Anthropometrics", "weight_kg", prev_var = 'weight',
     opts = tibble::tibble(
@@ -696,8 +1179,8 @@ variable_map <- vm_add_variable(
       )
   )
 
-combined_data <- combined_data %>%
-  mutate(
+combined_data <- combined_data |>
+  dplyr::mutate(
     weight_kg = weight * 0.453592,
     height_meters = height * 0.01
     )
@@ -714,8 +1197,8 @@ variable_map <- vm_add_variable(
     )
   )
 
-combined_data <- combined_data %>%
-  mutate(
+combined_data <- combined_data |>
+  dplyr::mutate(
     bmi = weight_kg / (height_meters * height_meters)
     )
 ```
@@ -737,7 +1220,7 @@ variable_map <- vm_add_variable(
                               )
                             )
     )
-  ) %>%
+  ) |>
   vm_add_variable(
     "Anthropometrics", "obese", prev_var = 'weight_status',
     opts = tibble::tibble(
@@ -749,7 +1232,7 @@ variable_map <- vm_add_variable(
                                 )
                               )
       )
-  ) %>%
+  ) |>
   vm_add_variable(
     "Anthropometrics", "overwt_obese", prev_var = 'obese',
     opts = tibble::tibble(
@@ -763,19 +1246,19 @@ variable_map <- vm_add_variable(
       )
   )
 
-combined_data <- combined_data %>%
-  mutate(
-    weight_status = case_when(
+combined_data <- combined_data |>
+  dplyr::mutate(
+    weight_status = dplyr::case_when(
       (!is.na(bmi) & bmi < 18.5) ~ 0, 
       (!is.na(bmi) & (bmi >= 18.5) & (bmi < 25)) ~ 1, 
       (!is.na(bmi) & (bmi >= 25) & (bmi < 30)) ~ 2, 
       (!is.na(bmi) & bmi >= 30) ~ 3, 
       is.na(bmi) ~ NA),
-    obese = case_when(
+    obese = dplyr::case_when(
       is.na(weight_status) ~ NA, 
       weight_status == 3 ~ TRUE, 
       (!is.na(weight_status) | (weight_status != 3)) ~ FALSE),
-    overwt_obese = case_when(
+    overwt_obese = dplyr::case_when(
       is.na(weight_status) ~ NA, 
       (weight_status == 2 | weight_status == 3) ~ TRUE,
       (!is.na(weight_status) & (weight_status < 2)) ~ FALSE)
@@ -783,6 +1266,8 @@ combined_data <- combined_data %>%
 ```
 
 ## Demographic Section
+
+### Demographic Questionnaire
 
 There was a single variable dropped from the SPSS calculations in the demographic questionnaire - `Any_health_insurance`.
 
@@ -796,9 +1281,9 @@ variable_map <- vm_add_variable(
     )
   )
 
-combined_data <- combined_data %>%
-  mutate(
-    any_health_insurance = case_when( 
+combined_data <- combined_data |>
+  dplyr::mutate(
+    any_health_insurance = dplyr::case_when( 
       ((dem_7a == 1) | (dem_7b == 1) | (dem_7c == 1) | (dem_7d == 1)) ~ TRUE,
       ((dem_7a == 0) & (dem_7b == 0) & (dem_7c == 0) & (dem_7d == 0)) ~ FALSE,
       (dem_7e == 1) ~ FALSE, 
@@ -839,7 +1324,7 @@ variable_map <- vm_add_variable(
       )
       )
     )
-  ) %>%
+  ) |>
   vm_add_variable(
   "Demographic Questionnaire", 'dem_14_val', 
   prev_var = 'dem_14h',
@@ -867,9 +1352,9 @@ variable_map <- vm_add_variable(
     )
   )
 
-combined_data <- combined_data %>%
-  mutate(
-    dem_13_val = case_when( 
+combined_data <- combined_data |>
+  dplyr::mutate(
+    dem_13_val = dplyr::case_when( 
       !is.na(dem_13a) ~ dem_13a, 
       !is.na(dem_13b) ~ dem_13b + 10, 
       !is.na(dem_13c) ~ dem_13c + 20, 
@@ -878,7 +1363,7 @@ combined_data <- combined_data %>%
       !is.na(dem_13f) ~ dem_13f + 50, 
       !is.na(dem_13g) ~ dem_13g + 60, 
       !is.na(dem_13h) ~ dem_13h + 70, TRUE ~ NA),
-    dem_14_val = case_when( 
+    dem_14_val = dplyr::case_when( 
       !is.na(dem_14a) ~ dem_14a, 
       !is.na(dem_14b) ~ dem_14b + 5, 
       !is.na(dem_14c) ~ dem_14c + 9, 
@@ -889,6 +1374,67 @@ combined_data <- combined_data %>%
       !is.na(dem_14h) ~ dem_14h + 29, 
       TRUE ~ NA)
     )
+```
+
+### The Brief Homelessness Questionnaire
+
+The Criminal History items (question 13 and its derivatives) were initially calculated to include a selection of 'none of the above' as an arrest item. These items were recalculated.
+
+```{r}
+combined_data <- combined_data <- combined_data |>
+  dplyr::mutate(
+    bh_13a = bh_13aa + bh_13ab + bh_13ac + bh_13ad + bh_13ae,
+    bh_13b = bh_13ba + bh_13bb + bh_13bc + bh_13bd + bh_13be + 
+      bh_13bf + bh_13bg,
+    bh_13c = bh_13ca + bh_13cb + bh_13cc + bh_13cd + bh_13ce + 
+      bh_13cf + bh_13cg
+  )
+
+```
+
+We calculated binary variables to indicate if a subject had any form of endorsed criminal history, and if that history did or did not include the violent offenses listed in 13c
+
+```{r}
+variable_map <- variable_map |>
+  vm_add_variable(
+    'The Brief Homelessness Questionnaire', 'subj_criminal_hx', 
+    prev_var = 'bh_13ch', 
+    opts = tibble::tibble(
+    'attr_label' = "Did the subject endorse any criminal history?",
+    'calculated' = TRUE,
+    'drop_consolidated' = FALSE
+    )
+  ) |>
+  vm_add_variable(
+    'The Brief Homelessness Questionnaire', 'subj_criminal_hx_violent', 
+    prev_var = 'subj_criminal_hx', 
+    opts = tibble::tibble(
+    'attr_label' = "Did the subject endorse any violent criminal history?",
+    'calculated' = TRUE,
+    'drop_consolidated' = FALSE
+    )
+  )
+
+combined_data <- dplyr::left_join(
+  combined_data,
+  combined_data |>
+      dplyr::filter(visit == 1) |>
+      dplyr::select(subject, bh_13a, bh_13b, bh_13c) |>
+      dplyr::mutate(
+        subj_criminal_hx = dplyr::case_when(
+          ((bh_13a > 0) | (bh_13b > 0)| (bh_13c > 0)) ~ TRUE,
+          ((bh_13a == 0) & (bh_13b == 0) & (bh_13c == 0)) ~ FALSE,
+        ),
+        subj_criminal_hx_violent = dplyr::case_when(
+          subj_criminal_hx & (bh_13c > 0) ~ TRUE,
+          subj_criminal_hx & (bh_13c == 0) ~ FALSE,
+          !subj_criminal_hx ~ FALSE
+        ) 
+    )|>
+    dplyr::select(subject, subj_criminal_hx, subj_criminal_hx_violent) |>
+    dplyr::distinct(),
+  by = 'subject'
+  )
 ```
 
 ## Health Section
@@ -909,8 +1455,8 @@ variable_map <- vm_add_variable(
     )
   )
 
-combined_data <- combined_data %>%
-  mutate(
+combined_data <- combined_data |>
+  dplyr::mutate(
     phq_dep_total = (phq_1 + phq_2 + phq_3 + phq_4 + phq_5 + phq_6 +
                        phq_7 + phq_8)
     )
@@ -942,37 +1488,37 @@ for (i in c(1:8)){
     )
 }
 
-combined_data <- combined_data %>%
-  mutate(
-    phq_1_dichot = case_when( 
+combined_data <- combined_data |>
+  dplyr::mutate(
+    phq_1_dichot = dplyr::case_when( 
       ((phq_1  == 0) | ( phq_1  == 1)) ~ 0, 
       phq_1 > 1 ~ 1, 
       TRUE ~ NA),
-    phq_2_dichot = case_when(
+    phq_2_dichot = dplyr::case_when(
       ((phq_2  == 0) | ( phq_2  == 1)) ~ 0, 
       phq_2 > 1 ~ 1, 
       TRUE ~ NA),
-    phq_3_dichot = case_when(
+    phq_3_dichot = dplyr::case_when(
       ((phq_3  == 0) | ( phq_3  == 1)) ~ 0, 
       phq_3 > 1 ~ 1, 
       TRUE ~ NA),
-    phq_4_dichot = case_when(
+    phq_4_dichot = dplyr::case_when(
       ((phq_4  == 0) | ( phq_4  == 1)) ~ 0, 
       phq_4 > 1 ~ 1, 
       TRUE ~ NA),
-    phq_5_dichot = case_when(
+    phq_5_dichot = dplyr::case_when(
       ((phq_5  == 0) | ( phq_5  == 1)) ~ 0, 
       phq_5 > 1 ~ 1, 
       TRUE ~ NA),
-    phq_6_dichot = case_when(
+    phq_6_dichot = dplyr::case_when(
       ((phq_6  == 0) | ( phq_6  == 1)) ~ 0, 
       phq_6 > 1 ~ 1, 
       TRUE ~ NA),
-    phq_7_dichot = case_when(
+    phq_7_dichot = dplyr::case_when(
       ((phq_7  == 0) | ( phq_7  == 1)) ~ 0, 
       phq_7 > 1 ~ 1, 
       TRUE ~ NA),
-    phq_8_dichot = case_when(
+    phq_8_dichot = dplyr::case_when(
       ((phq_8  == 0) | ( phq_8  == 1)) ~ 0, 
       phq_8 > 1 ~ 1, 
       TRUE ~ NA)
@@ -991,8 +1537,8 @@ variable_map <- vm_add_variable(
     )
   )
 
-combined_data <- combined_data %>%
-  mutate(
+combined_data <- combined_data |>
+  dplyr::mutate(
     phq_dep_dichot_total = (phq_1_dichot + phq_2_dichot + phq_3_dichot +
                               phq_4_dichot + phq_5_dichot + phq_6_dichot +
                               phq_7_dichot + phq_8_dichot)
@@ -1012,7 +1558,7 @@ variable_map <- vm_add_variable(
                       ),
     'calculated' = TRUE
     )
-  ) %>%
+  ) |>
   vm_add_variable(
      "Patient Health Questionnaire (PHQ)", 
     'phq_mdd', prev_var = 'phq_dep_symp',
@@ -1022,13 +1568,13 @@ variable_map <- vm_add_variable(
         )
   )
 
-combined_data <- combined_data %>%
-  mutate(
-    phq_dep_symp = case_when( 
+combined_data <- combined_data |>
+  dplyr::mutate(
+    phq_dep_symp = dplyr::case_when( 
       ((phq_1_dichot == 1) | (phq_2_dichot == 1)) ~ 1, 
       ((phq_1_dichot == 0) & (phq_2_dichot == 0)) ~ 0, 
       TRUE ~ NA),
-    phq_mdd = case_when( 
+    phq_mdd = dplyr::case_when( 
       ((phq_dep_symp == 1) | (phq_dep_dichot_total > 4)) ~ TRUE, 
       phq_dep_symp == 0 ~ FALSE, 
       phq_dep_dichot_total < 5 ~ FALSE, 
@@ -1048,8 +1594,8 @@ variable_map <- vm_add_variable(
     )
   )
 
-combined_data <- combined_data %>%
-  mutate(
+combined_data <- combined_data |>
+  dplyr::mutate(
     phq_gad_total = (phq_9 + phq_10 + phq_11 + phq_12 + phq_13 + 
                        phq_14 + phq_15)
     )
@@ -1075,9 +1621,9 @@ variable_map <- vm_add_variable(
     )
   )
 
-combined_data <- combined_data %>%
-  mutate(
-    hs_1_dichot = case_when( 
+combined_data <- combined_data |>
+  dplyr::mutate(
+    hs_1_dichot = dplyr::case_when( 
       (hs_1  <= 3) ~ 0, 
       (hs_2 > 3) ~ 1, 
       TRUE ~ NA)
@@ -1106,36 +1652,145 @@ variable_map <- vm_add_variable(
                     )
                   )
     )
-  ) %>%
+  ) |>
   vm_add_variable(
-    "Self-Rated Health", 's_substance_hx', prev_var = 's_30g',
+    "Self-Rated Health", 's_substance_hx_ever_any', prev_var = 's_4h',
     opts = tibble::tibble(
       'attr_label' = paste(
-        "If history of alcohol, cannabis, cocaine, opiate, amphetamine,", 
-        "sedative, hypnotic, anxiolytic or other abuse present"
+        "If endorsement of any (ever) history of alcohol, cannabis, cocaine, ",
+        "opiate, amphetamine, sedative, hypnotic, anxiolytic or other abuse",
+        " present"
         ),
       'calculated' = TRUE,
       'attr_var_labels' = list(c(
-              "has no history of substance abuse" = FALSE,
-              "has a history of at least one substance abuse disorder" = TRUE)
+              "has no endorsed (ever) history of substance abuse" = FALSE,
+              "has a endorsed (ever) history of at least one substance abuse" = TRUE)
                     )
       )
-  ) %>%
+  ) |>
   vm_add_variable(
-    "Self-Rated Health", 's_substance_use', prev_var = 's_32i',
+    "Self-Rated Health", 's_substance_hx_ever_etoh', 
+    prev_var = 's_substance_hx_ever_any',
     opts = tibble::tibble(
       'attr_label' = paste(
-        "If used cannabis, cocaine, opiate, amphetamine, sedative,", 
-        "hypnotic, anxiolytic, K2, or other substance"
+        "If endorsement of any (ever) history of alcohol abuse present"
         ),
       'calculated' = TRUE,
       'attr_var_labels' = list(c(
-                                "has note used a substance" = FALSE,
+              "has no endorsed (ever) history of etoh abuse" = FALSE,
+              "has a endorsed (ever) history of etoh abuse" = TRUE)
+                    )
+      )
+  ) |>
+  vm_add_variable(
+    "Self-Rated Health", 's_substance_hx_ever_non_etoh', 
+    prev_var = 's_substance_hx_ever_etoh',
+    opts = tibble::tibble(
+      'attr_label' = paste(
+        "If endorsement of any (ever) history of non-alcohol abuse of cannabis,",
+        " cocaine, opiate, amphetamine, sedative, hypnotic, anxiolytic or ",
+        "other substances present"
+        ),
+      'calculated' = TRUE,
+      'attr_var_labels' = list(c(
+              "has no endorsed (ever) history of non-etoh substance abuse" = FALSE,
+              "has a endorsed (ever) history of at least one non-etoh substance abuse" = TRUE)
+                    )
+      )
+  ) |>
+  vm_add_variable(
+    "Self-Rated Health", 's_substance_dx_any', prev_var = 's_30g',
+    opts = tibble::tibble(
+      'attr_label' = paste(
+        "If history of medical diagnosis for alcohol, cannabis, cocaine, ",
+        "opiate, amphetamine, sedative, hypnotic, anxiolytic or other abuse",
+        " present"
+        ),
+      'calculated' = TRUE,
+      'attr_var_labels' = list(c(
+              "has no diagnosed history of substance abuse" = FALSE,
+              "has a diagnosed history of at least one substance abuse disorder" = TRUE)
+                    )
+      )
+  )  |>
+  vm_add_variable(
+    "Self-Rated Health", 's_substance_dx_etoh', 
+    prev_var = 's_substance_dx_any',
+    opts = tibble::tibble(
+      'attr_label' = paste(
+        "If history of medical diagnosis for alcohol abuse present"
+        ),
+      'calculated' = TRUE,
+      'attr_var_labels' = list(c(
+              "has no diagnosed history of etoh abuse disorder" = FALSE,
+              "has a diagnosed history of etoh abuse disorder" = TRUE)
+                    )
+      )
+  )  |>
+  vm_add_variable(
+    "Self-Rated Health", 's_substance_dx_non_etoh', 
+    prev_var = 's_substance_dx_etoh',
+    opts = tibble::tibble(
+      'attr_label' = paste(
+        "If history of medical diagnosis for non-alcohol abuse of cannabis, ",
+        "cocaine, opiate, amphetamine, sedative, hypnotic, anxiolytic or other",
+        " substance abuse present"
+        ),
+      'calculated' = TRUE,
+      'attr_var_labels' = list(c(
+              "has no diagnosed history of non-etoh substance abuse" = FALSE,
+              "has a diagnosed history of at least one non-etoh substance abuse disorder" = TRUE)
+                    )
+      )
+  ) |>
+  vm_add_variable(
+    "Self-Rated Health", 's_substance_use_any', prev_var = 's_32i',
+    opts = tibble::tibble(
+      'attr_label' = paste(
+        "Endorsed use of alcohol cannabis, cocaine, opiate, amphetamine, ",
+        "sedative, hypnotic, anxiolytic, K2, or other substance in the past ",
+        "30 days"
+        ),
+      'calculated' = TRUE,
+      'attr_var_labels' = list(c(
+                                "has not used a substance" = FALSE,
                                 "has used a substance" = TRUE
                                 )
                     )
       )
-  ) %>%
+  )  |>
+  vm_add_variable(
+    "Self-Rated Health", 's_substance_use_etoh', 
+    prev_var = 's_substance_use_any',
+    opts = tibble::tibble(
+      'attr_label' = paste(
+        "Endorsed use of alcohol in the past 30 days"
+        ),
+      'calculated' = TRUE,
+      'attr_var_labels' = list(c(
+                                "has not used alcohol" = FALSE,
+                                "has used alcohol" = TRUE
+                                )
+                    )
+      )
+  )  |>
+  vm_add_variable(
+    "Self-Rated Health", 's_substance_use_non_etoh', 
+    prev_var = 's_substance_use_etoh',
+    opts = tibble::tibble(
+      'attr_label' = paste(
+        "Endorsed use of non-alcohol substances of cannabis, cocaine, opiate, ",
+        "amphetamine, sedative, hypnotic, anxiolytic, K2, or other substance ",
+        "in the past 30 days"
+        ),
+      'calculated' = TRUE,
+      'attr_var_labels' = list(c(
+                                "has not used a substance" = FALSE,
+                                "has used a substance" = TRUE
+                                )
+                    )
+      )
+  ) |>
   vm_add_variable(
     "Self-Rated Health", 's_pain', prev_var = 's_40',
     opts = tibble::tibble(
@@ -1151,28 +1806,69 @@ variable_map <- vm_add_variable(
       )
   )
 
-combined_data <- combined_data %>%
-  mutate(
-    s_mental_hx = case_when(
+combined_data <- combined_data |>
+  dplyr::mutate(
+    s_mental_hx = dplyr::case_when(
       ((s_19 == 1) | (s_20 == 1) | (s_21 == 1) | 
          (s_22 == 1) | (s_23 == 1)) ~ TRUE, 
       ((s_19 == 0) & (s_20 == 0) & (s_21 == 0) & 
          (s_22 == 0) & (s_23 == 0)) ~ FALSE, 
       TRUE ~ NA),
-    s_substance_hx = case_when( 
+    s_substance_hx_ever_any = dplyr::case_when( 
+      ((s_4a == 1) | (s_4b == 1) | (s_4c == 1) | (s_4d == 1) | (s_4e == 1) | 
+         (s_4f == 1) | (s_4g == 1) | (s_4h == 1)) ~ TRUE,
+      ((s_4a == 0) & (s_4b == 0) & (s_4c == 0) & (s_4d == 0) & (s_4e == 0) & 
+         (s_4f == 0) & (s_4g == 0) & (s_4h == 0)) ~ FALSE, 
+      s_3 == 0 ~ FALSE, 
+      TRUE ~ NA),    
+    s_substance_hx_ever_etoh = dplyr::case_when( 
+      ((s_4a == 1)) ~ TRUE,
+      ((s_4a == 0)) ~ FALSE, 
+      s_3 == 0 ~ FALSE, 
+      TRUE ~ NA),   
+    s_substance_hx_ever_non_etoh = dplyr::case_when( 
+      ((s_4b == 1) | (s_4c == 1) | (s_4d == 1) | (s_4e == 1) | 
+         (s_4f == 1) | (s_4g == 1) | (s_4h == 1)) ~ TRUE,
+      ((s_4b == 0) & (s_4c == 0) & (s_4d == 0) & (s_4e == 0) & 
+         (s_4f == 0) & (s_4g == 0) & (s_4h == 0)) ~ FALSE, 
+      s_3 == 0 ~ FALSE, 
+      TRUE ~ NA),   
+    s_substance_dx_any = dplyr::case_when( 
       ((s_30a == 1) | (s_30b == 1) | (s_30c == 1) | 
          (s_30d == 1) | (s_30e == 1) | (s_30f == 1) | (s_30g == 1)) ~ TRUE,
-      ((s_30a == 0) & (s_30b == 0) & (s_30c == 0) & (s_30d == 0) | 
+      ((s_30a == 0) & (s_30b == 0) & (s_30c == 0) & (s_30d == 0) & 
          (s_30e == 0) & (s_30f == 0) & (s_30g == 0)) ~ FALSE, 
       s_29 == 0 ~ FALSE, 
       TRUE ~ NA),
-    s_substance_use = case_when( 
+    s_substance_dx_etoh = dplyr::case_when( 
+      ((s_30a == 1)) ~ TRUE,
+      ((s_30a == 0)) ~ FALSE, 
+      s_29 == 0 ~ FALSE, 
+      TRUE ~ NA),
+    s_substance_dx_non_etoh = dplyr::case_when( 
+      ((s_30b == 1) | (s_30c == 1) | 
+         (s_30d == 1) | (s_30e == 1) | (s_30f == 1) | (s_30g == 1)) ~ TRUE,
+      ((s_30b == 0) & (s_30c == 0) & (s_30d == 0) & 
+         (s_30e == 0) & (s_30f == 0) & (s_30g == 0)) ~ FALSE, 
+      s_29 == 0 ~ FALSE, 
+      TRUE ~ NA),
+    s_substance_use_any = dplyr::case_when( 
+      ((s_32a == 1) | (s_32b == 1) | (s_32c == 1) | (s_32d == 1) | 
+         (s_32e == 1) | (s_32f == 1) | (s_32g == 1) | (s_32h == 1)) ~ TRUE,
+      ((s_32a == 0) & (s_32b == 0) & (s_32c == 0) & (s_32d == 0) & 
+         (s_32e == 0) & (s_32f == 0) & (s_32g == 0) & (s_32h == 0)) ~ FALSE, 
+      TRUE ~ NA),
+    s_substance_use_etoh = dplyr::case_when( 
+      ((s_32a == 1)) ~ TRUE,
+      ((s_32a == 0)) ~ FALSE, 
+      TRUE ~ NA),
+    s_substance_use_non_etoh = dplyr::case_when( 
       ((s_32b == 1) | (s_32c == 1) | (s_32d == 1) | (s_32e == 1) | 
          (s_32f == 1) | (s_32g == 1) | (s_32h == 1)) ~ TRUE,
       ((s_32b == 0) & (s_32c == 0) & (s_32d == 0) & (s_32e == 0) & 
          (s_32f == 0) & (s_32g == 0) & (s_32h == 0)) ~ FALSE, 
       TRUE ~ NA),
-    s_pain = case_when( 
+    s_pain = dplyr::case_when( 
       s_40 > 2 ~ TRUE, 
       s_40 <=2 ~ FALSE, 
       TRUE ~ NA)
@@ -1200,7 +1896,7 @@ variable_map <- vm_add_variable(
                               )
                             )
     )
-  ) %>%
+  ) |>
   vm_add_variable(
     "TCU Drug Screen 5", 'ds_11_val', prev_var = 'ds_11b',
     opts = tibble::tibble(
@@ -1214,7 +1910,7 @@ variable_map <- vm_add_variable(
                                 )
                               )
       )
-  ) %>%
+  ) |>
   vm_add_variable(
     "TCU Drug Screen 5", 'ds_total', prev_var = 'ds_11_val',
     opts = tibble::tibble(
@@ -1223,7 +1919,7 @@ variable_map <- vm_add_variable(
         ),
       'calculated' = TRUE,
       )
-  ) %>%
+  ) |>
   vm_add_variable(
     "TCU Drug Screen 5", 'ds_cat', prev_var = 'ds_total',
     opts = tibble::tibble(
@@ -1241,19 +1937,19 @@ variable_map <- vm_add_variable(
       )
   )
 
-combined_data <- combined_data %>%
-  mutate(
-    ds_10_val = case_when( 
+combined_data <- combined_data |>
+  dplyr::mutate(
+    ds_10_val = dplyr::case_when( 
       ((ds_10a == 1) | (ds_10b == 1)) ~ 1, 
       ((ds_10a == 0) & (ds_10b == 0)) ~ 0, 
       TRUE ~ NA),
-    ds_11_val = case_when( 
+    ds_11_val = dplyr::case_when( 
       ((ds_11a == 1) | (ds_11b == 1)) ~ 1, 
       ((ds_11a == 0) & (ds_11b == 0)) ~ 0, 
       TRUE ~ NA),
     ds_total = (ds_1 + ds_2 + ds_3 + ds_4 + ds_5 + ds_6 + ds_7
                 + ds_8 + ds_9 + ds_10_val + ds_11_val),
-    ds_cat = case_when( 
+    ds_cat = dplyr::case_when( 
       (ds_total <= 1) ~ 0, 
       ((ds_total >= 2) & (ds_total <= 3)) ~ 1, 
       ((ds_total >= 4) & (ds_total <= 5)) ~ 2, 
@@ -1278,7 +1974,7 @@ variable_map <- vm_add_variable(
       ),
     'calculated' = TRUE
     )
-  ) %>%
+  ) |>
   vm_add_variable(
     "Primary Care PTSD Screen (PC-PTSD)", 'ptsd_positive', 
     prev_var = 'ptsd_total',
@@ -1295,10 +1991,10 @@ variable_map <- vm_add_variable(
       )
   )
 
-combined_data <- combined_data %>%
-  mutate(
+combined_data <- combined_data |>
+  dplyr::mutate(
     ptsd_total = (ptsd_1 + ptsd_2 + ptsd_3 + ptsd_4),
-    ptsd_positive= case_when( 
+    ptsd_positive= dplyr::case_when( 
       ptsd_total >= 3 ~ TRUE, 
       ptsd_total < 3 ~ FALSE, 
       TRUE ~ NA)
@@ -1321,7 +2017,7 @@ variable_map <- vm_add_variable(
       ),
     'calculated' = TRUE
     )
-  ) %>%
+  ) |>
   vm_add_variable(
     "Tobacco History", 't_6_val', prev_var = 't_6a6',
     opts = tibble::tibble(
@@ -1332,9 +2028,9 @@ variable_map <- vm_add_variable(
       )
   )
 
-combined_data <- combined_data %>%
-  mutate(
-    t_5_val = case_when(
+combined_data <- combined_data |>
+  dplyr::mutate(
+    t_5_val = dplyr::case_when(
                       (t_5 == 0) ~ 0,
                       (t_5 == 1) ~ t_5a1,
                       (t_5 == 2) ~ t_5a2,
@@ -1344,7 +2040,7 @@ combined_data <- combined_data %>%
                       (t_5 == 6) ~ t_5a6,
                       TRUE ~ NA
                       ),
-    t_6_val =  case_when(
+    t_6_val =  dplyr::case_when(
                         (t_6 == 0) ~ 0,
                         (t_6 == 1) ~ t_6a1,
                         (t_6 == 2) ~ t_6a2,
@@ -1374,7 +2070,7 @@ variable_map <- vm_add_variable(
         )
       )
     )
-  ) %>%
+  ) |>
   vm_add_variable(
     "Tobacco History", 't_friends', prev_var = 't_39',
     opts = tibble::tibble(
@@ -1385,14 +2081,14 @@ variable_map <- vm_add_variable(
       )
   )
 
-combined_data <- combined_data %>%
-  mutate(
-    t_spouse = case_when(
+combined_data <- combined_data |>
+  dplyr::mutate(
+    t_spouse = dplyr::case_when(
                       ((t_34 == 1) & (t_35 == 1)) ~ TRUE,
                       ((t_34 == 1) & (t_35 == 1)) ~ FALSE,
                       TRUE ~ NA
                       ),
-    t_friends = case_when(
+    t_friends = dplyr::case_when(
                         (t_38 > 0) ~ (t_39 / t_38),
                         TRUE ~ NA
                         )
@@ -1415,7 +2111,7 @@ variable_map <- vm_add_variable(
       ),
     'calculated' = TRUE
     )
-  ) %>%
+  ) |>
   vm_add_variable(
     "Heaviness of Smoking Index", 'hsi_cat', prev_var = 'hsi_score',
     opts = tibble::tibble(
@@ -1433,10 +2129,10 @@ variable_map <- vm_add_variable(
       )
   )
 
-combined_data <- combined_data %>%
-  mutate(
+combined_data <- combined_data |>
+  dplyr::mutate(
     hsi_score = (hsi_1 + hsi_2),
-    hsi_cat = case_when(
+    hsi_cat = dplyr::case_when(
                         hsi_score < 3 ~ 0,
                         hsi_score == 3 ~ 1,
                         hsi_score == 4 ~ 2,
@@ -1468,7 +2164,7 @@ variable_map <- vm_add_variable(
                               )
                             )
     )
-  ) %>%
+  ) |>
   vm_add_variable(
   "Behavioral Risk Factor Surveillance System (BRFSS) Inadequate Sleep", 
   'brs_4_dichot', prev_var = 'brs_4',
@@ -1485,14 +2181,14 @@ variable_map <- vm_add_variable(
     )
   )
 
-combined_data <- combined_data %>%
-  mutate(
-    brs_2_dichot = case_when(
+combined_data <- combined_data |>
+  dplyr::mutate(
+    brs_2_dichot = dplyr::case_when(
                             brs_2 >= 7 ~ 0,
                             brs_2 < 7 ~ 1,
                             TRUE ~ NA
                             ),
-    brs_4_dichot = case_when(
+    brs_4_dichot = dplyr::case_when(
                               brs_4 == 0 ~ 0,
                               brs_4 > 0 ~ 1,
                               TRUE ~ NA
@@ -1517,7 +2213,7 @@ variable_map <- vm_add_variable(
       ),
     'calculated' = TRUE
     )
-  ) %>%
+  ) |>
   vm_add_variable(
     "Alcohol Quantity and Frequency Questionnaire", 
     'af_1_heavy', prev_var = 'af_1_val',
@@ -1532,7 +2228,7 @@ variable_map <- vm_add_variable(
                                 )
                             )
       )
-  )  %>%
+  )  |>
   vm_add_variable(
     "Alcohol Quantity and Frequency Questionnaire", 
     'af_9_val', prev_var = 'af_9c',
@@ -1543,7 +2239,7 @@ variable_map <- vm_add_variable(
         ),
       'calculated' = TRUE
       )
-  ) %>%
+  ) |>
   vm_add_variable(
     "Alcohol Quantity and Frequency Questionnaire", 
     'af_9_binge', prev_var = 'af_9_val',
@@ -1560,34 +2256,65 @@ variable_map <- vm_add_variable(
       )
   )
 
-combined_data <- combined_data %>%
-  mutate(
-    af_1_val = case_when(
+combined_data <- combined_data |>
+  dplyr::mutate(
+    af_1_val = dplyr::case_when(
                       af_1 == 0 ~ 0,
                       af_1 > 0 ~ (af_2m + af_3tu + af_4w + af_5th + af_6f
                                   + af_6sa + af_8su),
                       TRUE ~ NA
                       ),
-    af_1_heavy = case_when(
+    af_1_heavy = dplyr::case_when(
                           ((gender == 0) & (af_1_val <= 14)) ~ FALSE,
                           ((gender == 0) & (af_1_val > 14)) ~ TRUE,
                           ((gender == 1) & (af_1_val <= 7)) ~ FALSE,
                           ((gender == 1) & (af_1_val > 7)) ~ TRUE,
                           TRUE ~ NA
                           ),
-    af_9_val = case_when(
+    af_9_val = dplyr::case_when(
                         (af_9 == 0) ~ af_9a,
                         (af_9 == 1) ~ af_9b,
                         (af_9 == 2) ~ af_9c,
                         TRUE ~ NA
                         ),
-    af_9_binge = case_when(
+    af_9_binge = dplyr::case_when(
                           af_9_val >= 1 ~ TRUE,
                           af_9_val == 0 ~ FALSE,
                           TRUE ~ NA
                           )
   )
 ```
+
+### Alcohol and Drug Timeline Follow Back @@
+
+We calculated a dichotomous variable to indicate if a subject endorsed any drug use in the timeline follow-back period.
+
+```{r}
+variable_map <- vm_add_variable(
+  variable_map, "Alcohol and Drug Timeline Follow-Back (TLFB)", 
+  'tlfb_drug_use', prev_var = 'num_days_using_drugs',
+  opts = tibble::tibble(
+    'attr_label' = paste(
+      "Did the Subject Endorse Any Drug Use in the TLFB Period?"
+      ),
+    'calculated' = TRUE,
+      'attr_var_labels' = list(c(
+              "denied any drug use" = FALSE,
+              "endorsed any drug use" = TRUE)
+                    )
+    )
+  )
+
+combined_data <- combined_data |>
+  dplyr::mutate(
+    tlfb_drug_use = dplyr::case_when(
+                      num_days_using_drugs > 0 ~ TRUE,
+                      num_days_using_drugs == 0 ~ FALSE,
+                      TRUE ~ NA
+                      )
+  )
+```
+
 
 ### Personality Beliefs Questionnaire
 
@@ -1607,8 +2334,8 @@ variable_map <- vm_add_variable(
     )
   )
 
-combined_data <- combined_data %>%
-  mutate(
+combined_data <- combined_data |>
+  dplyr::mutate(
     pbq_total = (pbq_1 + pbq_2 + pbq_3 + pbq_4 + pbq_5 + pbq_6 + pbq_7)
   )
 ```
@@ -1634,7 +2361,7 @@ variable_map <- vm_add_variable(
                               )
                             )
     )
-  ) %>%
+  ) |>
   vm_add_variable(
     "USDA Food Security Survey", 'fss_2_dichot', prev_var = 'fss_2',
     opts = tibble::tibble(
@@ -1648,7 +2375,7 @@ variable_map <- vm_add_variable(
                                   )
                                 )
       )
-  ) %>%
+  ) |>
   vm_add_variable(
     "USDA Food Security Survey", 'fss_3_dichot', prev_var = 'fss_3',
     opts = tibble::tibble(
@@ -1662,7 +2389,7 @@ variable_map <- vm_add_variable(
                                   )
                                 )
       )
-  ) %>%
+  ) |>
   vm_add_variable(
     "USDA Food Security Survey", 'fss_3a_dichot', prev_var = 'fss_3a',
     opts = tibble::tibble(
@@ -1676,7 +2403,7 @@ variable_map <- vm_add_variable(
                                   )
                                 )
       )
-  ) %>%
+  ) |>
   vm_add_variable(
     "USDA Food Security Survey", 'fss_4_dichot', prev_var = 'fss_4',
     opts = tibble::tibble(
@@ -1690,7 +2417,7 @@ variable_map <- vm_add_variable(
                                   )
                                 )
       )
-  ) %>%
+  ) |>
   vm_add_variable(
     "USDA Food Security Survey", 'fss_5_dichot', prev_var = 'fss_5',
     opts = tibble::tibble(
@@ -1706,34 +2433,34 @@ variable_map <- vm_add_variable(
       )
   )
 
-combined_data <- combined_data %>%
-  mutate(
-    fss_1_dichot = case_when(
+combined_data <- combined_data |>
+  dplyr::mutate(
+    fss_1_dichot = dplyr::case_when(
                             ((fss_1 == 0) | (fss_1 == 1)) ~ 1,
                             ((fss_1 == 2) | (fss_1 == 99)) ~ 0,
                             TRUE ~ NA
                             ),
-    fss_2_dichot = case_when(
+    fss_2_dichot = dplyr::case_when(
                         ((fss_2 == 0) | (fss_2 == 1)) ~ 1,
                         ((fss_2 == 2) | (fss_2 == 99)) ~ 0,
                         TRUE ~ NA
                         ),
-    fss_3_dichot = case_when(
+    fss_3_dichot = dplyr::case_when(
                         (fss_3 == 1) ~ 1,
                         ((fss_3 == 0) | (fss_2 == 9)) ~ 0,
                         TRUE ~ NA
                         ),
-    fss_3a_dichot = case_when(
+    fss_3a_dichot = dplyr::case_when(
                         ((fss_3a == 0) | (fss_3a == 1)) ~ 1,
                         ((fss_3a == 2) | (fss_3a == 9) | (fss_3 == 0)) ~ 0,
                         TRUE ~ NA
                         ),
-    fss_4_dichot = case_when(
+    fss_4_dichot = dplyr::case_when(
                         (fss_4 == 1) ~ 1,
                         ((fss_4 == 0) | (fss_4 == 9)) ~ 0,
                         TRUE ~ NA
                         ),
-    fss_5_dichot = case_when(
+    fss_5_dichot = dplyr::case_when(
                         (fss_5 == 1) ~ 1,
                         ((fss_5 == 0) | (fss_5 == 9)) ~ 0,
                         TRUE ~ NA
@@ -1753,7 +2480,7 @@ variable_map <- vm_add_variable(
       ),
     'calculated' = TRUE
     )
-  ) %>%
+  ) |>
   vm_add_variable(
     "USDA Food Security Survey", 'fss_cat', prev_var = 'fss_total',
     opts = tibble::tibble(
@@ -1768,7 +2495,7 @@ variable_map <- vm_add_variable(
                               )
                             )
       )
-  ) %>%
+  ) |>
   vm_add_variable(
     "USDA Food Security Survey", 'fss_cat_dichot', prev_var = 'fss_cat',
     opts = tibble::tibble(
@@ -1784,22 +2511,22 @@ variable_map <- vm_add_variable(
       )
   )
 
-combined_data <- combined_data %>%
-  mutate(
+combined_data <- combined_data |>
+  dplyr::mutate(
     fss_total = (fss_1_dichot + fss_2_dichot + fss_3_dichot + 
                    fss_3a_dichot + fss_4_dichot + fss_5_dichot),
-    fss_2_dichot = case_when(
+    fss_2_dichot = dplyr::case_when(
                         ((fss_2 == 0) | (fss_2 == 1)) ~ 1,
                         ((fss_2 == 2) | (fss_2 == 99)) ~ 0,
                         TRUE ~ NA
                         ),
-    fss_cat = case_when(
+    fss_cat = dplyr::case_when(
                         (fss_total <= 1) ~ 1,
                         ((fss_total < 5) | (fss_total > 1)) ~ 2,
 			(fss_total >= 5) ~ 3,
                         TRUE ~ NA
                         ),
-    fss_cat_dichot = case_when(
+    fss_cat_dichot = dplyr::case_when(
                         (fss_total <=1) ~ FALSE,
                         (fss_total > 1) ~ TRUE,
                         TRUE ~ NA
@@ -1821,7 +2548,7 @@ variable_map <- vm_add_variable(
       ),
     'calculated' = TRUE
     )
-  ) %>%
+  ) |>
   vm_add_variable(
     "TCU CJ Client Evaluation of Self and Treatment (CJ CEST)", 
     'cj_needs', prev_var = 'cj_desire',
@@ -1831,7 +2558,7 @@ variable_map <- vm_add_variable(
         ),
       'calculated' = TRUE
       )
-  ) %>%
+  ) |>
   vm_add_variable(
     "TCU CJ Client Evaluation of Self and Treatment (CJ CEST)", 
     'cj_satisfaction', prev_var = 'cj_needs',
@@ -1841,7 +2568,7 @@ variable_map <- vm_add_variable(
         ),
       'calculated' = TRUE
       )
-  ) %>%
+  ) |>
   vm_add_variable(
     "TCU CJ Client Evaluation of Self and Treatment (CJ CEST)", 
     'cj_selfesteem', prev_var = 'cj_satisfaction',
@@ -1851,7 +2578,7 @@ variable_map <- vm_add_variable(
         ),
       'calculated' = TRUE
       )
-  ) %>%
+  ) |>
   vm_add_variable(
     "TCU CJ Client Evaluation of Self and Treatment (CJ CEST)", 
     'cj_hostility', prev_var = 'cj_selfesteem',
@@ -1861,7 +2588,7 @@ variable_map <- vm_add_variable(
         ),
       'calculated' = TRUE
       )
-  ) %>%
+  ) |>
   vm_add_variable(
     "TCU CJ Client Evaluation of Self and Treatment (CJ CEST)", 
     'cj_risktaking', prev_var = 'cj_hostility',
@@ -1873,8 +2600,8 @@ variable_map <- vm_add_variable(
       )
   )
 
-combined_data <- combined_data %>%
-  mutate(
+combined_data <- combined_data |>
+  dplyr::mutate(
     cj_desire = ifelse(
         cj_1 == 1,
         ((cj_2 + cj_3 + cj_4 + cj_5 + cj_6 + cj_7)*10/6),
@@ -1912,8 +2639,8 @@ variable_map <- vm_add_variable(
     )
   )
 
-combined_data <- combined_data %>%
-  mutate(
+combined_data <- combined_data |>
+  dplyr::mutate(
     dd_total = (dd_1 + dd_2 + dd_3 + dd_4 + dd_5 + dd_6 + dd_7 + dd_8 + dd_9)
   )
 ```
@@ -1936,8 +2663,8 @@ variable_map <- vm_add_variable(
     )
   )
 
-combined_data <- combined_data %>%
-  mutate(
+combined_data <- combined_data |>
+  dplyr::mutate(
     mmd_total = (mmd_1a + mmd_1b + mmd_1c + mmd_1d + mmd_1f + mmd_1g + 
                    mmd_1h + mmd_1i + mmd_1j + mmd_1k)
   )
@@ -1961,8 +2688,8 @@ variable_map <- vm_add_variable(
     )
   )
 
-combined_data <- combined_data %>%
-  mutate(
+combined_data <- combined_data |>
+  dplyr::mutate(
     uls_total = (uls_1 + uls_2 + uls_3 + uls_4 + uls_5 + uls_6 + uls_7 + 
                    uls_8 + uls_9 + uls_10 + uls_11 + uls_12 + uls_13 + 
                    uls_14 + uls_15 + uls_16 + uls_17 + uls_18 + uls_19 + 
@@ -1988,8 +2715,8 @@ variable_map <- vm_add_variable(
     )
   )
 
-combined_data <- combined_data %>%
-  mutate(
+combined_data <- combined_data |>
+  dplyr::mutate(
     ps_total = (ps_1 + (4 - ps_2) + (4 - ps_3) + ps_4)
   )
 ```
@@ -2012,7 +2739,7 @@ variable_map <- vm_add_variable(
       ),
     'calculated' = TRUE
     )
-  ) %>%
+  ) |>
   vm_add_variable(
     "Distress Tolerance Scale", 'dts_absorption', 
     prev_var = 'dts_tolerance',
@@ -2022,7 +2749,7 @@ variable_map <- vm_add_variable(
         ),
       'calculated' = TRUE
       )
-  ) %>%
+  ) |>
   vm_add_variable(
     "Distress Tolerance Scale", 'dts_appraisal', 
     prev_var = 'dts_absorption',
@@ -2032,7 +2759,7 @@ variable_map <- vm_add_variable(
         ),
       'calculated' = TRUE
       )
-  ) %>%
+  ) |>
   vm_add_variable(
     "Distress Tolerance Scale", 'dts_regulation', 
     prev_var = 'dts_appraisal',
@@ -2042,7 +2769,7 @@ variable_map <- vm_add_variable(
         ),
       'calculated' = TRUE
       )
-  ) %>%
+  ) |>
   vm_add_variable(
     "Distress Tolerance Scale", 'dts_total', 
     prev_var = 'dts_regulation',
@@ -2054,8 +2781,8 @@ variable_map <- vm_add_variable(
       )
   )
 
-combined_data <- combined_data %>%
-  mutate(
+combined_data <- combined_data |>
+  dplyr::mutate(
     dts_tolerance = ( ((6 - dts_1) + (6 - dts_3) + (6 - dts_5))/3),
     dts_absorption = ( ((6 - dts_2) + (6 - dts_4) + (6 - dts_16))/3),
     dts_appraisal = ( (dts_7 + (6 - dts_8) + (6 - dts_10) + (6 - dts_11) + 
@@ -2084,7 +2811,7 @@ variable_map <- vm_add_variable(
       ),
     'calculated' = TRUE
     )
-  ) %>%
+  ) |>
   vm_add_variable(
     "Aggression Questionnaire (AQ-12)", 
     'aq_verbal', prev_var = 'aq_physical',
@@ -2094,7 +2821,7 @@ variable_map <- vm_add_variable(
         ),
       'calculated' = TRUE
       )
-  ) %>%
+  ) |>
   vm_add_variable(
     "Aggression Questionnaire (AQ-12)", 
     'aq_anger', prev_var = 'aq_verbal',
@@ -2104,7 +2831,7 @@ variable_map <- vm_add_variable(
         ),
       'calculated' = TRUE
       )
-  ) %>%
+  ) |>
   vm_add_variable(
     "Aggression Questionnaire (AQ-12)", 
     'aq_hostility', prev_var = 'aq_anger',
@@ -2114,7 +2841,7 @@ variable_map <- vm_add_variable(
         ),
       'calculated' = TRUE
       )
-  ) %>%
+  ) |>
   vm_add_variable(
     "Aggression Questionnaire (AQ-12)", 
     'aq_total', prev_var = 'aq_hostility',
@@ -2126,8 +2853,8 @@ variable_map <- vm_add_variable(
       )
   )
 
-combined_data <- combined_data %>%
-  mutate(
+combined_data <- combined_data |>
+  dplyr::mutate(
     aq_physical = (aq_1 + aq_2 + aq_3),
     aq_verbal = (aq_4 + aq_5 + aq_6),
     aq_anger = (aq_7 + aq_8 + aq_9),
@@ -2152,7 +2879,7 @@ variable_map <- vm_add_variable(
       ),
     'calculated' = TRUE
     )
-  ) %>%
+  ) |>
   vm_add_variable(
     "Center for Epidemiological Studies Depression (CES-D)", 
     'ces_cat', prev_var = 'ces_total',
@@ -2169,11 +2896,11 @@ variable_map <- vm_add_variable(
       )
   )
 
-combined_data <- combined_data %>%
-  mutate(
+combined_data <- combined_data |>
+  dplyr::mutate(
     ces_total = (ces_1 + ces_2 + ces_3 + ces_4 + (3-ces_5) + ces_6 + 
                    ces_7 + (3-ces_8) + ces_9 + ces_10),
-    ces_cat = case_when(
+    ces_cat = dplyr::case_when(
                        ces_total >= 10 ~ TRUE,
                        ces_total < 10 ~ FALSE,
                        TRUE ~ NA
@@ -2220,54 +2947,54 @@ for (i in c(5, 8)){
     )
 }
 
-combined_data <- combined_data %>%
-  mutate(
-    ces_1_dichot = case_when( 
+combined_data <- combined_data |>
+  dplyr::mutate(
+    ces_1_dichot = dplyr::case_when( 
                           (ces_1 == 0) | (ces_1 == 1) ~ 0,
                           (ces_1 == 2) | (ces_1 == 3) ~ 1,
                           TRUE ~ NA
                           ),
-    ces_2_dichot = case_when( 
+    ces_2_dichot = dplyr::case_when( 
                           (ces_2 == 0) | (ces_2 == 1) ~ 0,
                           (ces_2 == 2) | (ces_2 == 3) ~ 1,
                           TRUE ~ NA
                           ),
-    ces_3_dichot = case_when( 
+    ces_3_dichot = dplyr::case_when( 
                           (ces_3 == 0) | (ces_3 == 1) ~ 0,
                           (ces_3 == 2) | (ces_3 == 3) ~ 1,
                           TRUE ~ NA
                           ),
-    ces_4_dichot = case_when( 
+    ces_4_dichot = dplyr::case_when( 
                           (ces_4 == 0) | (ces_4 == 1) ~ 0,
                           (ces_4 == 2) | (ces_4 == 3) ~ 1,
                           TRUE ~ NA
                           ),
-    ces_5_dichot = case_when( 
+    ces_5_dichot = dplyr::case_when( 
                           (ces_5 == 2) | (ces_5 == 3) ~ 0,
                           (ces_5 == 0) | (ces_5 == 1) ~ 1,
                           TRUE ~ NA
                           ),
-    ces_6_dichot = case_when( 
+    ces_6_dichot = dplyr::case_when( 
                           (ces_6 == 0) | (ces_6 == 1) ~ 0,
                           (ces_6 == 2) | (ces_6 == 3) ~ 1,
                           TRUE ~ NA
                           ),
-    ces_7_dichot = case_when( 
+    ces_7_dichot = dplyr::case_when( 
                           (ces_7 == 0) | (ces_7 == 1) ~ 0,
                           (ces_7 == 2) | (ces_7 == 3) ~ 1,
                           TRUE ~ NA
                           ),
-    ces_8_dichot = case_when( 
+    ces_8_dichot = dplyr::case_when( 
                           (ces_8 == 2) | (ces_8 == 3) ~ 0,
                           (ces_8 == 0) | (ces_8 == 1) ~ 1,
                           TRUE ~ NA
                           ),
-    ces_9_dichot = case_when( 
+    ces_9_dichot = dplyr::case_when( 
                           (ces_9 == 0) | (ces_9 == 1) ~ 0,
                           (ces_9 == 2) | (ces_9 == 3) ~ 1,
                           TRUE ~ NA
                           ),
-    ces_10_dichot = case_when( 
+    ces_10_dichot = dplyr::case_when( 
                           (ces_10 == 0) | (ces_10 == 1) ~ 0,
                           (ces_10 == 2) | (ces_10 == 3) ~ 1,
                           TRUE ~ NA
@@ -2287,7 +3014,7 @@ variable_map <- vm_add_variable(
       ),
     'calculated' = TRUE
     )
-  ) %>%
+  ) |>
   vm_add_variable(
     "Center for Epidemiological Studies Depression (CES-D)", 
     'ces_dichot_cat', prev_var = 'ces_dichot_total',
@@ -2304,13 +3031,13 @@ variable_map <- vm_add_variable(
       )
   )
 
-combined_data <- combined_data %>%
-  mutate(
+combined_data <- combined_data |>
+  dplyr::mutate(
     ces_dichot_total = (ces_1_dichot + ces_2_dichot + ces_3_dichot +
                         ces_4_dichot + ces_5_dichot + ces_6_dichot + 
                         ces_7_dichot + ces_8_dichot + ces_9_dichot + 
                         ces_10_dichot),
-    ces_dichot_cat = case_when(
+    ces_dichot_cat = dplyr::case_when(
                                ces_dichot_total >= 4 ~ TRUE,
                                ces_dichot_total < 4 ~ FALSE,
                                TRUE ~ NA)
@@ -2335,7 +3062,7 @@ variable_map <- vm_add_variable(
       ),
     'calculated' = TRUE
     )
-  ) %>%
+  ) |>
   vm_add_variable(
   "Interpersonal Support Evaluation List", 
       'is_bel', prev_var = 'is_app',
@@ -2345,7 +3072,7 @@ variable_map <- vm_add_variable(
           ),
         'calculated' = TRUE
         )
-  ) %>%
+  ) |>
   vm_add_variable(
   "Interpersonal Support Evaluation List", 
       'is_tan', prev_var = 'is_bel',
@@ -2357,8 +3084,8 @@ variable_map <- vm_add_variable(
         )
   )
 
-combined_data <- combined_data %>%
-  mutate(
+combined_data <- combined_data |>
+  dplyr::mutate(
     is_app = ( (5 - is_2) + is_4 + is_6 + (5 - is_11)),
     is_bel = ( (5 - is_1) + is_5 + (5 - is_7) + is_9),
     is_tan = (is_3 + (5 - is_8) + is_10 + (5 - is_12))
@@ -2381,7 +3108,7 @@ variable_map <- vm_add_variable(
       ),
     'calculated' = TRUE
     )
-  ) %>%
+  ) |>
   vm_add_variable(
   "Lubben Social Network Scale 6", 
   'lsn_family_cat', prev_var = 'lsn_family',
@@ -2396,7 +3123,7 @@ variable_map <- vm_add_variable(
                               )
                           )
     )
-  ) %>%
+  ) |>
   vm_add_variable(
     "Lubben Social Network Scale 6", 
     'lsn_friends', prev_var = 'lsn_family_cat',
@@ -2406,7 +3133,7 @@ variable_map <- vm_add_variable(
         ),
       'calculated' = TRUE
       )
-  ) %>%
+  ) |>
   vm_add_variable(
   "Lubben Social Network Scale 6", 
   'lsn_friends_cat', prev_var = 'lsn_friends',
@@ -2421,7 +3148,7 @@ variable_map <- vm_add_variable(
                               )
                           )
     )
-  ) %>%
+  ) |>
   vm_add_variable(
     "Lubben Social Network Scale 6", 
     'lsn_total', prev_var = 'lsn_friends_cat',
@@ -2431,7 +3158,7 @@ variable_map <- vm_add_variable(
         ),
       'calculated' = TRUE
       )
-  ) %>%
+  ) |>
   vm_add_variable(
   "Lubben Social Network Scale 6", 
   'lsn_total_cat', prev_var = 'lsn_total',
@@ -2448,22 +3175,22 @@ variable_map <- vm_add_variable(
     )
   )
 
-combined_data <- combined_data %>%
-  mutate(
+combined_data <- combined_data |>
+  dplyr::mutate(
     lsn_family = (lsn_1 + lsn_2 + lsn_3),
-    lsn_family_cat = case_when(
+    lsn_family_cat = dplyr::case_when(
                               lsn_family < 6 ~ FALSE,
                               lsn_family >= 6 ~ TRUE,
                               TRUE ~ NA
                               ),
     lsn_friends = (lsn_4 + lsn_5 + lsn_6),
-    lsn_friends_cat = case_when(
+    lsn_friends_cat = dplyr::case_when(
                                 lsn_friends < 6 ~ FALSE,
                                 lsn_friends >= 6 ~ TRUE,
                                 TRUE ~ NA
                                 ),
     lsn_total = (lsn_family + lsn_friends),
-    lsn_total_cat = case_when(
+    lsn_total_cat = dplyr::case_when(
                               lsn_total <= 12 ~ FALSE,
                               lsn_total > 12 ~ TRUE,
                               TRUE ~ NA
@@ -2471,14 +3198,13 @@ combined_data <- combined_data %>%
   )
 ```
 
-
 # Ensuring `drop_consolidated` is "FALSE" (not missing)
 
 We ensured all variables with a missing (`NA`) value for `drop_consolidated` instead gained a value of FALSE.
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(drop_consolidated = ifelse(
+variable_map <- variable_map |>
+  dplyr::mutate(drop_consolidated = ifelse(
       is.na(drop_consolidated), 
       FALSE, 
       drop_consolidated
@@ -2489,8 +3215,8 @@ variable_map <- variable_map %>%
 We also identified that `redcap_event_name` failed to be marked for consolidation. This was corrected.
 
 ```{r}
-variable_map <- variable_map %>%
-  mutate(drop_consolidated = ifelse(
+variable_map <- variable_map |>
+  dplyr::mutate(drop_consolidated = ifelse(
       variable == 'redcap_event_name', 
       TRUE, 
       drop_consolidated
@@ -2504,11 +3230,11 @@ variable_map <- variable_map %>%
 We ordered the variables within our variable map, filtered to only include variables present in our current combined data set, and isolated the variables. We used this ordered list to order the columns in our combined data set.
 
 ```{r}
-variable_order <- pull(
-  variable_map %>%
-    arrange(sec_ord, inst_ord, item_ord) %>%
-    filter(variable %in% colnames(combined_data)) %>%
-    select(variable)
+variable_order <- dplyr::pull(
+  variable_map |>
+    dplyr::arrange(sec_ord, inst_ord, item_ord) |>
+    dplyr::filter(variable %in% colnames(combined_data)) |>
+    dplyr::select(variable)
   )
 
 combined_data <- combined_data[ ,variable_order]
@@ -2520,12 +3246,12 @@ We ensured the variables in our processed data set had our desired label and val
 for (var_name in colnames(combined_data)){
   attributes(
     combined_data[[var_name]]
-    )$label <- pull(
+    )$label <- dplyr::pull(
       variable_map[variable_map$variable == var_name, 'attr_label']
       )
    attributes(
      combined_data[[var_name]]
-     )$labels <- pull(
+     )$labels <- dplyr::pull(
        variable_map[variable_map$variable == var_name, 'attr_var_labels']
        )[[1]] 
 }
@@ -2534,14 +3260,14 @@ for (var_name in colnames(combined_data)){
 We dropped the variables that were marked for exclusion.
 
 ```{r}
-dropping_vars <- pull(
-  variable_map %>%
-    filter(drop_consolidated) %>%
-    select(variable)
+dropping_vars <- dplyr::pull(
+  variable_map |>
+    dplyr::filter(drop_consolidated) |>
+    dplyr::select(variable)
 )
 
-combined_data <- combined_data %>%
-  select(-all_of(dropping_vars))
+combined_data <- combined_data |>
+  dplyr::select(-all_of(dropping_vars))
 ```
 
 We purged the remaining variables for memory management.
@@ -2563,12 +3289,18 @@ rm(dropping_vars)
 
 ```{r}
 # RDS
-
-combined_data_path <- here(
+combined_data_path <- here::here(
   "data", "Combined Participant Data", "combined_data_02.rds"
   )
 
-write_rds(combined_data, combined_data_path)
+readr::write_rds(combined_data, combined_data_path)
+
+# SPSS
+combined_data_path <- here::here(
+  "data", "Combined Participant Data", "combined_data_02.sav"
+  )
+
+haven::write_sav(combined_data, combined_data_path)
 ```
 
 We purged the related variables to reduce memory burden and protect against memory leak.
@@ -2583,24 +3315,24 @@ rm(combined_data)
 ```{r}
 # RDS
 
-variable_map_path <- here(
+variable_map_path <- here::here(
   "data", "Combined Participant Data", "variable_map_02.rds"
   )
 
-write_rds(variable_map, variable_map_path)
+readr::write_rds(variable_map, variable_map_path)
 
 # EXCEL
 
- variable_map_path <- here(
+ variable_map_path <- here::here(
    "data", "Combined Participant Data", "variable_map_02.xlsx"
    )
 
 # Ensure labels are character to enable writing to EXCEL file
 
-variable_map <- variable_map %>%
-  mutate(attr_var_labels = as.character(attr_var_labels))
+variable_map <- variable_map |>
+  dplyr::mutate(attr_var_labels = as.character(attr_var_labels))
  
-write.xlsx(variable_map, variable_map_path)
+openxlsx::write.xlsx(variable_map, variable_map_path)
 ```
 
 We purged the related variables to reduce memory burden and protect against memory leak.
