@@ -27,7 +27,8 @@ library(tidyverse, warn.conflicts = FALSE)
 ```
 
 ```{r}
-source(here("R", "vm_check.R"))
+source(here::here("R", "vm_check.R"))
+source(here::here("R", "data_cols.R"))
 ```
 
 # 📥 Import data
@@ -37,7 +38,7 @@ source(here("R", "vm_check.R"))
 We imported our Combined Data Set
 
 ```{r}
-combined_data_path <- here(
+combined_data_path <- here::here(
   "data", "Combined Participant Data", "combined_data_03.rds"
   )
 ```
@@ -46,7 +47,7 @@ Import the data.
 Check the most recent file modification dates and print for user when this file is being sourced.
 
 ```{r message=FALSE}
-combined_data <- readRDS(combined_data_path)
+combined_data <- readr::read_rds(combined_data_path)
 
 # Print a message for when this file is being sourced
 cat(
@@ -63,8 +64,8 @@ cat(
       as.character(file.info(combined_data_path)$mtime), "\n"
     )
 
-# 2023-11-20: Combined data imported with 1610 rows and 1063 columns.
-# Combined data last modified on OneDrive 2023-11-20 15:08:47 
+# 2023-12-15: Combined data imported with 1606 rows and 1129 columns.
+# Combined data last modified on OneDrive 2023-12-15 17:04:02 
 ```
 
 We purged the import path for memory management.
@@ -78,7 +79,7 @@ rm(combined_data_path)
 We imported our Variable Map.
 
 ```{r}
-variable_map_path <- here(
+variable_map_path <- here::here(
   "data", "Combined Participant Data", "variable_map_03.rds"
   )
 ```
@@ -87,7 +88,7 @@ Import the data.
 Check the most recent file modification dates and print for user when this file is being sourced.
 
 ```{r message=FALSE}
-variable_map <- readRDS(variable_map_path)
+variable_map <- readr::read_rds(variable_map_path)
 
 # Print a message for when this file is being sourced
 cat(
@@ -104,8 +105,8 @@ cat(
       as.character(file.info(variable_map_path)$mtime), "\n"
     )
 
-# 2023-11-20: Variable Map imported with 1084 rows and 25 columns.
-# Variable Map data last modified on OneDrive 2023-11-20 15:08:50 
+# 2023-12-15: Variable Map imported with 1148 rows and 25 columns.
+# Variable Map data last modified on OneDrive 2023-12-15 17:04:02
 ```
 
 We ensured our Variable Map met our required minimum format.
@@ -143,8 +144,8 @@ for (var_name in colnames(combined_data)){
    attributes(
      combined_data[[var_name]]
      )$labels <- pull(
-       stripped_map %>%
-        filter(final_variable == var_name) %>%
+       stripped_map |>
+        filter(final_variable == var_name) |>
         select(attr_var_labels)
        )[[1]] 
 }
@@ -157,11 +158,11 @@ We dropped the labels from the interviewer and case manager variables to protect
 
 var_val_labels <- tibble::tibble(
       'val_text' = names(attributes(combined_data[['interviewer']])$labels)
-    ) %>%
-  rowwise() %>%
+    ) |>
+  rowwise() |>
       mutate(
         'val' = attributes(combined_data[['interviewer']])$labels[[val_text]]
-        ) %>%
+        ) |>
   ungroup()
 
 combined_data[['interviewer']] <- factor(
@@ -182,11 +183,11 @@ attributes(combined_data[['interviewer']])$labels <- NULL
 
 var_val_labels <- tibble::tibble(
       'val_text' = names(attributes(combined_data[['care_manager']])$labels)
-    ) %>%
-  rowwise() %>%
+    ) |>
+  rowwise() |>
       mutate(
         'val' = attributes(combined_data[['care_manager']])$labels[[val_text]]
-        ) %>%
+        ) |>
   ungroup()
 
 combined_data[['care_manager']] <- factor(
@@ -214,16 +215,16 @@ for (var_name in colnames(combined_data)){
   attributes(
     combined_data[[var_name]]
     )$label <- pull(
-      stripped_map %>%
-        filter(final_variable == var_name) %>%
+      stripped_map |>
+        filter(final_variable == var_name) |>
         select(attr_label)
       )
   # Source
    attributes(
      combined_data[[var_name]]
      )$source <- pull(
-       stripped_map %>%
-        filter(final_variable == var_name) %>%
+       stripped_map |>
+        filter(final_variable == var_name) |>
         select(source)
        ) 
 }
@@ -235,8 +236,8 @@ We identified our PHI variables, for which we wanted to block summary statistics
 
 ```{r}
 blocking_vars <- pull(
-  variable_map %>%
-    filter(phi) %>%
+  variable_map |>
+    filter(phi) |>
     select(final_variable)
   )
 ```
@@ -258,39 +259,39 @@ book <- codebook(
 We converted all entries in the `attr_var_labels` column into character values, for visibility in the Final Variable Map.
 
 ```{r}
-variable_map <- variable_map %>%
+variable_map <- variable_map |>
   mutate(attr_var_labels = as.character(attr_var_labels))
 ```
 
 We verified that the interviewer and care manager variables did not reveal the names associated with the numeric identifiers.
 
 ```{r}
-variable_map %>%
-  filter(final_variable %in% c('interviewer', 'care_manager')) %>%
+variable_map |>
+  filter(final_variable %in% c('interviewer', 'care_manager')) |>
   select(final_variable, attr_var_labels)
 ```
 
 We verified that the labels for our PHI variables did not reveal any identifying information.
 
 ```{r}
-variable_map %>%
+variable_map |>
   filter(
     final_variable %in% variable_map[variable_map$phi,]$final_variable
-  ) %>%
+  ) |>
   select(final_variable, attr_var_labels)
 ```
 
 We ensured the rows of our Variable Map were in our desired order.
 
 ```{r}
-variable_map <- variable_map %>%
+variable_map <- variable_map |>
   arrange(sec_ord, inst_ord, item_ord)
 ```
 
 We reordered the columns of our Variable Map to faciliate human-legibility.
 
 ```{r}
-variable_map <- variable_map %>%
+variable_map <- variable_map |>
   relocate(
     # Final variable, then flag variables
     final_variable, calculated, drop_consolidated, phi, 
@@ -309,7 +310,7 @@ variable_map <- variable_map %>%
 We renamed the columns of our Variable Map for human-legibility once exported to Excel.
 
 ```{r}
-variable_map <- variable_map %>%
+variable_map <- variable_map |>
   rename_at(
     colnames(variable_map), 
     ~c(
@@ -318,7 +319,7 @@ variable_map <- variable_map %>%
       "Item Order", "Original Standardized Variable Name",
       "QDS Visit 1", "QDS Visit 2", "QDS Visit 3", "QDS Visit 4", 
       "QDS Visit 5", "REDCap", "Master Log", "TLFB", "DDT", "Arrest Data",
-      "Bridge Data", "Label", "Value Labels", "Source List"
+      "Bridge Data", "Label", "Value Labels", "Source List", "Skip Pattern"
       )
     )
 ```
@@ -330,7 +331,7 @@ variable_map <- variable_map %>%
 We exported our Codebook to DOCX format
 
 ```{r}
-print(book, here("codebooks", "Link2Care Combined Subject Data.docx"))
+print(book, here::here("codebooks", "Link2Care Combined Subject Data.docx"))
 ```
 
 ## Variable Map to Excel Format
@@ -338,20 +339,20 @@ print(book, here("codebooks", "Link2Care Combined Subject Data.docx"))
 We exported the Variable Map to an Excel file designed to be human legible.
 
 ```{r}
-variable_map_path <- here(
+variable_map_path <- here::here(
    "data", "Combined Participant Data", "combined_participant_data_map.xlsx"
    )
 
-wb <- createWorkbook()
+wb <- openxlsx::createWorkbook()
 
-addWorksheet(wb, "L2C Variable Map")
+openxlsx::addWorksheet(wb, "L2C Variable Map")
 
-writeDataTable(wb, 1, variable_map,
+openxlsx::writeDataTable(wb, 1, variable_map,
                 startCol = 1, startRow = 1, 
                 tableStyle = "TableStyleMedium9"
                 )
 
-saveWorkbook(wb, variable_map_path, overwrite = TRUE)
+openxlsx::saveWorkbook(wb, variable_map_path, overwrite = TRUE)
 ```
 
 ## Combined Data to RDS and SAV
@@ -360,16 +361,16 @@ We exported the combined data for analyses into RDS and SAV format.
 
 ```{r}
 # RDS
-rds_path <- here(
+rds_path <- here::here(
               "data", "Combined Participant Data", 
               "combined_participant_data.rds"
             )
 
-saveRDS(combined_data, rds_path)
+readr::write_rds(combined_data, rds_path)
 
 # SAV
 
-sav_path <- here(
+sav_path <- here::here(
               "data", "Combined Participant Data", 
               "combined_participant_data.sav"
             )
