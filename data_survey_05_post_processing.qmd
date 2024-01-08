@@ -134,8 +134,8 @@ cat(
       as.character(file.info(combined_data_path)$mtime), "\n"
     )
 
-# 2023-12-15: Combined data imported with 1606 rows and 1129 columns.
-# Combined data last modified on OneDrive 2023-12-15 16:57:14  
+# 2024-01-08: Combined data imported with 1606 rows and 1129 columns.
+# Combined data last modified on OneDrive 2024-01-08 13:17:55  
 ```
 
 #### Data Check: Changes
@@ -143,7 +143,7 @@ cat(
 We checked for changes to the source data set since this file was last modified.
 
 ```{r}
-# Inputs last modified: 2023-12-15
+# Inputs last modified: 2024-01-08
 
 data_stats <- retrieve_data_stats('combined_data_02_stats')
 
@@ -196,8 +196,8 @@ cat(
       as.character(file.info(variable_map_path)$mtime), "\n"
     )
 
-# 2023-12-15: Variable Map imported with 1148 rows and 21 columns.
-# Variable Map data last modified on OneDrive 2023-12-15 16:57:14 
+# 2024-01-08: Variable Map imported with 1148 rows and 21 columns.
+# Variable Map data last modified on OneDrive 2024-01-08 13:17:55 
 ```
 
 #### Data Check: Changes
@@ -212,7 +212,7 @@ vm_check(variable_map)
 We checked for changes to the source data set since this file was last modified.
 
 ```{r}
-# Inputs last modified: 2023-12-15
+# Inputs last modified: 2024-01-08
 
 data_stats <- retrieve_data_stats('variable_map_02_stats')
 

@@ -64,8 +64,8 @@ cat(
       as.character(file.info(combined_data_path)$mtime), "\n"
     )
 
-# 2023-12-15: Combined data imported with 1606 rows and 1129 columns.
-# Combined data last modified on OneDrive 2023-12-15 17:04:02 
+# 2024-01-08: Combined data imported with 1606 rows and 1129 columns.
+# Combined data last modified on OneDrive 2024-01-08 13:26:05 
 ```
 
 We purged the import path for memory management.
@@ -105,8 +105,8 @@ cat(
       as.character(file.info(variable_map_path)$mtime), "\n"
     )
 
-# 2023-12-15: Variable Map imported with 1148 rows and 25 columns.
-# Variable Map data last modified on OneDrive 2023-12-15 17:04:02
+# 2024-01-08: Variable Map imported with 1148 rows and 25 columns.
+# Variable Map data last modified on OneDrive 2024-01-08 13:26:05
 ```
 
 We ensured our Variable Map met our required minimum format.
@@ -246,7 +246,7 @@ blocking_vars <- pull(
 
 We generated our codebook, with title, subtitle, and description. We blocked summary statistics on our PHI fields.
 
-```{r, message = FALSE}
+```{r, message = FALSE, warning = FALSE}
 book <- codebook(
   df = combined_data,
   title = "Link2Care Subject Data",

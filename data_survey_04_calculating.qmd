@@ -118,7 +118,7 @@ cat(
       as.character(file.info(combined_data_path)$mtime), "\n"
     )
 
-# 2023-12-15: Combined data imported with 1606 rows and 1020 columns.
+# 2024-01-08: Combined data imported with 1606 rows and 1020 columns.
 # Combined data last modified on OneDrive 2023-12-13 13:39:20
 ```
 
@@ -127,7 +127,7 @@ cat(
 We checked for changes to the source data set since this file was last modified.
 
 ```{r}
-# Inputs last modified: 2023-12-13
+# Inputs last modified: 2024-01-08
 
 data_stats <- retrieve_data_stats("combined_data_01_stats")
 
@@ -180,7 +180,7 @@ cat(
       as.character(file.info(variable_map_path)$mtime), "\n"
     )
 
-# 2023-12-15: Variable Map imported with 979 rows and 19 columns.
+# 2024-01-08: Variable Map imported with 979 rows and 19 columns.
 # Variable Map data last modified on OneDrive 2023-12-13 13:26:57
 ```
 
@@ -196,7 +196,7 @@ vm_check(variable_map)
 We checked for changes to the source data set since this file was last modified.
 
 ```{r}
-# Inputs last modified: 2023-12-13
+# Inputs last modified: 2024-01-08
 
 data_stats <- retrieve_data_stats("variable_map_01_stats")
 
@@ -292,7 +292,7 @@ cat(
       as.character(file.info(master_log_path)$mtime), "\n"
     )
 
-# 2023-12-15: Master log imported with 442 rows and 35 columns.
+# 2024-01-08: Master log imported with 442 rows and 35 columns.
 # Master log last modified on OneDrive 2023-09-28 11:52:59
 ```
 
@@ -301,7 +301,7 @@ cat(
 We checked for changes to the source data set since this file was last modified.
 
 ```{r}
-# Inputs last modified: 2023-12-13
+# Inputs last modified: 2024-01-08
 
 data_mod_check(
   'df' = master_log,
@@ -357,7 +357,7 @@ cat(
       "Visit Window Data last modified on OneDrive", 
       as.character(file.info(visit_window_path)$mtime), "\n"
     )
-# 2023-12-15: Visit Window Data imported with 442 rows and 18 columns.
+# 2024-01-08: Visit Window Data imported with 442 rows and 18 columns.
 # Visit Window Data last modified on OneDrive 2023-12-13 13:01:02
 ```
 
@@ -366,7 +366,7 @@ cat(
 We checked for changes to the source data set since this file was last modified.
 
 ```{r}
-# Inputs last modified: 2023-12-13
+# Inputs last modified: 2024-01-08
 
 data_stats <- retrieve_data_stats("visit_window_stats")
 
@@ -427,7 +427,7 @@ cat(
       as.character(file.info(race_fixes_path)$mtime), "\n"
     )
 
-# 2023-12-15: Master log imported with 15 rows and 2 columns.
+# 2024-01-08: Master log imported with 15 rows and 2 columns.
 # Master log last modified on OneDrive 2023-12-14 16:09:58 
 ```
 
@@ -436,7 +436,7 @@ cat(
 We checked for changes to the source data set since this file was last modified.
 
 ```{r}
-# Inputs last modified: 2023-12-14
+# Inputs last modified: 2024-01-08
 
 data_mod_check(
   'df' = race_fixes,
@@ -539,24 +539,6 @@ We noted that the date of birth value stored in `ml_dob` was not properly stored
 ```{r}
 combined_data <- combined_data |>
   dplyr::mutate(ml_dob = as.Date(as.numeric(ml_dob), origin = "1899-12-30"))
-```
-
-We also created a calculated age, using this date of birth value against the visit date.
-
-```{r}
-variable_map <- vm_add_variable(
-  variable_map, "Screening Instrument", 'calc_age', 
-  prev_var = 'ml_age',
-  opts = tibble::tibble(
-    'attr_label' = "age in years, calculated from date of birth and visit date",
-    'calculated' = TRUE
-      )
-    )
-
-combined_data <- combined_data |>
-  dplyr::mutate(
-    calc_age = lubridate::interval(ml_dob, today) %/% lubridate::years(1)
-  )
 ```
 
 ## Treatment Quality and Satisfaction
@@ -900,10 +882,58 @@ combined_data <- dplyr::left_join(
   dplyr::select(-race)
 ```
 
-The master value for age was the calculated age, the master value for Hispanic origin was the subjective response in the screening instrument, and the gender variable was the subjective response (which had no deviation from the master log).
+We also created a calculated age, using this date of birth value against the visit date.
+
+```{r}
+variable_map <- vm_add_variable(
+  variable_map, "Screening Instrument", 'calc_age', 
+  prev_var = 'ml_age',
+  opts = tibble::tibble(
+    'attr_label' = "age in years, calculated from date of birth and visit date",
+    'calculated' = TRUE
+      )
+    )
+
+combined_data <- combined_data |>
+  dplyr::mutate(
+    calc_age = lubridate::interval(ml_dob, today) %/% lubridate::years(1)
+  )
+```
+
+We converted the field for gender into a factor.
 
 ```{r}
 combined_data <- combined_data |>
+  dplyr::mutate(
+    gender = factor(
+      gender, 
+      levels = c(0,1,2), 
+      labels = c('Male', 'Female', 'Other'))
+    )
+```
+
+
+The master value for age was the calculated age at randomization, the master value for Hispanic origin was the subjective response in the screening instrument, and the gender variable was the subjective response (which had no deviation from the master log).
+
+```{r}
+master_demographics <- dplyr::left_join( 
+    # Visit 1 Data
+    combined_data |>
+      dplyr::filter(visit == 1) |>
+      dplyr::select(where(~ any(!is.na(.)))) |>
+      dplyr::select(-today),
+    # Visit 2 Data
+    combined_data |>
+      dplyr::filter(visit == 2) |>
+      dplyr::select(where(~ any(!is.na(.)))) |>
+      dplyr::select(-any_of(
+        combined_data |>
+          dplyr::filter(visit == 1) |>
+          dplyr::select(where(~ any(!is.na(.)))) |>
+          dplyr::select(-c(subject, today)) |>
+          names()
+      )),
+    by = 'subject') |>
   dplyr::mutate(
     subj_age = calc_age,
     subj_hispanic = sq_2,
@@ -914,13 +944,19 @@ combined_data <- combined_data |>
       subj_hispanic == 1 ~ TRUE,
       subj_hispanic == 0 ~ FALSE
     )
-  )
+  ) |>
+  dplyr::group_by(subject) |>
+  tidyr::fill(subj_hispanic, .direction = 'downup') |>
+  tidyr::fill(subj_race, .direction = 'downup') |>
+  tidyr::fill(subj_gender, .direction = 'downup') |>
+  dplyr::ungroup() |>
+  dplyr::select(subject, subj_age, subj_hispanic, subj_gender, subj_race) 
 ```
 
 We calculated each subject's aggregate race and ethnicity similar to use in [NHANES](https://wwwn.cdc.gov/nchs/nhanes/search/variablelist.aspx?Component=Demographics).
 
 ```{r}
-combined_data <- combined_data |>
+master_demographics <- master_demographics |>
   dplyr::mutate(
     subj_race_ethn = dplyr::case_when(
       subj_hispanic == TRUE ~ 1,
@@ -940,7 +976,43 @@ combined_data <- combined_data |>
       subj_race == 'American Indian / Alaska Native' ~ 6,
       subj_race == 'Other' ~ 7
     )
+  ) |>
+  dplyr::mutate(
+    subj_race_ethn = factor(
+      subj_race_ethn,
+      levels = c(1,2,3,4),
+      labels = c(
+        'Hispanic (any race)',
+        'Non-Hispanic White',
+        'Non-Hispanic Black',
+        'Non-Hispanic, Other (including Multiracial)'
+        )
+      ),
+    subj_race = factor(
+      subj_race,
+      levels = c(1,2,3,4,5,6,7),
+      labels = c(
+        'More than one race/multi-racial',
+        'White', 'Black or African American',
+        'Asian (Cambodia, China, India, Japan, Korea, Malaysia, Pakistan, Vietnam)',
+        'Native Hawaiian or Other Pacific Islander (Guam, Samoa)',
+        'American Indian / Alaska Native', 'Other'
+        )
+      )
   )
+```
+
+We added these master demographic variables to our combined data set.
+
+```{r}
+combined_data <- dplyr::left_join( 
+  combined_data |>
+    dplyr::select(-subj_race),
+  master_demographics |> 
+    select(
+      subject, subj_gender, subj_race, subj_race_ethn, subj_hispanic, subj_age
+      ),
+  by = 'subject')
 ```
 
 We added these variables to our Variable Map.
@@ -984,7 +1056,7 @@ variable_map <- variable_map |>
       'Hispanic (any race)' = 1,
       'Non-Hispanic White' = 2,
       'Non-Hispanic Black' = 3,  
-      'Non-Hispanic, Other (including Multiracial' = 4
+      'Non-Hispanic, Other (including Multiracial)' = 4
       )),
     'calculated' = TRUE,
     'drop_consolidated' = FALSE
@@ -1004,12 +1076,18 @@ variable_map <- variable_map |>
     prev_var = 'subj_age', 
     opts = tibble::tibble(
     'attr_label' = "Master Variable: Subject Gender",
+    'attr_var_labels' = list(c(
+      'Male' = 0,
+      'Female' = 1,
+      'Other' = 2
+      )),
     'calculated' = TRUE,
     'drop_consolidated' = FALSE
     )
   )
 
 rm(race_fixes)
+rm(master_demographics)
 ```
 
 # Recreating Calculated Variables
@@ -3242,7 +3320,6 @@ variable_map <- variable_map |>
       )
     )
 ```
-
 
 # Ordering and Labeling Variables
 

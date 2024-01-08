@@ -8,6 +8,8 @@
 # 2023-12-13: Added all edit data to each set; Make function.
 # 2023-12-11: File initiated with DDT, Arrest, Bridge, TLFB, REDCap, QDS, 
 #             Visit Windows, and the Combined Data Set.
+# 2024-01-08: Update combined_data and variable_map 02 sets, from revised
+#             calculation of master demographic variables.
 
 
 # List of all available data column lists in this file
@@ -16,8 +18,8 @@
 # ---------------------------------------------------------------------------
 # visit_window_stats, ddt_orig_stats, ddt_pivot_stats, arrest_orig_stats,
 # arrest_proc_stats, bridge_orig_stats, bridge_proc_stats, tlfb_stats,
-# redcap_stats, qds_stats, combined_data_01_stats
-#
+# redcap_stats, qds_stats, combined_data_01_stats, combined_data_02_stats,
+# combined_data_03_stats, variable_map_01_stats, variable_map_02_stats
 
 retrieve_data_stats <- function(target_set){
   
@@ -1153,7 +1155,7 @@ retrieve_data_stats <- function(target_set){
   }
   
   if (target_set == 'combined_data_02_stats'){
-    # Step 4 Output: Initial Combined Data Set 2023-12-15
+    # Step 4 Output: Initial Combined Data Set 2024-01-08
     # --------------------------------------------------------------------------
     
     combined_data_02_stats <- list(
@@ -1163,7 +1165,7 @@ retrieve_data_stats <- function(target_set){
       sav_path = here::here(
         "data", "Combined Participant Data", "combined_data_02.sav"
       ),
-      mod_dt = '2023-12-15 16:57:14 CDT',
+      mod_dt = '2024-01-08 13:17:55 CDT',
       num_rows = 1606,
       num_cols = 1129,
       cols = c(
@@ -2034,14 +2036,14 @@ retrieve_data_stats <- function(target_set){
   }
   
   if (target_set == 'variable_map_02_stats'){
-    # Step 4 Output: Updated Variable Map 2023-12-15
+    # Step 4 Output: Updated Variable Map 2024-01-08
     # ------------------------------------------------------------------------
     
     variable_map_02_stats <- list(
       rds_path = here::here(
         "data", "Combined Participant Data", "variable_map_02.rds"
       ),
-      mod_dt = '2023-12-15 16:57:14 CDT',
+      mod_dt = '2024-01-08 13:17:55 CDT',
       num_rows = 1148,
       num_cols = 21,
       cols = c(
