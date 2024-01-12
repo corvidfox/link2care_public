@@ -1,0 +1,705 @@
+---
+title: "Demographics by Visit"
+date: "2024-01-11 <br> Updated: `r Sys.Date()`"
+format: pdf
+editor: 
+  markdown: 
+    wrap: sentence
+---
+
+# ⭐️Overview
+
+This file was used to analyse the breakdown of payment method assignment in each study arm, as well as the demographic breakdown of subjects that participated in each visit.
+
+## Notes
+
+Payment methods for remuneration payments changed during the course of the study. The number of subjects in each study arm that experienced each payment method were isolated for reporting.
+
+Many subjects missed one or more visits. The demographics of subjects attending each visit were isolated for analysis to assess for statistically significant differences.
+
+# 📦Load packages & Functions
+
+```{r, message=FALSE, warning=FALSE}
+library(dplyr, warn.conflicts = FALSE)
+library(purrr, warn.conflicts = FALSE)
+library(haven, warn.conflicts = FALSE)
+library(here, warn.conflicts = FALSE)
+library(stringr, warn.conflicts = FALSE)
+library(lubridate, warn.conflicts = FALSE)
+library(readxl, warn.conflicts = FALSE)
+library(openxlsx, warn.conflicts = FALSE)
+library(readr, warn.conflicts = FALSE)
+library(tidyverse, warn.conflicts = FALSE)
+library(meantables, warn.conflicts = FALSE)
+library(freqtables, warn.conflicts = FALSE)
+```
+
+```{r}
+source(here("R", "data_mod_check.R"))
+```
+
+# 📥 Import the Data
+
+## Combined Data Set
+
+We imported our Combined Data Set
+
+```{r}
+combined_data_path <- here::here(
+  "data", "Combined Participant Data", "combined_data_03.rds"
+  )
+```
+
+Import the data.
+Check the most recent file modification dates and print for user when this file is being sourced.
+
+```{r message=FALSE}
+combined_data <- readr::read_rds(combined_data_path)
+
+# Print a message for when this file is being sourced
+cat(
+  paste0(Sys.Date(), ":"),
+  "Combined data imported with", nrow(combined_data), "rows and", 
+  ncol(combined_data), "columns.\n"
+)
+
+# Check the most recent file modification dates and print for user when this
+# file is being sourced.
+
+cat(
+      "Combined data last modified on OneDrive", 
+      as.character(file.info(combined_data_path)$mtime), "\n"
+    )
+
+# 2024-01-12: Combined data imported with 1606 rows and 1130 columns.
+# Combined data last modified on OneDrive 2024-01-11 18:19:37 
+```
+
+We purged the import path for memory management.
+
+```{r}
+rm(combined_data_path)
+```
+
+# Convenience Function
+
+A simple convenience function was written to facilitate creation of summary statistic tables within this document.
+
+```{r}
+summary_stats <- function(t_df, visit_val, cont_cols, cat_cols){
+  
+  # Takes a dataframe, and lists of continuous and categorical columns.
+  # Returns basic summary statistics. Filters by visit value.
+  #
+  # Input:
+  #     t_df (dataframe):     target dataframe
+  #     visit_val (string):   string of the desired value of the 'visit' col
+  #     cont_cols (list):     list of continuous variable columns
+  #                             gives count, mean and SD
+  #     cat_cols (list):      list of categorical variable columns
+  #                             gives count, percentage, SE
+  # Output:
+  #     stat_rows (tibble):   tibble containing the variable, category, and
+  #                             summary statistics of the given combination of
+  #                             column (and category, if applicable) for the
+  #                             visit value in t_df.
+  #                             [var, cat, n, statistic, error]
+
+  # Continuous Variable Statistics (Count, Mean, SD)
+  # ==========================================================================
+  # Uses meantables package
+  
+  # Initiate empty tibble
+  # --------------------------------------------------------------------------
+  cont_stats <- tibble::tibble(
+    !!!c('response_var', 'n', 'mean', 'sd'),
+    .rows = 0, 
+    .name_repair = ~c('response_var', 'n', 'mean', 'sd')
+    ) |>
+    dplyr::mutate(
+      n = as.numeric(n),
+      mean = as.numeric(mean),
+      sd = as.numeric(sd)
+    )
+  
+  # Iterate through target columns to obtain desired statistics
+  # --------------------------------------------------------------------------
+  for (cont_var in cont_cols) {
+    col_stats <- t_df |>
+      dplyr::filter(visit == visit_val) |>
+      meantables::mean_table(!!rlang::sym(cont_var)) |>
+      dplyr::select(response_var, n, mean, sd)
+    
+    cont_stats <- dplyr::bind_rows(cont_stats, col_stats)
+  }
+  
+  # Add empty "category" column and standardize column names to facilitate 
+  # merge with categorical variable stat rows
+  # --------------------------------------------------------------------------
+  cont_stats <- cont_stats |>
+    dplyr::mutate(
+      cat = NA
+    ) |>
+    dplyr::rename_at(
+      c('response_var', 'mean', 'sd'),
+      ~c('var', 'statistic', 'error')
+    ) |>
+    dplyr::relocate('var', 'cat', 'n', 'statistic', 'error')
+  
+  # Categorical Variable Statistics (Count, Percent, SE)
+  # ==========================================================================
+  # Uses freqtables package
+  
+  # Initiate empty tibble
+  # --------------------------------------------------------------------------
+  cat_stats <- tibble::tibble(
+    !!!c('var', 'cat', 'n', 'percent', 'se'),
+    .rows = 0, 
+    .name_repair = ~c('var', 'cat', 'n', 'percent', 'se')
+    ) |>
+    dplyr::mutate(
+      n = as.numeric(n),
+      percent = as.numeric(percent),
+      se = as.numeric(se)
+    )
+  
+  # Iterate through target columns to obtain desired statistics
+  # --------------------------------------------------------------------------
+  for (cat_var in cat_cols) {
+    col_stats <- t_df |>
+      dplyr::filter(visit == visit_val) |>
+      freqtables::freq_table(!!rlang::sym(cat_var)) |>
+      dplyr::select(var, cat, n, percent, se)
+    
+    cat_stats <- dplyr::bind_rows(cat_stats, col_stats)
+  }
+  
+  # Standardize column names to facilitate merge with continuous variable 
+  # stat rows
+  # --------------------------------------------------------------------------
+  cat_stats <- cat_stats |>
+    dplyr::rename_at(
+      c('percent', 'se'),
+      ~c('statistic', 'error')
+    )
+  
+  # Combine and Return Stats
+  # ==========================================================================
+  stat_rows <- dplyr::bind_rows(cont_stats, cat_stats)
+  
+  stat_rows
+}
+```
+
+# Modifications
+
+We modified race to only include 3 categories: White, Black, and Other.
+
+```{r}
+combined_data <- combined_data |>
+  dplyr::mutate(
+    subj_race_3cat = dplyr::case_when(
+      !(subj_race %in% c("White", "Black or African American")) ~ "Other",
+      TRUE ~ subj_race
+    )
+  ) |>
+  dplyr::mutate(subj_race_3cat = factor(subj_race_3cat))
+```
+
+We modified the visit column to properly reflect the ordinal nature of the variable.
+
+```{r}
+combined_data$visit <- ordered(combined_data$visit)
+```
+
+
+# Identification of Variable Types
+
+We identified our continuous and categorical variables of interest.
+
+```{r}
+cat_cols <- c(
+  'subj_gender', 'subj_race_3cat', 'subj_hispanic', 'subj_race_ethn', 'group'
+  )
+cont_cols <- c('subj_age')
+```
+
+# Payment Structure Counts
+
+We created a temporary version of our combined data set to examine enrollment in each payment structure. This involved isolation of our target variables (group, payment_structure, visit, id), consolidation of group into 'UCM' and 'Smartphone' groups, and consolidation of all 'UCM' subjects into the 'original' payment structure.
+
+```{r}
+payment_data <- combined_data |>
+  dplyr::select(group, payment_structure, id, visit) |>
+  dplyr::mutate(
+    payment_structure = dplyr::case_when(
+      group == "Usual Case Management (UCM)" ~ 'Original',
+      TRUE ~ payment_structure
+    ),
+    group = dplyr::case_when(
+      group != 'Usual Case Management (UCM)' ~ 'Smartphone',
+      TRUE ~ group
+    )
+  )
+```
+
+We examined the counts for each visit:
+
+```{r}
+table(payment_data |>
+  dplyr::filter(visit == "Visit 1: Baseline") |>
+  dplyr::select(group, payment_structure))
+```
+
+```{r}
+table(payment_data |>
+  dplyr::filter(visit == "Visit 2: Randomization") |>
+  dplyr::select(group, payment_structure))
+```
+
+```{r}
+table(payment_data |>
+  dplyr::filter(visit == "Visit 3: 1 Month Follow-Up") |>
+  dplyr::select(group, payment_structure))
+```
+
+```{r}
+table(payment_data |>
+  dplyr::filter(visit == "Visit 4: 3 Month Follow-Up") |>
+  dplyr::select(group, payment_structure))
+```
+
+```{r}
+table(payment_data |>
+  dplyr::filter(visit == "Visit 5: 6 Month Follow-Up") |>
+  dplyr::select(group, payment_structure))
+```
+
+We also examined the 'ever' counts for each payment method, examining both the UCM and Smartphone groups.
+
+```{r}
+#UCM
+length(unique(pull(combined_data |> filter(group == 'Usual Case Management (UCM)') |>
+                     select(id))))
+#137
+```
+
+```{r}
+# Smartphone, Original
+length(unique(pull(payment_data |> filter(group != 'Usual Case Management (UCM)') |> filter(payment_structure == 'Original') |> select(id))))
+# 47
+```
+
+```{r}
+# Smartphone, 1st Modification
+length(unique(pull(payment_data |> filter(group != 'Usual Case Management (UCM)') |> filter(payment_structure == '1st Modification') |> select(id))))
+# 50
+```
+
+```{r}
+# Smartphone, 2nd Modification
+length(unique(pull(payment_data |> filter(group != 'Usual Case Management (UCM)') |> filter(payment_structure == '2nd Modification') |> select(id))))
+# 200
+```
+
+```{r}
+rm(payment_data)
+```
+
+
+# Demographic Summary Tables
+
+## Total (All Groups)
+
+### Baseline
+
+We examined the characteristics of all subjects, at baseline. This included non-randomized or otherwise excluded subjects, for a total of 442 subjects
+
+```{r}
+nrow(combined_data |> 
+       filter(visit == 'Visit 1: Baseline'))
+# 442
+```
+
+```{r}
+summary_stats(
+  combined_data, visit_val = "Visit 1: Baseline", cont_cols, cat_cols
+  )
+```
+
+### Visit 2, Included Only
+
+We examined the characteristics of randomized subjects at Visit 2. This included a total of 403 subjects.
+
+```{r}
+nrow(combined_data |> 
+       dplyr::filter(!drop_flag) |>
+       dplyr::filter(visit == 'Visit 2: Randomization')
+     )
+# 403
+```
+
+```{r}
+summary_stats(
+  combined_data |> 
+       dplyr::filter(!drop_flag), 
+  visit_val = "Visit 2: Randomization", 
+  cont_cols, cat_cols
+  )
+```
+
+
+### Visit 3, Included Only
+
+We examined the characteristics of randomized subjects at Visit 3. This included a total of 300 subjects.
+
+```{r}
+nrow(combined_data |> 
+       dplyr::filter(!drop_flag) |>
+       dplyr::filter(visit == 'Visit 3: 1 Month Follow-Up')
+     )
+# 300
+```
+
+```{r}
+summary_stats(
+  combined_data |> 
+       dplyr::filter(!drop_flag), 
+  visit_val = 'Visit 3: 1 Month Follow-Up', 
+  cont_cols, cat_cols
+  )
+```
+
+### Visit 4, Included Only
+
+We examined the characteristics of randomized subjects at Visit 4. This included a total of 236 subjects.
+
+```{r}
+nrow(combined_data |> 
+       dplyr::filter(!drop_flag) |>
+       dplyr::filter(visit == 'Visit 4: 3 Month Follow-Up')
+     )
+# 236
+```
+
+```{r}
+summary_stats(
+  combined_data |> 
+       dplyr::filter(!drop_flag), 
+  visit_val = 'Visit 4: 3 Month Follow-Up', 
+  cont_cols, cat_cols
+  )
+```
+
+### Visit 5, Included Only
+
+We examined the characteristics of randomized subjects at Visit 5. This included a total of 217 subjects.
+
+```{r}
+nrow(combined_data |> 
+       dplyr::filter(!drop_flag) |>
+       dplyr::filter(visit == 'Visit 5: 6 Month Follow-Up')
+     )
+# 217
+```
+
+```{r}
+summary_stats(
+  combined_data |> 
+       dplyr::filter(!drop_flag), 
+  visit_val = 'Visit 5: 6 Month Follow-Up', 
+  cont_cols, cat_cols
+  )
+```
+
+## UCM Group
+
+### Visit 2, Included Only
+
+We examined the characteristics of subjects randomized to the UCM group at Visit 2. This included a total of 136 subjects.
+
+```{r}
+nrow(combined_data |> 
+       dplyr::filter(!drop_flag) |>
+       dplyr::filter(group == "Usual Case Management (UCM)") |>
+       dplyr::filter(visit == 'Visit 2: Randomization')
+     )
+# 136
+```
+
+```{r}
+summary_stats(
+  combined_data |> 
+       dplyr::filter(!drop_flag) |>
+       dplyr::filter(group == "Usual Case Management (UCM)"), 
+  visit_val = "Visit 2: Randomization", 
+  cont_cols, cat_cols
+  )
+```
+
+
+### Visit 3, Included Only
+
+We examined the characteristics of subjects randomized to the UCM group at Visit 3. This included a total of 98 subjects.
+
+```{r}
+nrow(combined_data |> 
+       dplyr::filter(group == "Usual Case Management (UCM)") |>
+       dplyr::filter(visit == 'Visit 3: 1 Month Follow-Up')
+     )
+# 98
+```
+
+```{r}
+summary_stats(
+  combined_data |> 
+       dplyr::filter(!drop_flag) |>
+       dplyr::filter(group == "Usual Case Management (UCM)"), 
+  visit_val = 'Visit 3: 1 Month Follow-Up', 
+  cont_cols, cat_cols
+  )
+```
+
+### Visit 4, Included Only
+
+We examined the characteristics of subjects randomized to the UCM group at Visit 4. This included a total of 71 subjects.
+
+```{r}
+nrow(combined_data |> 
+       dplyr::filter(group == "Usual Case Management (UCM)") |>
+       dplyr::filter(visit == 'Visit 4: 3 Month Follow-Up')
+     )
+# 71
+```
+
+```{r}
+summary_stats(
+  combined_data |> 
+       dplyr::filter(!drop_flag) |>
+       dplyr::filter(group == "Usual Case Management (UCM)"),
+  visit_val = 'Visit 4: 3 Month Follow-Up', 
+  cont_cols, cat_cols
+  )
+```
+
+### Visit 5, Included Only
+
+We examined the characteristics of subjects randomized to the UCM group at Visit 5. This included a total of 64 subjects.
+
+```{r}
+nrow(combined_data |> 
+       dplyr::filter(group == "Usual Case Management (UCM)") |>
+       dplyr::filter(visit == 'Visit 5: 6 Month Follow-Up')
+     )
+# 64
+```
+
+```{r}
+summary_stats(
+  combined_data |> 
+       dplyr::filter(!drop_flag) |>
+       dplyr::filter(group == "Usual Case Management (UCM)"),
+  visit_val = 'Visit 5: 6 Month Follow-Up', 
+  cont_cols, cat_cols
+  )
+```
+
+## UCM+SP Group
+
+### Visit 2, Included Only
+
+We examined the characteristics of subjects randomized to the UCM+SP group at Visit 2. This included a total of 136 subjects.
+
+```{r}
+nrow(combined_data |> 
+       dplyr::filter(!drop_flag) |>
+       dplyr::filter(group == "Usual Care plus Smartphone (UCM+SP)") |>
+       dplyr::filter(visit == 'Visit 2: Randomization')
+     )
+# 134
+```
+
+```{r}
+summary_stats(
+  combined_data |> 
+       dplyr::filter(!drop_flag) |>
+       dplyr::filter(group == "Usual Care plus Smartphone (UCM+SP)"), 
+  visit_val = "Visit 2: Randomization", 
+  cont_cols, cat_cols
+  )
+```
+
+
+### Visit 3, Included Only
+
+We examined the characteristics of subjects randomized to the UCM+SP group at Visit 3. This included a total of 107 subjects.
+
+```{r}
+nrow(combined_data |> 
+       dplyr::filter(group == "Usual Care plus Smartphone (UCM+SP)") |>
+       dplyr::filter(visit == 'Visit 3: 1 Month Follow-Up')
+     )
+# 107
+```
+
+```{r}
+summary_stats(
+  combined_data |> 
+       dplyr::filter(!drop_flag) |>
+       dplyr::filter(group == "Usual Care plus Smartphone (UCM+SP)"), 
+  visit_val = 'Visit 3: 1 Month Follow-Up', 
+  cont_cols, cat_cols
+  )
+```
+
+### Visit 4, Included Only
+
+We examined the characteristics of subjects randomized to the UCM+SP group at Visit 4. This included a total of 84 subjects.
+
+```{r}
+nrow(combined_data |> 
+       dplyr::filter(group == "Usual Care plus Smartphone (UCM+SP)") |>
+       dplyr::filter(visit == 'Visit 4: 3 Month Follow-Up')
+     )
+# 84
+```
+
+```{r}
+summary_stats(
+  combined_data |> 
+       dplyr::filter(!drop_flag) |>
+       dplyr::filter(group == "Usual Care plus Smartphone (UCM+SP)"),
+  visit_val = 'Visit 4: 3 Month Follow-Up', 
+  cont_cols, cat_cols
+  )
+```
+
+### Visit 5, Included Only
+
+We examined the characteristics of subjects randomized to the UCM+SP group at Visit 5. This included a total of 73 subjects.
+
+```{r}
+nrow(combined_data |> 
+       dplyr::filter(group == "Usual Care plus Smartphone (UCM+SP)") |>
+       dplyr::filter(visit == 'Visit 5: 6 Month Follow-Up')
+     )
+# 73
+```
+
+```{r}
+summary_stats(
+  combined_data |> 
+       dplyr::filter(!drop_flag) |>
+       dplyr::filter(group == "Usual Care plus Smartphone (UCM+SP)"),
+  visit_val = 'Visit 5: 6 Month Follow-Up', 
+  cont_cols, cat_cols
+  )
+```
+
+## SPCM
+
+### Visit 2, Included Only
+
+We examined the characteristics of subjects randomized to the SPCM group at Visit 2. This included a total of 133 subjects.
+
+```{r}
+nrow(combined_data |> 
+       dplyr::filter(!drop_flag) |>
+       dplyr::filter(
+         group == "Usual Care plus Smartphone based Case Management (SPCM)") |>
+       dplyr::filter(visit == 'Visit 2: Randomization')
+     )
+# 133
+```
+
+```{r}
+summary_stats(
+  combined_data |> 
+       dplyr::filter(!drop_flag) |>
+       dplyr::filter(
+         group == "Usual Care plus Smartphone based Case Management (SPCM)"), 
+  visit_val = "Visit 2: Randomization", 
+  cont_cols, cat_cols
+  )
+```
+
+
+### Visit 3, Included Only
+
+We examined the characteristics of subjects randomized to the SPCM group at Visit 3. This included a total of 97 subjects.
+
+```{r}
+nrow(combined_data |> 
+       dplyr::filter(!drop_flag) |>
+       dplyr::filter(
+         group == "Usual Care plus Smartphone based Case Management (SPCM)") |>
+       dplyr::filter(visit == 'Visit 3: 1 Month Follow-Up')
+     )
+# 97
+```
+
+```{r}
+summary_stats(
+  combined_data |> 
+       dplyr::filter(!drop_flag) |>
+       dplyr::filter(
+         group == "Usual Care plus Smartphone based Case Management (SPCM)"),
+  visit_val = 'Visit 3: 1 Month Follow-Up', 
+  cont_cols, cat_cols
+  )
+```
+
+### Visit 4, Included Only
+
+We examined the characteristics of subjects randomized to the SPCM group at Visit 4. This included a total of 82 subjects.
+
+```{r}
+nrow(combined_data |> 
+       dplyr::filter(!drop_flag) |>
+       dplyr::filter(
+         group == "Usual Care plus Smartphone based Case Management (SPCM)") |>
+       dplyr::filter(visit == 'Visit 4: 3 Month Follow-Up')
+     )
+# 82
+```
+
+```{r}
+summary_stats(
+  combined_data |> 
+       dplyr::filter(!drop_flag) |>
+       dplyr::filter(
+         group == "Usual Care plus Smartphone based Case Management (SPCM)"), 
+  visit_val = 'Visit 4: 3 Month Follow-Up', 
+  cont_cols, cat_cols
+  )
+```
+
+### Visit 5, Included Only
+
+We examined the characteristics of subjects randomized to the SPCM group at Visit 5. This included a total of 81 subjects.
+
+```{r}
+nrow(combined_data |> 
+       dplyr::filter(!drop_flag) |>
+       dplyr::filter(
+         group == "Usual Care plus Smartphone based Case Management (SPCM)") |>
+       dplyr::filter(visit == 'Visit 5: 6 Month Follow-Up')
+     )
+# 81
+```
+
+```{r}
+summary_stats(
+  combined_data |> 
+       dplyr::filter(!drop_flag) |>
+       dplyr::filter(
+         group == "Usual Care plus Smartphone based Case Management (SPCM)"),
+  visit_val = 'Visit 5: 6 Month Follow-Up', 
+  cont_cols, cat_cols
+  )
+```
+
+# Analyses
+
+Pending
+
