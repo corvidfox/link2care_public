@@ -118,7 +118,7 @@ cat(
       as.character(file.info(combined_data_path)$mtime), "\n"
     )
 
-# 2024-01-08: Combined data imported with 1606 rows and 1020 columns.
+# 2024-01-11: Combined data imported with 1606 rows and 1020 columns.
 # Combined data last modified on OneDrive 2023-12-13 13:39:20
 ```
 
@@ -180,7 +180,7 @@ cat(
       as.character(file.info(variable_map_path)$mtime), "\n"
     )
 
-# 2024-01-08: Variable Map imported with 979 rows and 19 columns.
+# 2024-01-11: Variable Map imported with 979 rows and 19 columns.
 # Variable Map data last modified on OneDrive 2023-12-13 13:26:57
 ```
 
@@ -292,7 +292,7 @@ cat(
       as.character(file.info(master_log_path)$mtime), "\n"
     )
 
-# 2024-01-08: Master log imported with 442 rows and 35 columns.
+# 2024-01-11: Master log imported with 442 rows and 35 columns.
 # Master log last modified on OneDrive 2023-09-28 11:52:59
 ```
 
@@ -357,7 +357,7 @@ cat(
       "Visit Window Data last modified on OneDrive", 
       as.character(file.info(visit_window_path)$mtime), "\n"
     )
-# 2024-01-08: Visit Window Data imported with 442 rows and 18 columns.
+# 2024-01-11: Visit Window Data imported with 442 rows and 18 columns.
 # Visit Window Data last modified on OneDrive 2023-12-13 13:01:02
 ```
 
@@ -427,7 +427,7 @@ cat(
       as.character(file.info(race_fixes_path)$mtime), "\n"
     )
 
-# 2024-01-08: Master log imported with 15 rows and 2 columns.
+# 2024-01-11: Master log imported with 15 rows and 2 columns.
 # Master log last modified on OneDrive 2023-12-14 16:09:58 
 ```
 
@@ -900,19 +900,6 @@ combined_data <- combined_data |>
   )
 ```
 
-We converted the field for gender into a factor.
-
-```{r}
-combined_data <- combined_data |>
-  dplyr::mutate(
-    gender = factor(
-      gender, 
-      levels = c(0,1,2), 
-      labels = c('Male', 'Female', 'Other'))
-    )
-```
-
-
 The master value for age was the calculated age at randomization, the master value for Hispanic origin was the subjective response in the screening instrument, and the gender variable was the subjective response (which had no deviation from the master log).
 
 ```{r}
@@ -976,30 +963,7 @@ master_demographics <- master_demographics |>
       subj_race == 'American Indian / Alaska Native' ~ 6,
       subj_race == 'Other' ~ 7
     )
-  ) |>
-  dplyr::mutate(
-    subj_race_ethn = factor(
-      subj_race_ethn,
-      levels = c(1,2,3,4),
-      labels = c(
-        'Hispanic (any race)',
-        'Non-Hispanic White',
-        'Non-Hispanic Black',
-        'Non-Hispanic, Other (including Multiracial)'
-        )
-      ),
-    subj_race = factor(
-      subj_race,
-      levels = c(1,2,3,4,5,6,7),
-      labels = c(
-        'More than one race/multi-racial',
-        'White', 'Black or African American',
-        'Asian (Cambodia, China, India, Japan, Korea, Malaysia, Pakistan, Vietnam)',
-        'Native Hawaiian or Other Pacific Islander (Guam, Samoa)',
-        'American Indian / Alaska Native', 'Other'
-        )
-      )
-  )
+  ) 
 ```
 
 We added these master demographic variables to our combined data set.
@@ -1088,6 +1052,41 @@ variable_map <- variable_map |>
 
 rm(race_fixes)
 rm(master_demographics)
+```
+
+# Payment Structure
+
+Subjects signed informed consent documents, which reflected remuneration payment structures, at each study visit.
+
+There were two changes made to the payment structure of the project. The first modification was initiated with subject 2074, with subjects 2001-2073 entirely within the original payment structure. The second modification was implemented 2019-06-27; 2154 was enrolled in this structure at baseline, and 2153 was enrolled with randomization. Subject 2120 was the first subject to be enrolled in the second modification at their next visit. Subjects were then enrolled in the second modification on a rolling basis.
+
+We added a variable indicating which payment structure the subject visit was under, and added it to our variable map.
+
+```{r}
+combined_data <- combined_data |>
+  dplyr::mutate(
+    payment_structure = dplyr::case_when(
+      subject < 2074 ~ 1,
+      subject > 2074 & today >= lubridate::date('2019-06-27')  ~ 3,
+      TRUE ~ 2
+    )
+  )
+
+variable_map <- variable_map |>
+  vm_add_variable(
+    'Administrative', 'payment_structure', 
+    prev_var = 'visit', 
+    opts = tibble::tibble(
+    'attr_label' = "Payment Structure",
+    'attr_var_labels' = list(c(
+      'Original' = 1,
+      '1st Modification' = 2,
+      '2nd Modification' = 3
+      )),
+    'calculated' = TRUE,
+    'drop_consolidated' = FALSE
+    )
+  )
 ```
 
 # Recreating Calculated Variables

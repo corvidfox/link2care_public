@@ -10,6 +10,11 @@
 #             Visit Windows, and the Combined Data Set.
 # 2024-01-08: Update combined_data and variable_map 02 sets, from revised
 #             calculation of master demographic variables.
+# 2024-01-10: Update combined_data and variable_map 02 sets, to avoid losing
+#             factor variable data
+# 2024-01-11: Update combined_data and variable_map 02 sets, to add the
+#             payment scheme variable
+#
 
 
 # List of all available data column lists in this file
@@ -1155,7 +1160,7 @@ retrieve_data_stats <- function(target_set){
   }
   
   if (target_set == 'combined_data_02_stats'){
-    # Step 4 Output: Initial Combined Data Set 2024-01-08
+    # Step 4 Output: Initial Combined Data Set 2024-01-11
     # --------------------------------------------------------------------------
     
     combined_data_02_stats <- list(
@@ -1165,13 +1170,13 @@ retrieve_data_stats <- function(target_set){
       sav_path = here::here(
         "data", "Combined Participant Data", "combined_data_02.sav"
       ),
-      mod_dt = '2024-01-08 13:17:55 CDT',
+      mod_dt = '2024-01-11 18:07:29 CDT',
       num_rows = 1606,
-      num_cols = 1129,
+      num_cols = 1130,
       cols = c(
         'subject', 'group', 'visit', 'visit_type', 'drop_flag',
         'today', 'protocol_dt', 'attn_days_from_protocol',
-        'visit_flag', 'visit_flag_type',
+        'visit_flag', 'visit_flag_type', 'payment_structure',
         'days_since_randomization', 'ii', 'name_first',
         'name_middle', 'name_last', 'care_manager', 'ctime',
         'endtime', 'time_to_complete', 'maca_mdd_timestamp',
@@ -1447,11 +1452,11 @@ retrieve_data_stats <- function(target_set){
       ),
       mod_dt = '2023-12-15 16:57:14 CDT',
       num_rows = 1606,
-      num_cols = 1129,
+      num_cols = 1130,
       cols = c(
         'id', 'group', 'visit', 'visit_type',
         'drop_flag', 'visit_date', 'protocol_dt',
-        'attn_days_from_protocol', 'visit_flag',
+        'attn_days_from_protocol', 'visit_flag', 'payment_structure',
         'visit_flag_type', 'days_since_randomization',
         'interviewer', 'subj_name_first', 'subj_name_middle',
         'subj_name_last', 'care_manager', 'time_start', 'time_end',
@@ -2036,15 +2041,15 @@ retrieve_data_stats <- function(target_set){
   }
   
   if (target_set == 'variable_map_02_stats'){
-    # Step 4 Output: Updated Variable Map 2024-01-08
+    # Step 4 Output: Updated Variable Map 2024-01-11
     # ------------------------------------------------------------------------
     
     variable_map_02_stats <- list(
       rds_path = here::here(
         "data", "Combined Participant Data", "variable_map_02.rds"
       ),
-      mod_dt = '2024-01-08 13:17:55 CDT',
-      num_rows = 1148,
+      mod_dt = '2024-01-11 18:07:29 CDT',
+      num_rows = 1149,
       num_cols = 21,
       cols = c(
         'variable', 'section', 'sec_ord', 'instrument', 'inst_ord', 
