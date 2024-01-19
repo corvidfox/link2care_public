@@ -71,7 +71,7 @@ cat(
       as.character(file.info(combined_data_path)$mtime), "\n"
     )
 
-# 2024-01-12: Combined data imported with 1606 rows and 1130 columns.
+# 2024-01-17: Combined data imported with 1606 rows and 1130 columns.
 # Combined data last modified on OneDrive 2024-01-11 18:19:37 
 ```
 
@@ -126,7 +126,7 @@ summary_stats <- function(t_df, visit_val, cont_cols, cat_cols){
   # --------------------------------------------------------------------------
   for (cont_var in cont_cols) {
     col_stats <- t_df |>
-      dplyr::filter(visit == visit_val) |>
+      dplyr::filter(!!rlang::sym(visit_val)) |>
       meantables::mean_table(!!rlang::sym(cont_var)) |>
       dplyr::select(response_var, n, mean, sd)
     
@@ -167,7 +167,7 @@ summary_stats <- function(t_df, visit_val, cont_cols, cat_cols){
   # --------------------------------------------------------------------------
   for (cat_var in cat_cols) {
     col_stats <- t_df |>
-      dplyr::filter(visit == visit_val) |>
+      dplyr::filter(!!rlang::sym(visit_val)) |>
       freqtables::freq_table(!!rlang::sym(cat_var)) |>
       dplyr::select(var, cat, n, percent, se)
     
@@ -193,38 +193,7 @@ summary_stats <- function(t_df, visit_val, cont_cols, cat_cols){
 
 # Modifications
 
-We modified race to only include 3 categories: White, Black, and Other.
-
-```{r}
-combined_data <- combined_data |>
-  dplyr::mutate(
-    subj_race_3cat = dplyr::case_when(
-      !(subj_race %in% c("White", "Black or African American")) ~ "Other",
-      TRUE ~ subj_race
-    )
-  ) |>
-  dplyr::mutate(subj_race_3cat = factor(subj_race_3cat))
-```
-
-We modified the visit column to properly reflect the ordinal nature of the variable.
-
-```{r}
-combined_data$visit <- ordered(combined_data$visit)
-```
-
-
-# Identification of Variable Types
-
-We identified our continuous and categorical variables of interest.
-
-```{r}
-cat_cols <- c(
-  'subj_gender', 'subj_race_3cat', 'subj_hispanic', 'subj_race_ethn', 'group'
-  )
-cont_cols <- c('subj_age')
-```
-
-# Payment Structure Counts
+## Creation of Payment Structure Subset
 
 We created a temporary version of our combined data set to examine enrollment in each payment structure. This involved isolation of our target variables (group, payment_structure, visit, id), consolidation of group into 'UCM' and 'Smartphone' groups, and consolidation of all 'UCM' subjects into the 'original' payment structure.
 
@@ -242,6 +211,72 @@ payment_data <- combined_data |>
     )
   )
 ```
+
+## Isolation of Desired Variables
+
+We isolated only the desired variables from our data set.
+
+```{r}
+combined_data <- combined_data |>
+  dplyr::select(
+    id, group, visit, subj_gender, subj_race_ethn, subj_race, subj_hispanic,
+    subj_age, drop_flag
+    )
+```
+
+## Modification of Visit (Pivot to Wide, Binary 'Full Attendance' Variable)
+
+We modified our data set to pivot our data from long format (subject-visit) to wide format (subject), wherein attendance at each visit was indicated with a binary 'TRUE'/'FALSE' logical. We further calculated a binary outcome variable indicating if a subject did or did not attended all study visits.
+
+```{r}
+combined_data <- combined_data |>
+  dplyr::mutate(
+    'TRUE' = TRUE
+    ) |>
+  tidyr::pivot_wider(
+    names_from = visit, values_from = 'TRUE', values_fill = FALSE
+    ) |>
+  dplyr::rename_at(
+    c(
+      'Visit 1: Baseline', 'Visit 2: Randomization', 
+      'Visit 3: 1 Month Follow-Up', 'Visit 4: 3 Month Follow-Up',
+      'Visit 5: 6 Month Follow-Up'
+      ),
+    ~c('v1', 'v2', 'v3', 'v4', 'v5')
+    ) |>
+  dplyr::mutate(
+    full_attendance = if_else(v1 & v2 & v3 & v4 & v5, TRUE, FALSE)
+    ) |>
+  dplyr::relocate(id, v1, v2, v3, v4, v5, full_attendance)
+```
+
+## Reduction of Race Categories (3 Categories)
+
+We modified race to only include 3 categories: White, Black, and Other.
+
+```{r}
+combined_data <- combined_data |>
+  dplyr::mutate(
+    subj_race_3cat = dplyr::case_when(
+      !(subj_race %in% c("White", "Black or African American")) ~ "Other",
+      TRUE ~ subj_race
+    )
+  ) |>
+  dplyr::mutate(subj_race_3cat = factor(subj_race_3cat))
+```
+
+# Identification of Variable Types
+
+We identified our continuous and categorical variables of interest.
+
+```{r}
+cat_cols <- c(
+  'subj_gender', 'subj_race_3cat', 'subj_hispanic', 'subj_race_ethn', 'group'
+  )
+cont_cols <- c('subj_age')
+```
+
+# Payment Structure Counts
 
 We examined the counts for each visit:
 
@@ -279,26 +314,44 @@ We also examined the 'ever' counts for each payment method, examining both the U
 
 ```{r}
 #UCM
-length(unique(pull(combined_data |> filter(group == 'Usual Case Management (UCM)') |>
-                     select(id))))
+length(unique(pull(
+  combined_data |> 
+    filter(group == 'Usual Case Management (UCM)') |>
+    select(id)
+  )))
 #137
 ```
 
 ```{r}
 # Smartphone, Original
-length(unique(pull(payment_data |> filter(group != 'Usual Case Management (UCM)') |> filter(payment_structure == 'Original') |> select(id))))
+length(unique(pull(
+  payment_data |> 
+    filter(group != 'Usual Case Management (UCM)') |> 
+    filter(payment_structure == 'Original') |> 
+    select(id)
+  )))
 # 47
 ```
 
 ```{r}
 # Smartphone, 1st Modification
-length(unique(pull(payment_data |> filter(group != 'Usual Case Management (UCM)') |> filter(payment_structure == '1st Modification') |> select(id))))
+length(unique(pull(
+  payment_data |> 
+    filter(group != 'Usual Case Management (UCM)') |> 
+    filter(payment_structure == '1st Modification') |> 
+    select(id)
+  )))
 # 50
 ```
 
 ```{r}
 # Smartphone, 2nd Modification
-length(unique(pull(payment_data |> filter(group != 'Usual Case Management (UCM)') |> filter(payment_structure == '2nd Modification') |> select(id))))
+length(unique(pull(
+  payment_data |> 
+    filter(group != 'Usual Case Management (UCM)') |> 
+    filter(payment_structure == '2nd Modification') |> 
+    select(id)
+  )))
 # 200
 ```
 
@@ -313,17 +366,30 @@ rm(payment_data)
 
 ### Baseline
 
+Subjects were further filtered to exclude any subjects that were marked for exclusion for any reason other than failure to attend the randomization visit.
+
+```{r}
+combined_data <- combined_data |>
+  dplyr::filter((drop_flag & is.na(group)) | (!is.na(group) & !drop_flag))
+```
+
+
 We examined the characteristics of all subjects, at baseline. This included non-randomized or otherwise excluded subjects, for a total of 442 subjects
 
 ```{r}
-nrow(combined_data |> 
-       filter(visit == 'Visit 1: Baseline'))
+nrow(
+  combined_data |> 
+    dplyr::filter(v1) |>
+    dplyr::filter((drop_flag & is.na(group)) | (!is.na(group) & !drop_flag))
+     )
 # 442
 ```
 
 ```{r}
 summary_stats(
-  combined_data, visit_val = "Visit 1: Baseline", cont_cols, cat_cols
+  combined_data |> 
+    dplyr::filter((drop_flag & is.na(group)) | (!is.na(group) & !drop_flag)), 
+  visit_val = 'v1', cont_cols, cat_cols
   )
 ```
 
@@ -334,7 +400,7 @@ We examined the characteristics of randomized subjects at Visit 2. This included
 ```{r}
 nrow(combined_data |> 
        dplyr::filter(!drop_flag) |>
-       dplyr::filter(visit == 'Visit 2: Randomization')
+       dplyr::filter(v2)
      )
 # 403
 ```
@@ -343,7 +409,7 @@ nrow(combined_data |>
 summary_stats(
   combined_data |> 
        dplyr::filter(!drop_flag), 
-  visit_val = "Visit 2: Randomization", 
+  visit_val = "v2", 
   cont_cols, cat_cols
   )
 ```
@@ -356,7 +422,7 @@ We examined the characteristics of randomized subjects at Visit 3. This included
 ```{r}
 nrow(combined_data |> 
        dplyr::filter(!drop_flag) |>
-       dplyr::filter(visit == 'Visit 3: 1 Month Follow-Up')
+       dplyr::filter(v3)
      )
 # 300
 ```
@@ -365,7 +431,7 @@ nrow(combined_data |>
 summary_stats(
   combined_data |> 
        dplyr::filter(!drop_flag), 
-  visit_val = 'Visit 3: 1 Month Follow-Up', 
+  visit_val = 'v3', 
   cont_cols, cat_cols
   )
 ```
@@ -377,7 +443,7 @@ We examined the characteristics of randomized subjects at Visit 4. This included
 ```{r}
 nrow(combined_data |> 
        dplyr::filter(!drop_flag) |>
-       dplyr::filter(visit == 'Visit 4: 3 Month Follow-Up')
+       dplyr::filter(v4)
      )
 # 236
 ```
@@ -386,7 +452,7 @@ nrow(combined_data |>
 summary_stats(
   combined_data |> 
        dplyr::filter(!drop_flag), 
-  visit_val = 'Visit 4: 3 Month Follow-Up', 
+  visit_val = 'v4', 
   cont_cols, cat_cols
   )
 ```
@@ -398,7 +464,7 @@ We examined the characteristics of randomized subjects at Visit 5. This included
 ```{r}
 nrow(combined_data |> 
        dplyr::filter(!drop_flag) |>
-       dplyr::filter(visit == 'Visit 5: 6 Month Follow-Up')
+       dplyr::filter(v5)
      )
 # 217
 ```
@@ -407,7 +473,7 @@ nrow(combined_data |>
 summary_stats(
   combined_data |> 
        dplyr::filter(!drop_flag), 
-  visit_val = 'Visit 5: 6 Month Follow-Up', 
+  visit_val = 'v5', 
   cont_cols, cat_cols
   )
 ```
@@ -422,7 +488,7 @@ We examined the characteristics of subjects randomized to the UCM group at Visit
 nrow(combined_data |> 
        dplyr::filter(!drop_flag) |>
        dplyr::filter(group == "Usual Case Management (UCM)") |>
-       dplyr::filter(visit == 'Visit 2: Randomization')
+       dplyr::filter(v2)
      )
 # 136
 ```
@@ -432,7 +498,7 @@ summary_stats(
   combined_data |> 
        dplyr::filter(!drop_flag) |>
        dplyr::filter(group == "Usual Case Management (UCM)"), 
-  visit_val = "Visit 2: Randomization", 
+  'v2', 
   cont_cols, cat_cols
   )
 ```
@@ -445,7 +511,7 @@ We examined the characteristics of subjects randomized to the UCM group at Visit
 ```{r}
 nrow(combined_data |> 
        dplyr::filter(group == "Usual Case Management (UCM)") |>
-       dplyr::filter(visit == 'Visit 3: 1 Month Follow-Up')
+       dplyr::filter(v3)
      )
 # 98
 ```
@@ -455,7 +521,7 @@ summary_stats(
   combined_data |> 
        dplyr::filter(!drop_flag) |>
        dplyr::filter(group == "Usual Case Management (UCM)"), 
-  visit_val = 'Visit 3: 1 Month Follow-Up', 
+  'v3', 
   cont_cols, cat_cols
   )
 ```
@@ -467,7 +533,7 @@ We examined the characteristics of subjects randomized to the UCM group at Visit
 ```{r}
 nrow(combined_data |> 
        dplyr::filter(group == "Usual Case Management (UCM)") |>
-       dplyr::filter(visit == 'Visit 4: 3 Month Follow-Up')
+       dplyr::filter(v4)
      )
 # 71
 ```
@@ -477,7 +543,7 @@ summary_stats(
   combined_data |> 
        dplyr::filter(!drop_flag) |>
        dplyr::filter(group == "Usual Case Management (UCM)"),
-  visit_val = 'Visit 4: 3 Month Follow-Up', 
+  'v4', 
   cont_cols, cat_cols
   )
 ```
@@ -489,7 +555,7 @@ We examined the characteristics of subjects randomized to the UCM group at Visit
 ```{r}
 nrow(combined_data |> 
        dplyr::filter(group == "Usual Case Management (UCM)") |>
-       dplyr::filter(visit == 'Visit 5: 6 Month Follow-Up')
+       dplyr::filter(v5)
      )
 # 64
 ```
@@ -499,7 +565,7 @@ summary_stats(
   combined_data |> 
        dplyr::filter(!drop_flag) |>
        dplyr::filter(group == "Usual Case Management (UCM)"),
-  visit_val = 'Visit 5: 6 Month Follow-Up', 
+  'v5', 
   cont_cols, cat_cols
   )
 ```
@@ -514,7 +580,7 @@ We examined the characteristics of subjects randomized to the UCM+SP group at Vi
 nrow(combined_data |> 
        dplyr::filter(!drop_flag) |>
        dplyr::filter(group == "Usual Care plus Smartphone (UCM+SP)") |>
-       dplyr::filter(visit == 'Visit 2: Randomization')
+       dplyr::filter(v2)
      )
 # 134
 ```
@@ -524,7 +590,7 @@ summary_stats(
   combined_data |> 
        dplyr::filter(!drop_flag) |>
        dplyr::filter(group == "Usual Care plus Smartphone (UCM+SP)"), 
-  visit_val = "Visit 2: Randomization", 
+  'v2', 
   cont_cols, cat_cols
   )
 ```
@@ -537,7 +603,7 @@ We examined the characteristics of subjects randomized to the UCM+SP group at Vi
 ```{r}
 nrow(combined_data |> 
        dplyr::filter(group == "Usual Care plus Smartphone (UCM+SP)") |>
-       dplyr::filter(visit == 'Visit 3: 1 Month Follow-Up')
+       dplyr::filter(v3)
      )
 # 107
 ```
@@ -547,7 +613,7 @@ summary_stats(
   combined_data |> 
        dplyr::filter(!drop_flag) |>
        dplyr::filter(group == "Usual Care plus Smartphone (UCM+SP)"), 
-  visit_val = 'Visit 3: 1 Month Follow-Up', 
+  'v3', 
   cont_cols, cat_cols
   )
 ```
@@ -559,7 +625,7 @@ We examined the characteristics of subjects randomized to the UCM+SP group at Vi
 ```{r}
 nrow(combined_data |> 
        dplyr::filter(group == "Usual Care plus Smartphone (UCM+SP)") |>
-       dplyr::filter(visit == 'Visit 4: 3 Month Follow-Up')
+       dplyr::filter(v4)
      )
 # 84
 ```
@@ -569,7 +635,7 @@ summary_stats(
   combined_data |> 
        dplyr::filter(!drop_flag) |>
        dplyr::filter(group == "Usual Care plus Smartphone (UCM+SP)"),
-  visit_val = 'Visit 4: 3 Month Follow-Up', 
+  'v4', 
   cont_cols, cat_cols
   )
 ```
@@ -581,7 +647,7 @@ We examined the characteristics of subjects randomized to the UCM+SP group at Vi
 ```{r}
 nrow(combined_data |> 
        dplyr::filter(group == "Usual Care plus Smartphone (UCM+SP)") |>
-       dplyr::filter(visit == 'Visit 5: 6 Month Follow-Up')
+       dplyr::filter(v5)
      )
 # 73
 ```
@@ -591,7 +657,7 @@ summary_stats(
   combined_data |> 
        dplyr::filter(!drop_flag) |>
        dplyr::filter(group == "Usual Care plus Smartphone (UCM+SP)"),
-  visit_val = 'Visit 5: 6 Month Follow-Up', 
+  'v5', 
   cont_cols, cat_cols
   )
 ```
@@ -607,7 +673,7 @@ nrow(combined_data |>
        dplyr::filter(!drop_flag) |>
        dplyr::filter(
          group == "Usual Care plus Smartphone based Case Management (SPCM)") |>
-       dplyr::filter(visit == 'Visit 2: Randomization')
+       dplyr::filter(v2)
      )
 # 133
 ```
@@ -618,7 +684,7 @@ summary_stats(
        dplyr::filter(!drop_flag) |>
        dplyr::filter(
          group == "Usual Care plus Smartphone based Case Management (SPCM)"), 
-  visit_val = "Visit 2: Randomization", 
+  'v2', 
   cont_cols, cat_cols
   )
 ```
@@ -633,7 +699,7 @@ nrow(combined_data |>
        dplyr::filter(!drop_flag) |>
        dplyr::filter(
          group == "Usual Care plus Smartphone based Case Management (SPCM)") |>
-       dplyr::filter(visit == 'Visit 3: 1 Month Follow-Up')
+       dplyr::filter(v3)
      )
 # 97
 ```
@@ -644,7 +710,7 @@ summary_stats(
        dplyr::filter(!drop_flag) |>
        dplyr::filter(
          group == "Usual Care plus Smartphone based Case Management (SPCM)"),
-  visit_val = 'Visit 3: 1 Month Follow-Up', 
+  'v3', 
   cont_cols, cat_cols
   )
 ```
@@ -658,7 +724,7 @@ nrow(combined_data |>
        dplyr::filter(!drop_flag) |>
        dplyr::filter(
          group == "Usual Care plus Smartphone based Case Management (SPCM)") |>
-       dplyr::filter(visit == 'Visit 4: 3 Month Follow-Up')
+       dplyr::filter(v4)
      )
 # 82
 ```
@@ -669,7 +735,7 @@ summary_stats(
        dplyr::filter(!drop_flag) |>
        dplyr::filter(
          group == "Usual Care plus Smartphone based Case Management (SPCM)"), 
-  visit_val = 'Visit 4: 3 Month Follow-Up', 
+  'v4', 
   cont_cols, cat_cols
   )
 ```
@@ -683,7 +749,7 @@ nrow(combined_data |>
        dplyr::filter(!drop_flag) |>
        dplyr::filter(
          group == "Usual Care plus Smartphone based Case Management (SPCM)") |>
-       dplyr::filter(visit == 'Visit 5: 6 Month Follow-Up')
+       dplyr::filter(v5)
      )
 # 81
 ```
@@ -694,12 +760,439 @@ summary_stats(
        dplyr::filter(!drop_flag) |>
        dplyr::filter(
          group == "Usual Care plus Smartphone based Case Management (SPCM)"),
-  visit_val = 'Visit 5: 6 Month Follow-Up', 
+  'v5', 
   cont_cols, cat_cols
   )
 ```
 
 # Analyses
 
-Pending
+## Binary Outcome ("Attended All Visits" vs "Did Not Attend All Visits")
 
+We performed binary analyses to examine for any statistically significant associations between our demographics and attendance at all visits.
+
+### All "Non-Excluded" Subjects
+
+#### Summary Statistics
+
+First, summary statistics were generated to examine the two groups ("full attendance" vs "non-full attendance").
+
+Full Attendance:
+```{r}
+summary_stats(
+  combined_data |> 
+       dplyr::filter(!drop_flag) |>
+       dplyr::filter(full_attendance),
+  'v1', 
+  cont_cols, cat_cols
+  )
+```
+
+Non-Full Attendance:
+```{r}
+summary_stats(
+  combined_data |> 
+       dplyr::filter(!drop_flag) |>
+       dplyr::filter(!full_attendance),
+  'v1', 
+  cont_cols, cat_cols
+  )
+```
+
+#### Continuous Numeric (Age)
+
+As both groups had well over 30 subjects, age was treated as approximately normally distributed under the central limit theorem. The variances appeared to be approximately equal, which was supported by the F-test of equal variances (F = 1.1254, dof = 275/162 p = 0.409, two-sided test).
+
+```{r}
+var.test(subj_age ~ full_attendance, 
+         combined_data |>
+           dplyr::filter(!drop_flag), 
+         alternative = "two.sided")
+```
+
+The two-sided t-test of means with equal variance indicated a statistically significant difference in mean age across attendance status (t = 2.4247, dof = 437, p = 0.01573)
+
+```{r}
+x_vals <- combined_data |> 
+  dplyr::filter(!drop_flag) |>
+  dplyr::filter(full_attendance) |>
+  dplyr::select(subj_age)
+
+y_vals <- combined_data |> 
+  dplyr::filter(!drop_flag) |>
+  dplyr::filter(!full_attendance) |>
+  dplyr::select(subj_age)
+
+t.test(x_vals, y_vals, alternative = 'two.sided', var.equal=TRUE)
+```
+
+```{r}
+rm(x_vals)
+rm(y_vals)
+```
+
+
+#### Categorical Variables
+
+Categorical variables were tested using a Chi-Square or Fisher's Exact Test for Association.
+
+Gender had expected counts < 5 in cells, due to low counts in the Gender of "Other". As such, Fisher's Exact Test was utilized. Fisher's exact testing demonstrated no statistically significant association between Gender and attendance compliance (p=0.2058).
+
+```{r}
+gender_table <- table(combined_data[['full_attendance']], combined_data[['subj_gender']])
+
+fisher.test(gender_table)
+```
+
+```{r}
+rm(gender_table)
+```
+
+
+Race had expected counts > 5 in all cells, and thus Chi-Square testing was utilized. This demonstrated no statistically significant association between Race and attendance status (X<sup>2</sup> = 1.748, dof = 2, p = 0.4173).
+
+```{r}
+race_table <- table(combined_data[['full_attendance']], combined_data[['subj_race_3cat']])
+
+chisq.test(race_table)
+```
+
+```{r}
+rm(race_table)
+```
+
+
+Ethnicity (Hispanic Origin) had expected counts > 5 in all cells, and thus Chi-Square testing was utilized. This demonstrated no statistically significant association between Ethnicity and attendance status (X<sup>2</sup> = 2.8658 x 10<sup>-30</sup>, dof = 1, p = 1).
+
+```{r}
+ethnicity_table <- table(combined_data[['full_attendance']], combined_data[['subj_hispanic']])
+
+chisq.test(ethnicity_table)
+```
+
+```{r}
+rm(ethnicity_table)
+```
+
+Study arm had expected counts > 5 in all cells, and thus Chi-Square testing was utilized. This demonstrated no statistically significant association between study arm and attendance status (X<sup>2</sup> = 4.1981, dof = 2, p = 0.1226).
+
+```{r}
+arm_table <- table(combined_data[['full_attendance']], combined_data[['group']])
+
+chisq.test(arm_table)
+```
+
+```{r}
+rm(arm_table)
+```
+
+### Randomized Subjects Only
+
+We further restricted our comparison to only randomized subjects that were not marked for exclusion.
+
+```{r}
+comp_data <- combined_data |>
+  dplyr::filter(!drop_flag)
+```
+
+#### Summary Statistics
+
+First, summary statistics were generated to examine the two groups ("full attendance" vs "non-full attendance").
+
+Full Attendance:
+```{r}
+summary_stats(
+  comp_data |> 
+       dplyr::filter(full_attendance),
+  'v1', 
+  cont_cols, cat_cols
+  )
+```
+
+Non-Full Attendance:
+```{r}
+summary_stats(
+  comp_data |> 
+       dplyr::filter(!full_attendance),
+  'v1', 
+  cont_cols, cat_cols
+  )
+```
+
+#### Continuous Numeric (Age)
+
+As both groups had well over 30 subjects, age was treated as approximately normally distributed under the central limit theorem. The variances appeared to be approximately equal, which was supported by the F-test of equal variances (F = 1.1782, dof = 239/162 p = 0.2619, two-sided test).
+
+```{r}
+var.test(subj_age ~ full_attendance, comp_data, 
+         alternative = "two.sided")
+```
+
+The two-sided t-test of means with equal variance indicated a statistically significant difference in mean age across attendance status (t = 2.1448, dof = 401, p = 0.03257)
+
+```{r}
+x_vals <- comp_data |> 
+  filter(full_attendance) |>
+  select(subj_age)
+
+y_vals <- comp_data |> 
+  filter(!full_attendance) |>
+  select(subj_age)
+
+t.test(x_vals, y_vals, alternative = 'two.sided', var.equal=TRUE)
+```
+
+```{r}
+rm(x_vals)
+rm(y_vals)
+```
+
+
+#### Categorical Variables
+
+Categorical variables were tested using a Chi-Square or Fisher's Exact Test for Association.
+
+Gender had expected counts < 5 in cells, due to low counts in the Gender of "Other". As such, Fisher's Exact Test was utilized. Fisher's exact testing demonstrated no statistically significant association between Gender and attendance compliance (p=0.1771).
+
+```{r}
+gender_table <- table(comp_data[['full_attendance']], comp_data[['subj_gender']])
+
+fisher.test(gender_table)
+```
+
+```{r}
+rm(gender_table)
+```
+
+
+Race had expected counts > 5 in all cells, and thus Chi-Square testing was utilized. This demonstrated no statistically significant association between Race and attendance status (X<sup>2</sup> = 2.4804, dof = 2, p = 0.2893).
+
+```{r}
+race_table <- table(comp_data[['full_attendance']], comp_data[['subj_race_3cat']])
+
+chisq.test(race_table)
+```
+
+```{r}
+rm(race_table)
+```
+
+
+Ethnicity (Hispanic Origin) had expected counts > 5 in all cells, and thus Chi-Square testing was utilized. This demonstrated no statistically significant association between Ethnicity and attendance status (X<sup>2</sup> = 1.3398 x 10<sup>-30</sup>, dof = 1, p = 1).
+
+```{r}
+ethnicity_table <- table(comp_data[['full_attendance']], comp_data[['subj_hispanic']])
+
+chisq.test(ethnicity_table)
+```
+
+```{r}
+rm(ethnicity_table)
+```
+
+Study arm had expected counts > 5 in all cells, and thus Chi-Square testing was utilized. This demonstrated no statistically significant association between study arm and attendance status (X<sup>2</sup> = 4.1981, dof = 2, p = 0.1226).
+
+```{r}
+arm_table <- table(comp_data[['full_attendance']], comp_data[['group']])
+
+chisq.test(arm_table)
+```
+
+```{r}
+rm(arm_table)
+```
+
+### Comparison of each Visit to Randomization Visit
+
+#### Visit 3 against Baseline
+
+##### Continuous Numeric (Age)
+
+As both groups had well over 30 subjects, age was treated as approximately normally distributed under the central limit theorem. The variances appeared to be approximately equal, which was supported by the F-test of equal variances (F = 0.99408, dof = 402/229 p = 0.952, two-sided test).
+
+```{r}
+x_vals <- comp_data |> 
+  filter(v2) |>
+  select(subj_age)
+
+y_vals <- comp_data |> 
+  filter(v3) |>
+  select(subj_age)
+
+var.test(unlist(x_vals), unlist(y_vals), 
+         alternative = "two.sided")
+```
+
+The two-sided t-test of means with equal variance indicated a statistically significant difference in mean age across attendance status between v2 and v3 (t = -0.77774, dof = 701, p = 0.437)
+
+```{r}
+t.test(x_vals, y_vals, alternative = 'two.sided', var.equal=TRUE)
+```
+
+#### Visit 4 against Baseline
+
+##### Continuous Numeric (Age)
+
+As both groups had well over 30 subjects, age was treated as approximately normally distributed under the central limit theorem. The variances appeared to be approximately equal, which was supported by the F-test of equal variances (F = 1.0441, dof = 402/235 p = 0.7188, two-sided test).
+
+```{r}
+x_vals <- comp_data |> 
+  filter(v2) |>
+  select(subj_age)
+
+y_vals <- comp_data |> 
+  filter(v4) |>
+  select(subj_age)
+
+var.test(unlist(x_vals), unlist(y_vals), 
+         alternative = "two.sided")
+```
+
+The two-sided t-test of means with equal variance indicated a statistically significant difference in mean age across attendance status between v2 and v4 (t = -0.54499, dof = 637, p = 0.5859)
+
+```{r}
+t.test(x_vals, y_vals, alternative = 'two.sided', var.equal=TRUE)
+```
+
+```{r}
+rm(x_vals)
+rm(y_vals)
+```
+
+##### Categorical Variables
+
+Categorical variables were tested using a Chi-Square or Fisher's Exact Test for Association.
+
+Gender had expected counts < 5 in cells, due to low counts in the Gender of "Other". As such, Fisher's Exact Test was utilized. Fisher's exact testing demonstrated no statistically significant association between Gender and attendance compliance between v2 and v4 (p=0.409).
+
+```{r}
+gender_table <- table(comp_data[['v4']], comp_data[['subj_gender']])
+
+fisher.test(gender_table)
+```
+
+```{r}
+rm(gender_table)
+```
+
+
+Race had expected counts > 5 in all cells, and thus Chi-Square testing was utilized. This demonstrated no statistically significant association between Race and attendance compliance between v2 and v4 (X<sup>2</sup> = 0.9439, dof = 2, p = 0.6238).
+
+```{r}
+race_table <- table(comp_data[['v4']], comp_data[['subj_race_3cat']])
+
+chisq.test(race_table)
+```
+
+```{r}
+rm(race_table)
+```
+
+
+Ethnicity (Hispanic Origin) had expected counts > 5 in all cells, and thus Chi-Square testing was utilized. This demonstrated no statistically significant association between Ethnicity and attendance compliance between v2 and v4 (X<sup>2</sup> = 0.64181, dof = 1, p = 0.4231).
+
+```{r}
+ethnicity_table <- table(comp_data[['v4']], comp_data[['subj_hispanic']])
+
+chisq.test(ethnicity_table)
+```
+
+```{r}
+rm(ethnicity_table)
+```
+
+Study arm had expected counts > 5 in all cells, and thus Chi-Square testing was utilized. This demonstrated no statistically significant association between study arm and attendance compliance between v2 and v4 (X<sup>2</sup> = 3.4184, dof = 2, p = 0.181).
+
+```{r}
+arm_table <- table(comp_data[['v4']], comp_data[['group']])
+
+chisq.test(arm_table)
+```
+
+```{r}
+rm(arm_table)
+```
+
+#### Visit 5 against Baseline
+
+##### Continuous Numeric (Age)
+
+As both groups had well over 30 subjects, age was treated as approximately normally distributed under the central limit theorem. The variances appeared to be approximately equal, which was supported by the F-test of equal variances (F = 1.0924, dof = 402/216 p = 0.4684, two-sided test).
+
+```{r}
+x_vals <- comp_data |> 
+  filter(v2) |>
+  select(subj_age)
+
+y_vals <- comp_data |> 
+  filter(v5) |>
+  select(subj_age)
+
+var.test(unlist(x_vals), unlist(y_vals), 
+         alternative = "two.sided")
+```
+
+The two-sided t-test of means with equal variance indicated a statistically significant difference in mean age across attendance status between v2 and v5 (t = -1.2795, dof = 618, p = 0.2012)
+
+```{r}
+t.test(x_vals, y_vals, alternative = 'two.sided', var.equal=TRUE)
+```
+
+```{r}
+rm(x_vals)
+rm(y_vals)
+```
+
+##### Categorical Variables
+
+Categorical variables were tested using a Chi-Square or Fisher's Exact Test for Association.
+
+Gender had expected counts < 5 in cells, due to low counts in the Gender of "Other". As such, Fisher's Exact Test was utilized. Fisher's exact testing demonstrated no statistically significant association between Gender and attendance compliance between v2 and v5 (p=0.4437).
+
+```{r}
+gender_table <- table(comp_data[['v5']], comp_data[['subj_gender']])
+
+fisher.test(gender_table)
+```
+
+```{r}
+rm(gender_table)
+```
+
+
+Race had expected counts > 5 in all cells, and thus Chi-Square testing was utilized. This demonstrated no statistically significant association between Race and attendance compliance between v2 and v5 (X<sup>2</sup> = 1.7729, dof = 2, p = 0.4121).
+
+```{r}
+race_table <- table(comp_data[['v5']], comp_data[['subj_race_3cat']])
+
+chisq.test(race_table)
+```
+
+```{r}
+rm(race_table)
+```
+
+
+Ethnicity (Hispanic Origin) had expected counts > 5 in all cells, and thus Chi-Square testing was utilized. This demonstrated no statistically significant association between Ethnicity and attendance compliance between v2 and v5 (X<sup>2</sup> = 0.097412, dof = 1, p = 0.755).
+
+```{r}
+ethnicity_table <- table(comp_data[['v5']], comp_data[['subj_hispanic']])
+
+chisq.test(ethnicity_table)
+```
+
+```{r}
+rm(ethnicity_table)
+```
+
+Study arm had expected counts > 5 in all cells, and thus Chi-Square testing was utilized. This demonstrated no statistically significant association between study arm and attendance compliance between v2 and v5 (X<sup>2</sup> = 5.1862, dof = 2, p = 0.07479).
+
+```{r}
+arm_table <- table(comp_data[['v5']], comp_data[['group']])
+
+chisq.test(arm_table)
+```
+
+```{r}
+rm(arm_table)
+```
