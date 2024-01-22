@@ -71,7 +71,7 @@ cat(
       as.character(file.info(combined_data_path)$mtime), "\n"
     )
 
-# 2024-01-17: Combined data imported with 1606 rows and 1130 columns.
+# 2024-01-22: Combined data imported with 1606 rows and 1130 columns.
 # Combined data last modified on OneDrive 2024-01-11 18:19:37 
 ```
 
@@ -252,7 +252,7 @@ combined_data <- combined_data |>
 
 ## Reduction of Race Categories (3 Categories)
 
-We modified race to only include 3 categories: White, Black, and Other.
+We modified race to only include 3 categories: White, Black, and Other. We set "White" as the reference category for later analyses.
 
 ```{r}
 combined_data <- combined_data |>
@@ -262,7 +262,8 @@ combined_data <- combined_data |>
       TRUE ~ subj_race
     )
   ) |>
-  dplyr::mutate(subj_race_3cat = factor(subj_race_3cat))
+  dplyr::mutate(subj_race_3cat = factor(subj_race_3cat)) |>
+  dplyr::mutate(subj_race_3cat = relevel(subj_race_3cat, ref = "White"))
 ```
 
 # Identification of Variable Types
@@ -1196,3 +1197,60 @@ chisq.test(arm_table)
 ```{r}
 rm(arm_table)
 ```
+
+## Multivariate Logistic Regression
+
+We performed a multivariate logistic regression to assess any possible associations between "Full Attendance" and demographic variables of interest (subject age, subject gender, subject race, subject Hispanic origin, subject group assignment).
+
+### All "Non-Excluded" Subjects
+
+We performed our multivariate logistic regression, including the 36 subjects that did not present for randomization.
+
+```{r}
+logmodel <- stats::glm(full_attendance ~ 
+                       subj_age + subj_gender + subj_race_3cat + 
+                       subj_hispanic + group, 
+                       data = combined_data, 
+                       family = 'binomial'
+                       )
+
+summary(logmodel)
+```
+
+We exponentiated to generate our Odds Ratios and 95% CIs.
+
+```{r}
+exp(cbind(OR = coef(logmodel), confint(logmodel)))
+```
+
+```{r}
+#calculate McFadden's pseudo R-squared for model
+with(summary(logmodel), 1 - deviance/null.deviance)
+```
+
+### Randomized, Included Subjects Only
+
+We performed our multivariate logistic regression, only using the 403 subjects that were randomized and not otherwise excluded.
+
+```{r}
+logmodel <- stats::glm(full_attendance ~ 
+                       subj_age + subj_gender + subj_race_3cat + 
+                       subj_hispanic + group, 
+                       data = combined_data |> filter(!drop_flag), 
+                       family = 'binomial'
+                       )
+
+summary(logmodel)
+```
+
+We exponentiated to generate our Odds Ratios and 95% CIs.
+
+```{r}
+exp(cbind(OR = coef(logmodel), confint(logmodel)))
+```
+
+```{r}
+#calculate McFadden's pseudo R-squared for model
+with(summary(logmodel), 1 - deviance/null.deviance)
+```
+
